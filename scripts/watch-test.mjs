@@ -13,7 +13,9 @@
  * 流——内容加载与真实漂移由 sync-test.mjs + shared/test/media.test.ts 覆盖。
  */
 import { chromium } from 'playwright';
-import { JOURNEY_CHROMIUM_ARGS, prepareWorldInput, walkTo } from './browser-driver.mjs';
+import {
+  JOURNEY_CHROMIUM_ARGS, interactWhenPrompt, prepareWorldInput, walkTo,
+} from './browser-driver.mjs';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 const RUN = `${Date.now() % 1000000}`;
 const errors = [];
@@ -58,11 +60,7 @@ async function intoCinema(p) {
   await walkTo(p, -19, 5.7, 14000);
   await walkTo(p, -19, -5.7, 14000);
   await walkTo(p, -19, -7.45, 8000);
-  for (let i = 0; i < 6; i++) {
-    const prompt = await p.evaluate(() => document.querySelector('.prompt')?.textContent ?? null);
-    if (prompt && prompt.includes('电影院')) { await p.keyboard.press('KeyE'); await p.waitForTimeout(2000); break; }
-    await walkTo(p, -19, -7.55, 5000, 0.55 + i * 0.1);
-  }
+  await interactWhenPrompt(p, '电影院', -19, -7.55, { expectedSpace: 'cinema' });
   return p.evaluate(() => window.__nx.world.getState().spaceKey);
 }
 
@@ -78,11 +76,7 @@ check('p1 进入电影院', (await intoCinema(p1)) === 'cinema');
 // ── p1 放一个网页(iframe 播放器)并靠近银幕(巨幕厅:走西过道绕过座位段)──
 await walkTo(p1, -2.9, 4, 20000);
 await walkTo(p1, -2.9, -6.5, 25000);
-for (let i = 0; i < 5; i++) {
-  const prompt = await p1.evaluate(() => document.querySelector('.prompt')?.textContent ?? null);
-  if (prompt && prompt.includes('银幕')) { await p1.keyboard.press('KeyE'); await p1.waitForTimeout(1000); break; }
-  await walkTo(p1, 0, -9.4, 6000, 0.6);
-}
+await interactWhenPrompt(p1, '银幕', 0, -9.4, { settleMs: 1_000 });
 await p1.locator('input[placeholder^="https"]').fill('https://watch-test.invalid/page');
 await p1.getByText('放映', { exact: true }).click();
 await p1.waitForTimeout(1800);

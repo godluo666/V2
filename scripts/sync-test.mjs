@@ -14,7 +14,9 @@
  * 任一检查失败退出码非 0。可设 PW_CHROMIUM / BASE_URL,同 smoke.mjs。
  */
 import { chromium } from 'playwright';
-import { JOURNEY_CHROMIUM_ARGS, prepareWorldInput, walkTo } from './browser-driver.mjs';
+import {
+  JOURNEY_CHROMIUM_ARGS, interactWhenPrompt, prepareWorldInput, walkTo,
+} from './browser-driver.mjs';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 // 每次跑用全新账号:老账号会"回到上次所在的空间",而测试假设从街区出生点开始
 const RUN = `${Date.now() % 1000000}`;
@@ -69,22 +71,6 @@ const state = (page) => page.evaluate(() => ({
   prompt: document.querySelector('.prompt')?.textContent ?? null,
 }));
 
-/** 提示词匹配后才按 E(必要时继续贴近,同 smoke.mjs)。 */
-async function interactWhenPrompt(page, substr, tx, tz) {
-  await page.bringToFront();
-  for (let i = 0; i < 6; i++) {
-    const s = await state(page);
-    if (s.prompt && s.prompt.includes(substr)) {
-      await page.keyboard.press('KeyE');
-      await page.waitForTimeout(1800);
-      return true;
-    }
-    await walkTo(page, tx, tz, 5000, 0.55 + i * 0.1);
-  }
-  console.log('  没等到提示', substr, JSON.stringify(await state(page)));
-  return false;
-}
-
 const launchBrowser = () => chromium.launch({
   ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
   args: JOURNEY_CHROMIUM_ARGS,
@@ -112,7 +98,10 @@ for (const p of [p1, p2]) {
   await walkTo(p, -19, 5.7, 14000);
   await walkTo(p, -19, -5.7, 14000);
   await walkTo(p, -19, -7.45, 8000);
-  await interactWhenPrompt(p, '电影院', -19, -7.55);
+  const entered = await interactWhenPrompt(p, '电影院', -19, -7.55, {
+    expectedSpace: 'cinema',
+  });
+  if (!entered) console.log('  没能进入电影院', JSON.stringify(await state(p)));
 }
 check('两人都进入电影院', (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema');
 

@@ -78,3 +78,52 @@ export async function walkTo(page, tx, tz, timeoutMs = 45000, stopAt = 1.0) {
   await page.waitForTimeout(300);
   return finalD < stopAt;
 }
+
+/**
+ * Re-check both before and after every movement. The old journeys only checked
+ * before walking, so a prompt first appearing on the final attempt was logged
+ * as "not found" even though it was already visible.
+ */
+export async function interactWhenPrompt(
+  page,
+  text,
+  tx,
+  tz,
+  {
+    attempts = 4,
+    moveTimeoutMs = 4_000,
+    stopAt = 0.52,
+    settleMs = 900,
+    expectedSpace = null,
+  } = {},
+) {
+  const tryInteract = async () => {
+    const prompt = await page.evaluate(
+      () => document.querySelector('.prompt')?.textContent ?? '',
+    );
+    if (!prompt.includes(text)) return false;
+    await page.keyboard.press('KeyE');
+    if (expectedSpace) {
+      try {
+        await page.waitForFunction(
+          (space) => window.__nx.world.getState().spaceKey === space,
+          expectedSpace,
+          { timeout: 4_000, polling: 100 },
+        );
+      } catch {
+        return false;
+      }
+    } else {
+      await page.waitForTimeout(settleMs);
+    }
+    return true;
+  };
+
+  await prepareWorldInput(page);
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (await tryInteract()) return true;
+    await walkTo(page, tx, tz, moveTimeoutMs, stopAt + attempt * 0.04);
+    if (await tryInteract()) return true;
+  }
+  return false;
+}

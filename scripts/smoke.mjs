@@ -4,7 +4,9 @@
  * seating area, and a cinema seat on the highest physical riser.
  */
 import { chromium } from 'playwright';
-import { JOURNEY_CHROMIUM_ARGS, prepareWorldInput, walkTo } from './browser-driver.mjs';
+import {
+  JOURNEY_CHROMIUM_ARGS, interactWhenPrompt, prepareWorldInput, walkTo,
+} from './browser-driver.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 const OUT = process.env.OUT_DIR ?? '.';
@@ -85,34 +87,25 @@ const state = (page) => page.evaluate(() => ({
   y: window.__nx.hot.local.y,
 }));
 
-async function interactWhenPrompt(page, text, targetX, targetZ) {
-  await page.bringToFront();
-  for (let attempt = 0; attempt < 7; attempt++) {
-    const current = await state(page);
-    if (current.prompt.includes(text)) {
-      await page.keyboard.press('KeyE');
-      await page.waitForTimeout(1_600);
-      return true;
-    }
-    await walkTo(page, targetX, targetZ, 7_000, 0.5 + attempt * 0.08);
-  }
-  console.log(`  prompt not found: ${text}`, JSON.stringify(await state(page)));
-  return false;
-}
-
 async function enterPartyHall(page) {
   await walkTo(page, 12, 5.7, 12_000);
   await walkTo(page, 19, 5.7, 12_000);
   await walkTo(page, 19, -5.7, 14_000);
   await walkTo(page, 19, -7.45, 8_000);
-  await interactWhenPrompt(page, '团子轰趴馆', 19, -7.55);
+  const entered = await interactWhenPrompt(page, '团子轰趴馆', 19, -7.55, {
+    expectedSpace: 'gameroom',
+  });
+  if (!entered) console.log('  party-hall interaction failed', JSON.stringify(await state(page)));
 }
 
 async function enterCinema(page) {
   await walkTo(page, -8, -5.7, 14_000);
   await walkTo(page, -19, -5.7, 14_000);
   await walkTo(page, -19, -7.45, 8_000);
-  await interactWhenPrompt(page, '电影院', -19, -7.55);
+  const entered = await interactWhenPrompt(page, '电影院', -19, -7.55, {
+    expectedSpace: 'cinema',
+  });
+  if (!entered) console.log('  cinema interaction failed', JSON.stringify(await state(page)));
 }
 
 const p1Browser = await launchBrowser();
@@ -171,7 +164,7 @@ try {
 
 for (const page of [p1, p2]) {
   await walkTo(page, 0, 8.35, 16_000);
-  await interactWhenPrompt(page, '返回一番街', 0, 8.55);
+  await interactWhenPrompt(page, '返回一番街', 0, 8.55, { expectedSpace: 'plaza' });
 }
 check('both players returned to the compact street', (await state(p1)).space === 'plaza' && (await state(p2)).space === 'plaza');
 
