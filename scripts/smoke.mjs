@@ -73,18 +73,22 @@ async function interactWhenPrompt(page, substr, tx, tz) {
   return false;
 }
 
-const browser = await chromium.launch({
+const launchBrowser = () => chromium.launch({
   ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
   args: JOURNEY_CHROMIUM_ARGS,
 });
 
-const p1 = await newPlayer(browser, `smoke_p1_${RUN}`);
+// Keep each SwiftShader canvas in its own Chromium process. GitHub runners can
+// otherwise starve the second renderer during multiplayer page initialization.
+const p1Browser = await launchBrowser();
+const p1 = await newPlayer(p1Browser, `smoke_p1_${RUN}`);
 check('WebGL 上下文', await p1.evaluate(() => {
   const c = document.querySelector('canvas');
   return !!(c?.getContext('webgl2') || c?.getContext('webgl'));
 }));
 
-const p2 = await newPlayer(browser, `smoke_p2_${RUN}`);
+const p2Browser = await launchBrowser();
+const p2 = await newPlayer(p2Browser, `smoke_p2_${RUN}`);
 await p2.waitForTimeout(1200);
 await p2.keyboard.press('Enter');
 await p2.keyboard.type('团子二号来啦!');
@@ -143,7 +147,7 @@ const xq = await p2.evaluate(() => {
 check('象棋走子同步到对手', xq.pawn === 'P' && xq.turn === 1);
 await p1.keyboard.press('Escape');
 await p2.keyboard.press('Escape');
-await p2.close();
+await p2Browser.close();
 
 // ── 回街区 → 穿路口、上高架天桥(东侧坡道)→ 北街团子塔 → 电梯 → 房间 ──
 await walkTo(p1, 0, 5.7, 20000);
@@ -208,5 +212,6 @@ await p1.screenshot({ path: `${OUT}/smoke-tv.png` });
 console.log('CONSOLE ERRORS:', errors.length);
 for (const e of errors.slice(0, 10)) console.log(' ', e.slice(0, 200));
 console.log(failures === 0 ? '✅ 全部通过' : `❌ ${failures} 项失败`);
-await browser.close();
+await p1Browser.close();
 process.exit(failures ? 1 : 0);
+
