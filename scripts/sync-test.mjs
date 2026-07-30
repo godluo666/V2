@@ -85,13 +85,15 @@ async function interactWhenPrompt(page, substr, tx, tz) {
   return false;
 }
 
-const browser = await chromium.launch({
+const launchBrowser = () => chromium.launch({
   ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
   args: JOURNEY_CHROMIUM_ARGS,
 });
 
-const p1 = await newPlayer(browser, `sync_p1_${RUN}`);
-const p2 = await newPlayer(browser, `sync_p2_${RUN}`);
+const p1Browser = await launchBrowser();
+const p1 = await newPlayer(p1Browser, `sync_p1_${RUN}`);
+const p2Browser = await launchBrowser();
+const p2 = await newPlayer(p2Browser, `sync_p2_${RUN}`);
 
 /** 同一瞬间在两个页面各采一份 {media, serverTimeOffset, 本地 now}。 */
 const sample = (page) => page.evaluate(() => ({
@@ -167,5 +169,6 @@ check('清屏后两端银幕都空了', a.media?.url === null && b.media?.url ==
 console.log(`CONSOLE ERRORS(不计入失败,含预期的假视频加载错误):${errors.length}`);
 for (const e of errors.slice(0, 5)) console.log(' ', e.slice(0, 160));
 console.log(failures === 0 ? '✅ 影院同步验证全部通过' : `❌ ${failures} 项失败`);
-await browser.close();
+await Promise.all([p1Browser.close(), p2Browser.close()]);
 process.exit(failures ? 1 : 0);
+
