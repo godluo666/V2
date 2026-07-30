@@ -67,16 +67,13 @@ async function intoCinema(p) {
   return p.evaluate(() => window.__nx.world.getState().spaceKey);
 }
 
-const browser = await chromium.launch({
+const launchBrowser = () => chromium.launch({
   ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
   args: JOURNEY_CHROMIUM_ARGS,
 });
 
-const p1 = await newPlayer(browser, `watch_p1_${RUN}`);
-// Create both WebGL pages before p1 starts an iframe player. Cloud software
-// rendering can starve a second canvas if it boots while the first page is
-// rendering media. p2 remains in the plaza until the late-join assertion.
-const p2 = await newPlayer(browser, `watch_p2_${RUN}`);
+const p1Browser = await launchBrowser();
+const p1 = await newPlayer(p1Browser, `watch_p1_${RUN}`);
 check('p1 进入电影院', (await intoCinema(p1)) === 'cinema');
 
 // ── p1 放一个网页(iframe 播放器)并靠近银幕(巨幕厅:走西过道绕过座位段)──
@@ -166,21 +163,31 @@ const uiFree = await p1.evaluate(() => window.__nx.hot.uiOpen === false);
 check('Esc 退出后 3D 输入恢复', uiFree);
 
 // ── 3) 后加入:p2 进影院自动拿到当前媒体 ──
-check('p2 进入电影院', (await intoCinema(p2)) === 'cinema');
-await p2.waitForTimeout(1500);
-const pair = await Promise.all([p1, p2].map((p) => p.evaluate(() => {
+// Release p1's software-rendered 3D process before booting p2. The cinema media
+// state is server-persistent, so a truly fresh client must still receive it.
+const expected = await p1.evaluate(() => {
   const m = window.__nx.world.getState().media;
   return { url: m?.url, rev: m?.revision ?? null, kind: m?.kind };
-})));
-check(`后加入媒体状态一致(${JSON.stringify(pair[1])})`,
-  pair[0].url === pair[1].url && pair[0].rev === pair[1].rev && pair[1].kind === 'site');
+});
+await p1Browser.close();
+
+const p2Browser = await launchBrowser();
+const p2 = await newPlayer(p2Browser, `watch_p2_${RUN}`);
+check('p2 进入电影院', (await intoCinema(p2)) === 'cinema');
+await p2.waitForTimeout(1500);
+const joined = await p2.evaluate(() => {
+  const m = window.__nx.world.getState().media;
+  return { url: m?.url, rev: m?.revision ?? null, kind: m?.kind };
+});
+check(`后加入媒体状态一致(${JSON.stringify(joined)})`,
+  expected.url === joined.url && expected.rev === joined.rev && joined.kind === 'site');
 const p2count = await p2.evaluate(() => document.querySelectorAll('iframe').length);
 check(`p2 也是单播放器(iframe=${p2count})`, p2count === 1);
 
 // ── 清屏还原 ──
-await p1.evaluate(() => window.__nx.connection.send('media_ctrl', { op: 'clear' }));
-await p1.waitForTimeout(800);
-const cleared = await p1.evaluate(() => document.querySelectorAll('iframe').length);
+await p2.evaluate(() => window.__nx.connection.send('media_ctrl', { op: 'clear' }));
+await p2.waitForTimeout(800);
+const cleared = await p2.evaluate(() => document.querySelectorAll('iframe').length);
 check(`清屏后播放层收起(iframe=${cleared})`, cleared === 0);
 
 console.log('CONSOLE ERRORS(含预期的假链接加载失败):', errors.length);
@@ -188,6 +195,6 @@ for (const e of errors.slice(0, 6)) console.log(' ', e.slice(0, 160));
 const realErrors = errors.filter((e) => !/(ERR_TUNNEL|ERR_NAME|Failed to load resource)/.test(e));
 check('无真实控制台错误', realErrors.length === 0);
 console.log(failures === 0 ? '✅ 一起看电影·单实例验收全部通过' : `❌ ${failures} 项失败`);
-await browser.close();
+await p2Browser.close();
 process.exit(failures ? 1 : 0);
 
