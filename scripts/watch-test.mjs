@@ -73,6 +73,10 @@ const browser = await chromium.launch({
 });
 
 const p1 = await newPlayer(browser, `watch_p1_${RUN}`);
+// Create both WebGL pages before p1 starts an iframe player. Cloud software
+// rendering can starve a second canvas if it boots while the first page is
+// rendering media. p2 remains in the plaza until the late-join assertion.
+const p2 = await newPlayer(browser, `watch_p2_${RUN}`);
 check('p1 进入电影院', (await intoCinema(p1)) === 'cinema');
 
 // ── p1 放一个网页(iframe 播放器)并靠近银幕(巨幕厅:走西过道绕过座位段)──
@@ -162,7 +166,6 @@ const uiFree = await p1.evaluate(() => window.__nx.hot.uiOpen === false);
 check('Esc 退出后 3D 输入恢复', uiFree);
 
 // ── 3) 后加入:p2 进影院自动拿到当前媒体 ──
-const p2 = await newPlayer(browser, `watch_p2_${RUN}`);
 check('p2 进入电影院', (await intoCinema(p2)) === 'cinema');
 await p2.waitForTimeout(1500);
 const pair = await Promise.all([p1, p2].map((p) => p.evaluate(() => {
@@ -187,3 +190,4 @@ check('无真实控制台错误', realErrors.length === 0);
 console.log(failures === 0 ? '✅ 一起看电影·单实例验收全部通过' : `❌ ${failures} 项失败`);
 await browser.close();
 process.exit(failures ? 1 : 0);
+
