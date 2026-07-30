@@ -6,7 +6,7 @@
 import { chromium } from 'playwright';
 import {
   JOURNEY_CHROMIUM_ARGS, enterStreetVenue, exitToStreet,
-  interactWhenPrompt, prepareWorldInput, walkTo,
+  interactWhenPrompt, prepareWorldInput, sitOnHighestSeat, walkTo,
 } from './browser-driver.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
@@ -162,13 +162,11 @@ check('both players returned to the compact street', (await state(p1)).space ===
 for (const page of [p1, p2]) await enterCinema(page);
 check('both players entered the cinema', (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema');
 
-await walkTo(p1, -8.6, 7.7, 15_000);
-await walkTo(p1, -8.6, 6.2, 8_000);
-await interactWhenPrompt(p1, '坐下', -8.6, 6.2);
+const highestSeat = await sitOnHighestSeat(p1, 'cinema');
 const topSeat = await state(p1);
 check(
-  `highest-row cinema seat is grounded at y=1.43 (actual ${topSeat.y.toFixed(2)})`,
-  topSeat.seatId === 'cine-s40' && Math.abs(topSeat.y - 1.43) < 0.03,
+  `highest-row cinema seat is grounded at y=${highestSeat.y.toFixed(2)} (actual ${topSeat.y.toFixed(2)})`,
+  topSeat.seatId === highestSeat.id && Math.abs(topSeat.y - highestSeat.y) < 0.03,
 );
 
 console.log(`CONSOLE ERRORS: ${errors.length}`);

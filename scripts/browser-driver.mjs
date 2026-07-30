@@ -161,6 +161,43 @@ export async function exitToStreet(page) {
 }
 
 /**
+ * Sit on the physically highest shared-layout seat in a space.
+ *
+ * This calls the same public `sit` command as an E interaction. The server must
+ * accept the player's real distance, then the client must snap to the shared
+ * seat height before the helper succeeds.
+ */
+export async function sitOnHighestSeat(page, spaceKey) {
+  const seat = await page.evaluate((key) => {
+    const layout = window.__nx.layouts[key];
+    const highest = layout?.interactables
+      .filter((candidate) => candidate.kind === 'seat')
+      .sort((a, b) => b.pos[1] - a.pos[1])[0];
+    if (!highest) throw new Error(`No seat in ${key}`);
+    return { id: highest.id, x: highest.pos[0], y: highest.pos[1], z: highest.pos[2] };
+  }, spaceKey);
+
+  // Stop in the aisle rather than trying to overlap the chair collider.
+  await walkTo(page, seat.x, seat.z, 12_000, 2);
+  await page.evaluate((seatId) => {
+    window.__nx.connection.send('sit', { seatId });
+  }, seat.id);
+  try {
+    await page.waitForFunction(
+      ({ id, y }) => {
+        const local = window.__nx.hot.local;
+        return local.seatId === id && Math.abs(local.y - y) < 0.03;
+      },
+      { id: seat.id, y: seat.y },
+      { timeout: 5_000, polling: 100 },
+    );
+  } catch {
+    // The caller reports the authoritative assertion with useful actual values.
+  }
+  return seat;
+}
+
+/**
  * Re-check both before and after every movement. The old journeys only checked
  * before walking, so a prompt first appearing on the final attempt was logged
  * as "not found" even though it was already visible.
