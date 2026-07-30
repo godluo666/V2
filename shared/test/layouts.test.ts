@@ -135,7 +135,7 @@ describe('三个场馆室内基线', () => {
   it('影院座椅、台阶和坐下点共用同一高度契约', () => {
     const cinema = LAYOUTS[SPACE.CINEMA];
     const seats = cinema.props.filter((p) => p.type === 'cinema_seat');
-    const seatSnaps = cinema.interactables.filter((i) => i.kind === 'seat' && i.id.startsWith('cine-s'));
+    const seatSnaps = cinema.interactables.filter((i) => i.kind === 'seat' && /^cine-s\d+$/.test(i.id));
     const risers = cinema.props.filter((p) => p.type === 'cinema_riser');
     expect(seats).toHaveLength(50);
     expect(seatSnaps).toHaveLength(50);
