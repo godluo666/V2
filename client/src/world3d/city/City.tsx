@@ -1,5 +1,5 @@
 /**
- * 「黄昏街区」户外总装(工单 P3-5,替代旧 Plaza;总纲 §4)。
+ * 「月汐町·晴日生活街」户外总装(工单 P3-5,替代旧 Plaza;总纲 §4)。
  *
  * - 地面:方形铺装底板(替换旧大地色圆盘),在地铁口处用 Shape 挖下沉坑洞;
  * - streets(路网)+ buildings(建筑群)+ foreground(前景遮挡)经共享 BuildQueue
@@ -33,7 +33,7 @@ function getCityQueue(): BuildQueue {
 let _groundGeo: THREE.BufferGeometry | null = null;
 function groundGeometry(): THREE.BufferGeometry {
   if (_groundGeo) return _groundGeo;
-  const R = Math.max(CITY_BOUNDS.maxX, CITY_BOUNDS.maxZ) + 260; // 视觉城市延伸(§4 尺度)
+  const R = Math.max(CITY_BOUNDS.maxX, CITY_BOUNDS.maxZ) + 80; // 紧凑街区外只留近距离构图底板
   const shape = new THREE.Shape();
   shape.moveTo(-R, -R);
   shape.lineTo(R, -R);
@@ -81,7 +81,7 @@ export default function City() {
     const off = queue.onProgress((p) => {
       if (p.label !== lastLabel || p.done === p.total) {
         lastLabel = p.label;
-        console.info(`[黄昏街区] 场景构建 ${p.done}/${p.total} · ${p.label}`);
+        console.info(`[月汐町] 场景构建 ${p.done}/${p.total} · ${p.label}`);
       }
     });
     void queue.run();

@@ -385,9 +385,9 @@ const CLOUD_TINT_RAIN = new THREE.Color('#77718f');
 // 超自然色污染目标(§3.5:异常点半径内环境光被 lerp 0.2 拉向蓝紫)
 const POLLUTION_TINT = new THREE.Color(ACCENT.anomalyViolet);
 // 室内 hemisphere 与户外昼夜标定解耦(P4 只重标户外;室内有自己的灯,§3)
-const INDOOR_HEMI_SKY = new THREE.Color('#9aa0b4');
-const INDOOR_HEMI_GROUND = new THREE.Color('#54504c');
-const INDOOR_HEMI_INTENSITY = 0.45;
+const INDOOR_HEMI_SKY = new THREE.Color('#d9e8eb');
+const INDOOR_HEMI_GROUND = new THREE.Color('#9b8d79');
+const INDOOR_HEMI_INTENSITY = 0.68;
 
 export default function SkySystem({ indoor }: { indoor: boolean }) {
   const env = useWorld((s) => s.env);
@@ -401,9 +401,8 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
   const cloudTint = useRef(new THREE.Color('#ffffff'));
   const cloudCover = useRef(0.5);
   const rainActive = useRef(false);
-  // 分层雾(§2.1 近 #3d4257 → 远 #585d73):颜色按昼夜由 daynight 插值,
-  // 这里给基础距离;近端压近一点,黄昏街区靠雾吃掉背景剪影层次。
-  const fog = useMemo(() => new THREE.Fog(ENV.fogNear, 48, 235), []);
+  // 紧凑街区只用轻空气透视；70m 主街内始终清晰，远景在约 130m 融入天空。
+  const fog = useMemo(() => new THREE.Fog(ENV.fogNear, 34, 130), []);
 
   const uniforms = useMemo(() => ({
     topColor: { value: new THREE.Color('#3d7edb') },
@@ -444,7 +443,7 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
     }
     if (hemiRef.current) {
       if (indoor) {
-        // 室内固定中性底光,不随户外「黄昏→夜」标定变化(室内空间自带灯光)
+        // 室内固定暖中性底光,不随户外日夜循环变化(室内空间自带灯光)
         hemiRef.current.intensity = INDOOR_HEMI_INTENSITY;
         hemiRef.current.color.copy(INDOOR_HEMI_SKY);
         hemiRef.current.groundColor.copy(INDOOR_HEMI_GROUND);
@@ -465,15 +464,15 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
     cloudTint.current.copy(s.cloudTint);
     if (env.weather === 'rain') cloudTint.current.lerp(CLOUD_TINT_RAIN, 0.62);
     else if (env.weather === 'cloudy') cloudTint.current.lerp(CLOUD_TINT_CLOUDY, 0.38);
-    cloudCover.current = env.weather === 'clear' ? 0.4 : env.weather === 'cloudy' ? 0.85 : 1;
+    cloudCover.current = env.weather === 'clear' ? 0.26 : env.weather === 'cloudy' ? 0.76 : 1;
     rainActive.current = env.weather === 'rain' && settings.particles && !indoor;
 
     if (!indoor) {
       fog.color.copy(s.fogColor);
       const pol = anomalyPollution.current;
       if (pol > 0.01) fog.color.lerp(POLLUTION_TINT, 0.08 * pol);
-      fog.near = 48 / s.fogDensityMul;
-      fog.far = 235 / s.fogDensityMul;
+      fog.near = 34 / s.fogDensityMul;
+      fog.far = 130 / s.fogDensityMul;
       scene.fog = fog;
     } else {
       scene.fog = null;

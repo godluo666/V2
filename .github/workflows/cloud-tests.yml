@@ -1,0 +1,115 @@
+name: Cloud tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Typecheck all workspaces
+        run: npm run typecheck
+
+      - name: Run shared, server, and client tests
+        run: npm test
+
+      - name: Build production bundles
+        run: npm run build
+
+  browser:
+    name: Chromium multiplayer journeys
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      HOST: 127.0.0.1
+      PORT: 8080
+      JWT_SECRET: cloud-tests-only-secret
+      LOG_LEVEL: info
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+      BASE_URL: http://127.0.0.1:8080
+      OUT_DIR: ${{ github.workspace }}/cloud-artifacts
+      DB_PATH: ${{ github.workspace }}/cloud-artifacts/nexuspark.db
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Install Playwright inside the workspace
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+
+      - name: Build production bundles
+        run: npm run build
+
+      - name: Run browser journeys against the production server
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT_DIR"
+          npm start > "$OUT_DIR/server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for _ in $(seq 1 60); do
+            if curl --fail --silent --show-error "$BASE_URL/healthz" > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "Production server did not become ready."
+            exit 1
+          fi
+
+          node scripts/smoke.mjs
+          node scripts/sync-test.mjs
+          node scripts/watch-test.mjs
+          node scripts/mobile-test.mjs
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-browser-evidence
+          path: cloud-artifacts/
+          if-no-files-found: warn
+          retention-days: 7

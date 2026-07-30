@@ -81,16 +81,15 @@ async function walkTo(page, tx, tz, timeoutMs = 45000, stopAt = 1.0) {
 }
 
 async function intoCinema(p) {
-  await walkTo(p, 2, 40);
-  await walkTo(p, 0, 20);
-  await walkTo(p, 4, 2);
-  await walkTo(p, 16, -9.5);
-  await walkTo(p, 26, -9.5, 20000);
-  await walkTo(p, 29.9, -11.4, 15000);
+  await walkTo(p, 0, 22);
+  await walkTo(p, 3, 2);
+  await walkTo(p, 12, -6.7);
+  await walkTo(p, 20, -6.7, 15000);
+  await walkTo(p, 22, -7.6, 12000);
   for (let i = 0; i < 6; i++) {
     const prompt = await p.evaluate(() => document.querySelector('.prompt')?.textContent ?? null);
     if (prompt && prompt.includes('电影院')) { await p.keyboard.press('KeyE'); await p.waitForTimeout(2000); break; }
-    await walkTo(p, 30, -11.8, 5000, 0.55 + i * 0.1);
+    await walkTo(p, 22, -8.1, 5000, 0.55 + i * 0.1);
   }
   return p.evaluate(() => window.__nx.world.getState().spaceKey);
 }

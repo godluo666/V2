@@ -1,9 +1,7 @@
 /**
- * 「黄昏街区 / Dusk Ward」全局色板(设计文档 §2)。
- *
- * 所有城市物体的颜色必须从这里取:约 80% 画面来自环境低饱和组 ENV,
- * 20% 来自强调组 ACCENT(团子玩家自身的 9 色粉彩计入强调配额)。
- * 禁止在场景代码里散落魔法色值 —— 新颜色先进本表再使用。
+ * 「月汐町·晴日生活街」全局色板。
+ * 基底采用柔和蓝天、暖白墙、浅石板和新鲜植物色；夜雨仍由昼夜系统动态压暗，
+ * 不再把黄昏灰蓝当成白天默认色。
  */
 
 /** 十六进制颜色字符串('#rrggbb')。 */
@@ -11,62 +9,62 @@ export type HexColor = `#${string}`;
 
 // ── §2.1 环境低饱和组(约 80% 画面) ────────────────────────────────────────
 export const ENV = {
-  /** 天空顶(黄昏):深蓝灰。 */
-  skyTopDusk: '#232a3d',
-  /** 天空顶(深夜):黄昏色夜里压暗到此值。 */
-  skyTopNight: '#151a2b',
-  /** 天空地平线:低饱和紫灰。 */
-  skyHorizon: '#4a4658',
-  /** 地平线残照渐层(与 skyHorizon 做渐变)。 */
-  skyAfterglow: '#6b5560',
-  /** 远景楼剪影第 1 层(最近、最暗)。 */
-  bgSilhouetteA: '#2b3040',
-  /** 远景楼剪影第 2 层(雾越远越亮灰)。 */
-  bgSilhouetteB: '#343a4d',
-  /** 远景楼剪影第 3 层(最远、最亮灰)。 */
-  bgSilhouetteC: '#3e4459',
-  /** 主路面沥青(其上叠雨渍水印手绘斑块贴图)。 */
-  roadAsphalt: '#3a3e4a',
-  /** 人行道砖:冷灰。 */
-  sidewalk: '#4a4e58',
+  /** 晴日下午的蓝天顶。 */
+  skyTopDusk: '#63b7e8',
+  /** 深夜蓝，保留日夜事件但不污染白天。 */
+  skyTopNight: '#1b2942',
+  /** 日间空气感地平线。 */
+  skyHorizon: '#dceff6',
+  /** 傍晚的桃金色残照。 */
+  skyAfterglow: '#f0b99c',
+  /** 远景楼第 1 层(最近)。 */
+  bgSilhouetteA: '#7895a4',
+  /** 远景楼第 2 层。 */
+  bgSilhouetteB: '#91aab5',
+  /** 远景楼第 3 层(融入空气透视)。 */
+  bgSilhouetteC: '#adc1c8',
+  /** 晴日中性沥青，避免大片黑灰。 */
+  roadAsphalt: '#68757d',
+  /** 暖浅灰人行道砖。 */
+  sidewalk: '#c8c2b4',
   /** 人行道砖缝。 */
-  sidewalkSeam: '#3f434d',
-  /** 建筑主墙面 A:蓝灰混凝土。 */
-  wallA: '#59607a',
-  /** 建筑主墙面 B:低饱和紫灰(旧公寓)。 */
-  wallB: '#6a6577',
-  /** 建筑主墙面 C:暗青(卷帘门、配电箱)。 */
-  wallC: '#4e5a5e',
-  /** 旧墙淡色:沿街小店二层,避免大面积纯白。 */
-  wallPale: '#8a8494',
-  /** 金属(栏杆/灯杆/空调外机):高粗糙度、零金属反射。 */
-  metal: '#454a56',
-  /** 全场统一描边色:深蓝黑(不是纯黑,§5 描边系统用)。 */
-  outline: '#1d2130',
-  /** 分层雾近端(高度雾 + 距离雾双层)。 */
-  fogNear: '#3d4257',
+  sidewalkSeam: '#aaa699',
+  /** 建筑主墙面 A:浅蓝白灰泥。 */
+  wallA: '#b7cad0',
+  /** 建筑主墙面 B:暖粉灰旧公寓。 */
+  wallB: '#c9b8b1',
+  /** 建筑主墙面 C:低饱和鼠尾草青。 */
+  wallC: '#9fb8ae',
+  /** 沿街小店暖白墙。 */
+  wallPale: '#ded4c4',
+  /** 金属(栏杆/灯杆/空调外机)。 */
+  metal: '#68747a',
+  /** 全场统一描边色:柔和深蓝灰。 */
+  outline: '#344a58',
+  /** 分层雾近端。 */
+  fogNear: '#b7d4df',
   /** 分层雾远端。 */
-  fogFar: '#585d73',
+  fogFar: '#deedf1',
 } as const satisfies Record<string, HexColor>;
 
 // ── §2.2 强调组(约 20% 画面,小面积、克制) ────────────────────────────────
 export const ACCENT = {
   /** 钠灯路灯光:脏黄,全图主要暖光源。 */
-  lampSodium: '#e8a84c',
+  lampSodium: '#efb65e',
   /** 室内窗光:暖黄,零散亮窗自发光。 */
-  windowWarm: '#f0c987',
+  windowWarm: '#f6d594',
   /** 便利店招牌:青绿,唯一大块亮色。 */
   konbiniSign: '#7fd1c0',
   /** 电影院招牌 AURORA:暗玫红霓虹(亮度克制,禁止过曝)。 */
-  cinemaSign: '#c95d78',
+  cinemaSign: '#d96f82',
   /** 网吧招牌 NEXUS:蓝青霓虹。 */
-  netcafeSign: '#5d8fc9',
+  netcafeSign: '#72a7d8',
   /** 雀庄灯笼「东风阁」:暖橙。 */
-  mahjongLantern: '#c9873f',
+  mahjongLantern: '#d49a54',
   /** 自动售货机(红款),城市生活感锚点。 */
-  vendingRed: '#b0413e',
+  vendingRed: '#c85f58',
   /** 自动售货机(蓝款)。 */
-  vendingBlue: '#3e6bb0',
+  vendingBlue: '#4f83bd',
   /** 交通信号红灯(路口慢周期切换)。 */
   trafficRed: '#c94f4f',
   /** 交通信号绿灯。 */

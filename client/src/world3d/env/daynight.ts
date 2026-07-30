@@ -1,12 +1,7 @@
 /**
- * Day/night lighting keyframes sampled from the world clock.
- *
- * 「黄昏街区」重标定(P4,总纲 §3):日循环停在「黄昏→夜」情绪区间 ——
- * - 白天段 = 阴天灰蓝(不出现明媚正午,GRAY 系压灰);
- * - 黄昏   = 残照 #6b5560 / #4a4658 渐层;
- * - 夜     = 深蓝灰 #232a3d → #151a2b;
- * - 主方向光(月光/残照)#8d99c9 强度 ~0.55;hemi #39415f/#23262f ~0.28-0.32,
- *   夜间下限 ≥ 0.3(压抑但不全黑:暗部必须读得出形体,§3.2)。
+ * 月汐町昼夜光照关键帧。
+ * 晴朗白天是默认主画面:高亮蓝天、暖白太阳、清晰柔影；黄昏、夜晚、阴雨仍保留
+ * 为动态状态，但不会再把整段白天压成灰蓝黄昏。
  */
 import * as THREE from 'three';
 import { ENV } from '../city/palette';
@@ -33,10 +28,10 @@ export interface EnvSample {
 export function createEnvSample(): EnvSample {
   return {
     sunDir: new THREE.Vector3(0, 1, 0),
-    sunIntensity: 0.55,
+    sunIntensity: 2.1,
     sunColor: new THREE.Color(),
     moonIntensity: 0,
-    hemiIntensity: 0.32,
+    hemiIntensity: 0.82,
     hemiSky: new THREE.Color(),
     hemiGround: new THREE.Color(),
     skyTop: new THREE.Color(),
@@ -57,28 +52,25 @@ interface Key {
   stars: number;
 }
 
-// 黄昏街区标定(§2.1/§3):主光整日维持 ~0.5-0.58(白天=阴天散射、黄昏=残照、
-// 夜=月光 #8d99c9),不再落到 0 —— 夜里靠这盏"月光"拉出长影,hemi 托住暗部。
+// 日间太阳保持 1.9-2.35 的清晰主光；夜间用低强度月光和半球光托住轮廓。
 const KEYS: Key[] = [
-  // 深夜:天顶压到 #151a2b,地平线留一点城市光雾(fogNear 灰)
-  { t: 0.0,  skyTop: '#151a2b', skyHorizon: '#3d4257', sun: 0.55, sunColor: '#8d99c9', hemi: 0.32, hemiSky: '#39415f', hemiGround: '#23262f', stars: 1 },
-  { t: 0.22, skyTop: '#151a2b', skyHorizon: '#3d4257', sun: 0.55, sunColor: '#8d99c9', hemi: 0.32, hemiSky: '#39415f', hemiGround: '#23262f', stars: 1 },
-  // 灰蓝黎明(没有金色日出,直接亮成阴天)
-  { t: 0.28, skyTop: '#2c3347', skyHorizon: '#4a4658', sun: 0.5,  sunColor: '#98a0b8', hemi: 0.36, hemiSky: '#414a68', hemiGround: '#262a36', stars: 0.3 },
-  // 白天 = 阴天灰蓝(氛围统一,§3「白天段压缩为阴天灰蓝」)
-  { t: 0.36, skyTop: '#454c62', skyHorizon: '#585d73', sun: 0.55, sunColor: '#9fa8c2', hemi: 0.42, hemiSky: '#4a5470', hemiGround: '#2c303c', stars: 0 },
-  { t: 0.5,  skyTop: '#4a5168', skyHorizon: '#5d6278', sun: 0.58, sunColor: '#a6aec6', hemi: 0.44, hemiSky: '#4e5874', hemiGround: '#2e323e', stars: 0 },
-  { t: 0.66, skyTop: '#3b4258', skyHorizon: '#585d73', sun: 0.55, sunColor: '#a0a2be', hemi: 0.4,  hemiSky: '#46506c', hemiGround: '#2a2e3a', stars: 0 },
-  // 黄昏残照:地平线 #6b5560,天顶落回 #232a3d(§2.1)
-  { t: 0.74, skyTop: '#232a3d', skyHorizon: '#6b5560', sun: 0.5,  sunColor: '#b58e8e', hemi: 0.34, hemiSky: '#39415f', hemiGround: '#23262f', stars: 0.15 },
-  { t: 0.8,  skyTop: '#1d2434', skyHorizon: '#4a4658', sun: 0.52, sunColor: '#a193b4', hemi: 0.31, hemiSky: '#39415f', hemiGround: '#23262f', stars: 0.55 },
-  // 入夜
-  { t: 0.88, skyTop: '#151a2b', skyHorizon: '#3d4257', sun: 0.55, sunColor: '#8d99c9', hemi: 0.32, hemiSky: '#39415f', hemiGround: '#23262f', stars: 1 },
-  { t: 1.0,  skyTop: '#151a2b', skyHorizon: '#3d4257', sun: 0.55, sunColor: '#8d99c9', hemi: 0.32, hemiSky: '#39415f', hemiGround: '#23262f', stars: 1 },
+  { t: 0.0,  skyTop: '#1b2942', skyHorizon: '#536a82', sun: 0.34, sunColor: '#9eb6df', hemi: 0.38, hemiSky: '#405578', hemiGround: '#283449', stars: 1 },
+  { t: 0.22, skyTop: '#1b2942', skyHorizon: '#536a82', sun: 0.34, sunColor: '#9eb6df', hemi: 0.38, hemiSky: '#405578', hemiGround: '#283449', stars: 1 },
+  // 海边金色黎明
+  { t: 0.28, skyTop: '#8bc9ed', skyHorizon: '#f5d7ad', sun: 1.15, sunColor: '#ffe2ac', hemi: 0.7, hemiSky: '#a9d7ee', hemiGround: '#78836f', stars: 0.18 },
+  // 明媚晴日(默认服务器从 0.35 开始)
+  { t: 0.36, skyTop: '#67b9e8', skyHorizon: '#e9f5f8', sun: 2.05, sunColor: '#fff0cf', hemi: 0.86, hemiSky: '#b9dff0', hemiGround: '#81906f', stars: 0 },
+  { t: 0.5,  skyTop: '#55afe6', skyHorizon: '#edf8fa', sun: 2.35, sunColor: '#fff4d8', hemi: 0.96, hemiSky: '#c4e5f2', hemiGround: '#879774', stars: 0 },
+  { t: 0.66, skyTop: '#69bae7', skyHorizon: '#f6e8ca', sun: 1.9, sunColor: '#ffe9bd', hemi: 0.84, hemiSky: '#b8dcea', hemiGround: '#8b9072', stars: 0 },
+  // 暖金黄昏
+  { t: 0.74, skyTop: '#75aeda', skyHorizon: '#f3c49f', sun: 1.35, sunColor: '#ffd19a', hemi: 0.7, hemiSky: '#a5bfd2', hemiGround: '#796e61', stars: 0.08 },
+  { t: 0.8,  skyTop: '#5c78a5', skyHorizon: '#eaa990', sun: 0.82, sunColor: '#ffc4a0', hemi: 0.56, hemiSky: '#748cab', hemiGround: '#554d4c', stars: 0.42 },
+  { t: 0.88, skyTop: '#1b2942', skyHorizon: '#536a82', sun: 0.34, sunColor: '#9eb6df', hemi: 0.38, hemiSky: '#405578', hemiGround: '#283449', stars: 1 },
+  { t: 1.0,  skyTop: '#1b2942', skyHorizon: '#536a82', sun: 0.34, sunColor: '#9eb6df', hemi: 0.38, hemiSky: '#405578', hemiGround: '#283449', stars: 1 },
 ];
 
-/** 夜间 hemisphere 下限(§3:参考 03:13 全黑截图问题 —— 暗部必须可读)。 */
-const HEMI_FLOOR = 0.3;
+/** 夜间也保留可读轮廓。 */
+const HEMI_FLOOR = 0.36;
 
 const tmpA = new THREE.Color();
 const tmpB = new THREE.Color();
@@ -90,10 +82,10 @@ function lerpKeyColor(a: string, b: string, f: number, out: THREE.Color): THREE.
 
 const scratch: EnvSample = createEnvSample();
 
-// 阴/雨天压灰目标(§2.1 色板内取值,不再用米灰暖色)
-const GRAY_TOP = new THREE.Color(ENV.fogFar);      // #585d73
-const GRAY_HORIZON = new THREE.Color(ENV.wallPale); // #8a8494
-// 分层雾双端(§2.1):近 #3d4257 → 远 #585d73;单雾用「按昼夜插值」近似分层
+// 阴雨覆盖色仍保持清亮空气感，而不是回到黑灰滤镜。
+const GRAY_TOP = new THREE.Color('#8aa7b8');
+const GRAY_HORIZON = new THREE.Color('#c9d6d9');
+// 分层雾双端
 const FOG_NEAR = new THREE.Color(ENV.fogNear);
 const FOG_FAR = new THREE.Color(ENV.fogFar);
 const WHITE = new THREE.Color('#ffffff');
@@ -120,28 +112,28 @@ export function sampleEnv(tod: number, weather: Weather, out: EnvSample = scratc
   out.starOpacity = THREE.MathUtils.lerp(a.stars, b.stars, f);
   out.fogDensityMul = 1;
 
-  // Weather overrides(本图基调本来就是阴郁,天气只做小幅加压)
+  // Weather overrides
   if (weather === 'cloudy') {
-    out.sunIntensity *= 0.7;
-    out.skyTop.lerp(GRAY_TOP, 0.35);
-    out.skyHorizon.lerp(GRAY_HORIZON, 0.3);
-    out.hemiIntensity *= 0.92;
+    out.sunIntensity *= 0.72;
+    out.skyTop.lerp(GRAY_TOP, 0.3);
+    out.skyHorizon.lerp(GRAY_HORIZON, 0.24);
+    out.hemiIntensity *= 0.94;
     out.starOpacity *= 0.35;
-    out.fogDensityMul = 1.35;
+    out.fogDensityMul = 1.2;
   } else if (weather === 'rain') {
-    out.sunIntensity *= 0.42;
+    out.sunIntensity *= 0.48;
     out.skyTop.lerp(GRAY_TOP, 0.55);
-    out.skyHorizon.lerp(GRAY_HORIZON, 0.45);
-    out.hemiIntensity *= 0.88;
+    out.skyHorizon.lerp(GRAY_HORIZON, 0.44);
+    out.hemiIntensity *= 0.9;
     out.starOpacity = 0;
-    out.fogDensityMul = 1.9;
+    out.fogDensityMul = 1.55;
   }
 
   // 夜间可读性下限(§3):hemi 不低于 0.3,天气也压不穿。
   out.hemiIntensity = Math.max(out.hemiIntensity, HEMI_FLOOR);
 
-  // 夜里再补一盏反向弱月(填充,不投影),随星光淡入
-  out.moonIntensity = 0.18 * out.starOpacity;
+  // 夜里再补一盏反向弱月(填充,不投影)
+  out.moonIntensity = 0.22 * out.starOpacity;
   // 路灯/招牌点亮窗口:黄昏→夜 + 雨天全天
   out.lampsOn = t < 0.3 || t > 0.7 || weather === 'rain';
 

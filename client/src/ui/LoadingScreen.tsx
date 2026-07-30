@@ -1,5 +1,5 @@
 /**
- * 加载界面(P4,总纲 §10「加载」):深色黄昏街区配色 + 阶段进度。
+ * 加载界面(P4,总纲 §10「加载」):晴日生活街配色 + 阶段进度。
  *
  * 诚实说明:城市分帧构建的 BuildQueue 实例是 City.tsx 的模块级私有变量
  * (City.tsx / progressive.ts 归其他工单,不可改),外部无法订阅其
@@ -22,13 +22,13 @@ const S = {
   wrap: {
     position: 'absolute', inset: 0, zIndex: 32,
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    gap: 18, background: 'radial-gradient(120% 90% at 50% 18%, #232a3d 0%, #151a2b 52%, #0e1220 100%)',
-    color: '#c9cede', transition: `opacity ${FADE_MS}ms ease`, fontFamily: 'inherit',
+    gap: 18, background: 'radial-gradient(120% 90% at 50% 18%, #f7f2dc 0%, #bfe1ef 52%, #84bfdf 100%)',
+    color: '#31536a', transition: `opacity ${FADE_MS}ms ease`, fontFamily: 'inherit',
   } as const,
-  title: { fontSize: 30, letterSpacing: 12, textIndent: 12, color: '#d8dcea', textShadow: '0 0 18px rgba(93,143,201,0.35)' } as const,
-  sub: { fontSize: 12, letterSpacing: 5, color: '#6b7288', marginTop: -8 } as const,
-  barTrack: { width: 300, maxWidth: '72vw', height: 4, borderRadius: 2, background: '#232a3d', overflow: 'hidden', marginTop: 10 } as const,
-  barFill: { height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #5d8fc9, #7fd1c0)', transition: 'width 480ms ease' } as const,
+  title: { fontSize: 30, letterSpacing: 12, textIndent: 12, color: '#31536a', textShadow: '0 2px 14px rgba(255,255,255,0.7)' } as const,
+  sub: { fontSize: 12, letterSpacing: 5, color: '#557b8d', marginTop: -8 } as const,
+  barTrack: { width: 300, maxWidth: '72vw', height: 4, borderRadius: 2, background: 'rgba(49,83,106,0.18)', overflow: 'hidden', marginTop: 10 } as const,
+  barFill: { height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #f0ad69, #62bda7)', transition: 'width 480ms ease' } as const,
   stages: { display: 'flex', gap: 18, fontSize: 12, marginTop: 2 } as const,
 } as const;
 
@@ -63,14 +63,14 @@ export default function LoadingScreen() {
   const pct = stage === 0 ? 24 : stage === 1 ? 58 : settled ? 100 : 88;
   return (
     <div style={{ ...S.wrap, opacity: settled ? 0 : 1, pointerEvents: settled ? 'none' : 'auto' }}>
-      <div style={S.title}>黄昏街区</div>
-      <div style={S.sub}>NEXUS PARK · DUSK WARD</div>
+      <div style={S.title}>月汐町</div>
+      <div style={S.sub}>NEXUS PARK · SUNNY TIDE TOWN</div>
       <div style={S.barTrack}>
         <div style={{ ...S.barFill, width: `${pct}%` }} />
       </div>
       <div style={S.stages}>
         {STAGES.map((label, i) => (
-          <span key={label} style={{ color: i < stage ? '#7fd1c0' : i === stage ? '#c9cede' : '#4a5065' }}>
+          <span key={label} style={{ color: i < stage ? '#3e9b86' : i === stage ? '#31536a' : '#7896a4' }}>
             {i < stage ? '✓ ' : ''}{label}{i === stage ? '…' : ''}
           </span>
         ))}

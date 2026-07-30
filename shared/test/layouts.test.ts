@@ -1,5 +1,5 @@
 /**
- * 黄昏街区布局验收(P2):契约完整性、门位可达、巷网可走、天桥高度区。
+ * 月汐町紧凑生活街布局验收:契约完整性、门位可达、短巷可走、天桥高度区。
  * 行走用与客户端/服务器完全相同的 resolveCollisions/clampToBounds 逐步推进,
  * 等价于"没有卡死点"的静态证明(smoke.mjs 再在真实浏览器里跑一遍动态版)。
  */
@@ -35,13 +35,16 @@ const near = (p: [number, number], tx: number, tz: number, tol = 0.8) =>
   Math.hypot(p[0] - tx, p[1] - tz) < tol;
 
 describe('cityplan 契约', () => {
-  it('边界/路口/四臂与共享契约一致', () => {
-    expect(CITY_BOUNDS).toEqual({ minX: -260, maxX: 260, minZ: -260, maxZ: 260 });
+  it('边界/小路口/四臂与紧凑街区契约一致', () => {
+    expect(CITY_BOUNDS).toEqual({ minX: -48, maxX: 48, minZ: -42, maxZ: 42 });
     expect(city.bounds).toEqual(CITY_BOUNDS);
-    expect(CROSSING).toEqual({ x: 0, z: 0, w: 26, d: 26 });
+    expect(CROSSING).toEqual({ x: 0, z: 0, w: 16, d: 16 });
     expect(ROADS).toHaveLength(4);
     expect(CROSSWALKS).toHaveLength(4);
-    expect(OVERPASS.deck.y).toBe(5.2);
+    expect(CITY_BOUNDS.maxX - CITY_BOUNDS.minX).toBeLessThanOrEqual(100);
+    expect(CITY_BOUNDS.maxZ - CITY_BOUNDS.minZ).toBeLessThanOrEqual(90);
+    expect(Math.max(...ROADS.map((r) => Math.max(r.w, r.d)))).toBeLessThanOrEqual(40);
+    expect(OVERPASS.deck.y).toBe(4.2);
     expect(OVERPASS.ramps).toHaveLength(4);
     expect(ANOMALY_POINTS.map((a) => a.id).sort()).toEqual(['a-alley-mouth', 'b-alley-end', 'c-overpass']);
   });
@@ -79,30 +82,30 @@ describe('cityplan 契约', () => {
     }
   });
 
-  it('剪影楼群只在 ±120..±250 视觉圈,且零碰撞', () => {
+  it('剪影楼群只在短街外的近景视觉圈,且零碰撞', () => {
     const sils = BUILDINGS.filter((x) => x.style === 'silhouette');
     expect(sils.length).toBeGreaterThanOrEqual(18);
     for (const s of sils) {
       const r = Math.hypot(s.x, s.z);
-      expect(r).toBeGreaterThan(118);
-      expect(r).toBeLessThan(252);
+      expect(r).toBeGreaterThan(58);
+      expect(r).toBeLessThan(112);
       // 布局层没有为它生成碰撞体
       expect(city.colliders.some((c) => c.kind === 'box' && c.x === s.x && c.z === s.z && c.w === s.w)).toBe(false);
     }
   });
 });
 
-describe('黄昏街区可走性', () => {
+describe('晴日生活街可走性', () => {
   it('出生点与全部门前站位不卡在碰撞体里', () => {
     const spots: Array<[number, number]> = [
       [city.spawn[0], city.spawn[2]],
-      [-11.2, 30],   // 咖啡馆门前
-      [30, -11.4],   // 影院门前
-      [-30, -11.4],  // 网吧门前
-      [11.2, 32],    // 雀庄门前
-      [-30, 11.4],   // 便利店门前
-      [30, 11.4],    // 街机厅门前
-      [11.2, -58],   // 团子塔门前
+      [-7.7, 15],   // 咖啡馆门前
+      [22, -7.6],   // 影院门前
+      [-22, -7.6],  // 电竞馆门前
+      [7.7, 15],    // 雀庄门前
+      [-39, -7.6],  // 百货门前
+      [39, -7.6],   // 街机厅门前
+      [7.7, -32],   // 团子塔门前
     ];
     for (const [sx, sz] of spots) {
       const [x, z] = resolveCollisions(sx, sz, 0.34, city.colliders);
@@ -111,45 +114,45 @@ describe('黄昏街区可走性', () => {
   });
 
   it('出生点 → 咖啡馆门(smoke 路径)', () => {
-    const p = march(city, [[0, 50], [0, 40], [-6, 34], [-11.2, 30]]);
-    expect(near(p, -11.2, 30)).toBe(true);
+    const p = march(city, [[0, 32], [0, 23], [-5.5, 17], [-7.7, 15]]);
+    expect(near(p, -7.7, 15)).toBe(true);
   });
 
   it('出生点 → 影院门(sync-test 路径,穿过路口)', () => {
-    const p = march(city, [[0, 50], [0, 20], [4, 2], [16, -9.5], [26, -9.5], [29.9, -11.4]]);
-    expect(near(p, 29.9, -11.4)).toBe(true);
+    const p = march(city, [[0, 32], [0, 15], [3, 2], [12, -6.7], [20, -6.7], [22, -7.6]]);
+    expect(near(p, 22, -7.6)).toBe(true);
   });
 
   it('路口 → 上天桥 → 北街团子塔门(桥下路面被封,必须走坡道)', () => {
     const p = march(city, [
-      [0, 10], [9.5, -5], [9.5, -16], [9.5, -26], [9.5, -33],
-      [9.5, -44], [9.5, -52], [11.2, -58],
+      [0, 8], [6.75, -5], [6.75, -13], [6.75, -22.5], [6.75, -27.5],
+      [6.75, -36], [7.7, -32],
     ]);
-    expect(near(p, 11.2, -58)).toBe(true);
+    expect(near(p, 7.7, -32)).toBe(true);
     // 地面沿路直穿桥下会被围栏拦住(不会瞬移弹上桥)
-    const q = march(city, [[0, -20], [0, -45]]);
-    expect(q[1]).toBeGreaterThan(-29.6);
+    const q = march(city, [[0, -16], [0, -34]]);
+    expect(q[1]).toBeGreaterThan(-22.6);
     expect(floorHeightAt(city, q[0], q[1])).toBe(0);
   });
 
-  it('东南窄巷:入口 → 两次拐弯 → 巷底(异常点 B)', () => {
-    const p = march(city, [[11, 24.7], [30.3, 24.9], [32.1, 26], [32.1, 33.9], [42.6, 34]]);
-    expect(near(p, 42.6, 34, 1.1)).toBe(true);
+  it('东侧短巷:入口 → 转角 → 巷底(事件点 B)', () => {
+    const p = march(city, [[8.8, 25.5], [28, 25.5], [33, 26.5], [33, 34.5]]);
+    expect(near(p, 33, 34.5, 1.1)).toBe(true);
   });
 
-  it('西南窄巷:巷口(异常点 A) → 两次拐弯 → 巷底', () => {
-    const p = march(city, [[-11, 37.4], [-31, 37.4], [-33.3, 36], [-33.3, 28], [-42.3, 27.8]]);
-    expect(near(p, -42.3, 27.8, 1.1)).toBe(true);
+  it('西侧短巷:入口(事件点 A) → 转角 → 巷底', () => {
+    const p = march(city, [[-8.8, 25.5], [-28, 25.5], [-33, 26.5], [-33, 34.5]]);
+    expect(near(p, -33, 34.5, 1.1)).toBe(true);
   });
 
   it('天桥坡道/桥面高度区正确衔接', () => {
-    expect(floorHeightAt(city, 9.5, -13.6)).toBeLessThan(0.05);     // 南坡底
-    expect(floorHeightAt(city, 9.5, -21.5)).toBeCloseTo(2.6, 2);    // 南坡中点
-    expect(floorHeightAt(city, 9.5, -29.4)).toBeGreaterThan(5.1);   // 坡顶≈桥面
-    expect(floorHeightAt(city, 0, -32)).toBeCloseTo(5.2, 3);        // 桥面
-    expect(floorHeightAt(city, -9.5, -42.5)).toBeCloseTo(2.6, 2);   // 西北坡中点
-    expect(floorHeightAt(city, -9.5, -50.4)).toBeLessThan(0.05);    // 北坡底
-    expect(floorHeightAt(city, 0, -60)).toBe(0);
+    expect(floorHeightAt(city, 6.75, -12.05)).toBeLessThan(0.05);   // 南坡底
+    expect(floorHeightAt(city, 6.75, -17.5)).toBeCloseTo(2.1, 2);   // 南坡中点
+    expect(floorHeightAt(city, 6.75, -22.95)).toBeGreaterThan(4.1); // 坡顶≈桥面
+    expect(floorHeightAt(city, 0, -25)).toBeCloseTo(4.2, 3);        // 桥面
+    expect(floorHeightAt(city, -6.75, -32.5)).toBeCloseTo(2.1, 2); // 北坡中点
+    expect(floorHeightAt(city, -6.75, -37.95)).toBeLessThan(0.05);  // 北坡底
+    expect(floorHeightAt(city, 0, -40)).toBe(0);
   });
 
   it('封闭地铁口台阶区有碰撞', () => {

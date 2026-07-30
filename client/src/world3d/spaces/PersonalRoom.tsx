@@ -22,7 +22,7 @@ import { plankTexture } from './textures';
 
 const W = ROOM_BOUNDS.maxX - ROOM_BOUNDS.minX;
 const D = ROOM_BOUNDS.maxZ - ROOM_BOUNDS.minZ;
-const H = 3.0;
+const H = 3.2;
 
 function RoomShell({ room }: { room: RoomData }) {
   const s = room.style;
@@ -80,8 +80,10 @@ function RoomShell({ room }: { room: RoomData }) {
         </mesh>
       ))}
       {/* big north window with sky view */}
-      <WindowFrame position={[-1.5, 1.55, ROOM_BOUNDS.minZ + 0.02]} rotation={0} w={2.6} h={1.6} />
-      <WindowFrame position={[2.6, 1.55, ROOM_BOUNDS.minZ + 0.02]} rotation={0} w={1.8} h={1.6} />
+      <WindowFrame position={[-2.1, 1.65, ROOM_BOUNDS.minZ + 0.02]} rotation={0} w={3.0} h={1.7} />
+      <WindowFrame position={[3.0, 1.65, ROOM_BOUNDS.minZ + 0.02]} rotation={0} w={2.2} h={1.7} />
+      <pointLight position={[-2.1, 1.45, ROOM_BOUNDS.minZ + 1.0]} color="#ffe2ad" intensity={4.8} distance={9} decay={2} />
+      <pointLight position={[3.0, 1.45, ROOM_BOUNDS.minZ + 1.0]} color="#fff0cb" intensity={3.8} distance={8} decay={2} />
 
       {/* ceiling lamp */}
       <group position={[0, H, 0.4]}>
@@ -100,7 +102,7 @@ function RoomShell({ room }: { room: RoomData }) {
         {room.style.lightsOn && s.lightPreset !== 'party' && (
           <>
             <pointLight position={[0, -0.6, 0]} color={lightColor} intensity={26} distance={14} decay={1.7} />
-            <ambientLight intensity={0.37} color="#fff2e0" />
+            <ambientLight intensity={0.48} color="#fff2df" />
           </>
         )}
         {room.style.lightsOn && s.lightPreset === 'party' && (

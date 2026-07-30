@@ -70,7 +70,7 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'gr_tea': return <GrTea key={key} position={pos} ry={p.ry} />;
     case 'gr_counter': return <GrCounter key={key} position={pos} ry={p.ry} />;
     case 'gr_lantern': return <GrLantern key={key} position={pos} />;
-    // ── 「黄昏街区」c_* 城市道具(cityplan/P2 布局 → city/props2 组件)──────
+    // ── 「月汐町·晴日生活街」c_* 城市道具(cityplan/P2 布局 → city/props2 组件)──
     case 'c_lamp': return <CLamp key={key} position={pos} ry={p.ry} />;
     case 'c_vend': return (
       <CVend key={key} position={pos} ry={p.ry}
@@ -131,7 +131,7 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'ttt': return <TttMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'lightsout': return <LightsOutMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'vending': {
-      // 「黄昏街区」户外售货机(v-vend*):城市赛璐璐外观(c_vend 可互动版,红/蓝按标签)
+      // 晴日生活街户外售货机(v-vend*):城市赛璐璐外观(c_vend 可互动版,红/蓝按标签)
       if (it.id.startsWith('v-vend')) {
         return <CVend key={key} position={[it.pos[0], 0, it.pos[2]]} ry={it.ry} kind={it.label.includes('蓝') ? 'blue' : 'red'} />;
       }

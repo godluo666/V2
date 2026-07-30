@@ -3,7 +3,7 @@
  *   npm run build && npm start            # 终端 1
  *   npm i --no-save playwright            # 一次性;不进入项目依赖
  *   node scripts/smoke.mjs                # 终端 2
- * 两名玩家进入世界(黄昏街区,出生点=站前广场):聊天互通 → 咖啡馆
+ * 两名玩家进入世界(月汐町晴日生活街,出生点=站前口袋广场):聊天互通 → 咖啡馆
  * (麻将开局/象棋走子/旁观脱敏)→ 过高架天桥 → 团子塔电梯 → 自己的房间 →
  * 编辑器摆家具 → 电视放网页。任一检查失败则退出码非 0。
  * 可设 PW_CHROMIUM 指向系统 Chromium,BASE_URL 指向其他服务器。
@@ -123,17 +123,17 @@ check('跨端聊天同步', await p1.evaluate(() =>
 ));
 await p1.screenshot({ path: `${OUT}/smoke-plaza.png` });
 
-// ── 两人进咖啡馆(南街西侧,门在 (-12.6, 30);出生点北上即到)──
+// ── 两人进咖啡馆(短街南侧,门在 (-8.9, 15);出生点几步即到)──
 for (const p of [p1, p2]) {
-  await walkTo(p, 0, 40);
-  await walkTo(p, -6, 34);
-  await walkTo(p, -10.6, 30.4, 20000);
-  await interactWhenPrompt(p, '咖啡馆', -11.4, 30);
+  await walkTo(p, 0, 23);
+  await walkTo(p, -5.5, 17);
+  await walkTo(p, -7.5, 15.2, 12000);
+  await interactWhenPrompt(p, '咖啡馆', -7.8, 15);
 }
 check('两人都进入咖啡馆', (await state(p1)).space === 'cafe' && (await state(p2)).space === 'cafe');
 
 // ── 福州麻将:入座开局 ──
-await walkTo(p1, 4.6, 4.6, 20000);
+await walkTo(p1, 5.8, 3.8, 20000);
 await p1.evaluate(() => window.__nx.ui.getState().openPanel({ kind: 'mahjong', tableId: 'cafe-mj' }));
 await p1.waitForTimeout(500);
 await p1.getByText('入座', { exact: true }).click();
@@ -152,8 +152,8 @@ check('麻将旁观只见公开信息', spec === null);
 await p1.evaluate(() => window.__nx.connection.send('mj_action', { tableId: 'cafe-mj', action: 'leave' }));
 
 // ── 象棋:两人入座 + 红兵进一 ──
-await walkTo(p1, -3.0, 3.2, 20000);
-await walkTo(p2, -2.6, 3.8, 20000);
+await walkTo(p1, -3.6, 3.8, 20000);
+await walkTo(p2, -5.8, 3.8, 20000);
 for (const p of [p1, p2]) {
   await p.evaluate(() => window.__nx.ui.getState().openPanel({ kind: 'xiangqi', tableId: 'cafe-xq' }));
   await p.waitForTimeout(400);
@@ -174,22 +174,20 @@ await p2.keyboard.press('Escape');
 await p2.close();
 
 // ── 回街区 → 穿路口、上高架天桥(东侧坡道)→ 北街团子塔 → 电梯 → 房间 ──
-await walkTo(p1, 0, 4.6, 20000);
-await interactWhenPrompt(p1, '返回', 0, 5.0);
+await walkTo(p1, 0, 5.7, 20000);
+await interactWhenPrompt(p1, '返回', 0, 6.4);
 check('回到街区', (await state(p1)).space === 'plaza');
-await walkTo(p1, -4, 20);
-await walkTo(p1, 2, 4);
-await walkTo(p1, 9.5, -6);
-await walkTo(p1, 9.5, -16, 20000);  // 东南坡道底
-await walkTo(p1, 9.5, -26, 20000);  // 上坡
-await walkTo(p1, 9.5, -33, 20000);  // 桥面(y≈5.2,桥下路面被围栏封住)
-await walkTo(p1, 9.5, -44, 20000);  // 东北坡道下行
-await walkTo(p1, 9.5, -52, 20000);
-await walkTo(p1, 11.2, -58, 15000);
-await interactWhenPrompt(p1, '团子塔', 11.6, -58);
+await walkTo(p1, 0, 8);
+await walkTo(p1, 6.75, -10);
+await walkTo(p1, 6.75, -17.5, 15000); // 东南坡道中段
+await walkTo(p1, 6.75, -22.5, 15000); // 上坡
+await walkTo(p1, 6.75, -27.5, 15000); // 桥面(y≈4.2)
+await walkTo(p1, 6.75, -37, 15000);   // 东北坡道下行
+await walkTo(p1, 7.7, -32, 12000);
+await interactWhenPrompt(p1, '团子塔', 8.3, -32);
 check('进入大堂', (await state(p1)).space === 'lobby');
-await walkTo(p1, 0, -4.2, 25000);
-await interactWhenPrompt(p1, '电梯', 0, -4.6);
+await walkTo(p1, 0, -5.5, 25000);
+await interactWhenPrompt(p1, '电梯', 0, -6.4);
 await p1.waitForTimeout(700);
 await p1.locator('.inv-row', { hasText: '(我)' }).locator('button').click();
 await p1.waitForTimeout(2500);

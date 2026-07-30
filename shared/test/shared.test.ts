@@ -101,11 +101,11 @@ describe('layouts', () => {
       expect(Math.hypot(x - sx, z - sz)).toBeLessThan(0.01);
     }
   });
-  it('overpass deck is flat at 5.2 and ramps rise linearly', () => {
+  it('overpass deck is flat at 4.2 and ramps rise linearly', () => {
     const city = LAYOUTS['plaza'];
-    expect(floorHeightAt(city, 0, -32)).toBeCloseTo(5.2, 3);       // 桥面
-    expect(floorHeightAt(city, 9.5, -21.5)).toBeCloseTo(2.6, 2);   // 坡道中点
-    expect(floorHeightAt(city, 9.5, -13.6)).toBeLessThan(0.05);    // 坡底
+    expect(floorHeightAt(city, 0, -25)).toBeCloseTo(4.2, 3);       // 桥面
+    expect(floorHeightAt(city, 6.75, -17.5)).toBeCloseTo(2.1, 2);  // 坡道中点
+    expect(floorHeightAt(city, 6.75, -12.05)).toBeLessThan(0.05);  // 坡底
     expect(floorHeightAt(city, 0, 0)).toBe(0);                     // 路口平地
   });
 });

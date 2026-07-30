@@ -307,19 +307,19 @@ export function NetcafeExtras({ lightsOn }: { lightsOn: boolean }) {
   return (
     <group>
       {/* 北墙高位灯带(联赛大屏上方)*/}
-      <mesh position={[0, 4.15, -5.9]} material={strip}>
-        <boxGeometry args={[15.6, 0.05, 0.05]} />
+      <mesh position={[0, 4.35, -7.4]} material={strip}>
+        <boxGeometry args={[19.6, 0.05, 0.05]} />
       </mesh>
       {/* 东西墙腰线灯带 */}
-      {[-7.9, 7.9].map((x) => (
+      {[-9.9, 9.9].map((x) => (
         <mesh key={x} position={[x, 3.2, 0]} material={strip}>
-          <boxGeometry args={[0.05, 0.05, 11.6]} />
+          <boxGeometry args={[0.05, 0.05, 14.6]} />
         </mesh>
       ))}
       {/* 踢脚地灯线(南墙除门洞两段) */}
-      {[-4.6, 4.6].map((x) => (
-        <mesh key={x} position={[x, 0.06, 5.88]} material={strip}>
-          <boxGeometry args={[6.4, 0.03, 0.03]} />
+      {[-5.55, 5.55].map((x) => (
+        <mesh key={x} position={[x, 0.06, 7.38]} material={strip}>
+          <boxGeometry args={[8.7, 0.03, 0.03]} />
         </mesh>
       ))}
     </group>
@@ -509,10 +509,10 @@ export function GameroomExtras({ lightsOn }: { lightsOn: boolean }) {
   void lightsOn; // 纸窗自发光常亮(屋外街灯感);参数保留同 NetcafeExtras 接口
   return (
     <group>
-      <ShojiWindow position={[6.92, 1.75, 1.4]} ry={-Math.PI / 2} w={2.2} h={1.5} />
-      <ShojiWindow position={[-6.92, 1.75, -1.8]} ry={Math.PI / 2} w={2.2} h={1.5} />
-      <YakuScroll position={[-2.6, 1.7, -5.9]} ry={0} />
-      <YakuScroll position={[-4.2, 1.7, -5.9]} ry={0} />
+      <ShojiWindow position={[8.92, 1.75, 1.4]} ry={-Math.PI / 2} w={2.5} h={1.6} />
+      <ShojiWindow position={[-8.92, 1.75, -1.8]} ry={Math.PI / 2} w={2.5} h={1.6} />
+      <YakuScroll position={[-2.6, 1.7, -6.9]} ry={0} />
+      <YakuScroll position={[-4.2, 1.7, -6.9]} ry={0} />
     </group>
   );
 }

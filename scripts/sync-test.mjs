@@ -132,15 +132,14 @@ const posOf = (s) => mediaPositionAt(s.media, s.now + s.offset);
 const mediaKey = (m) => JSON.stringify(m && ['url', 'kind', 'playing', 'position', 'rate', 'loop', 'updatedAt', 'setBy'].map((k) => m[k]));
 const send = (t, d) => p1.evaluate(([tt, dd]) => window.__nx.connection.send(tt, dd), [t, d]);
 
-// ── 两人从站前广场出生点北上穿路口,进东街北侧的电影院(门在 (30, -12.6))──
+// ── 两人从口袋广场穿过小路口,进东街北侧的电影院(门在 (22, -8.9))──
 for (const p of [p1, p2]) {
-  await walkTo(p, 2, 40);       // 绕开出生点旁的长椅/留言板
-  await walkTo(p, 0, 20);
-  await walkTo(p, 4, 2);        // 穿过大十字路口
-  await walkTo(p, 16, -9.5);    // 东街北侧人行道
-  await walkTo(p, 26, -9.5, 20000);
-  await walkTo(p, 29.9, -11.4, 15000);
-  await interactWhenPrompt(p, '电影院', 30, -11.8);
+  await walkTo(p, 0, 22);
+  await walkTo(p, 3, 2);        // 穿过小十字路口
+  await walkTo(p, 12, -6.7);    // 东街北侧人行道
+  await walkTo(p, 20, -6.7, 15000);
+  await walkTo(p, 22, -7.6, 12000);
+  await interactWhenPrompt(p, '电影院', 22, -8.1);
 }
 check('两人都进入电影院', (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema');
 

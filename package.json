@@ -20,7 +20,7 @@
     "start": "npm run start -w server",
     "db:setup": "npm run db:setup -w server",
     "db:reset": "npm run db:reset -w server",
-    "test": "npm run test -w shared && npm run test -w server",
+    "test": "npm run test -w shared && npm run test -w server && npm run test -w client",
     "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 /**
- * 「黄昏街区」城市道具库(工单 P3-3,总纲 §2/§4.3/§5)。
+ * 「月汐町·晴日生活街」城市道具库(工单 P3-3,总纲 §2/§4.3/§5)。
  *
  * - c_* 全套道具组件(经 spaces/registry.tsx 按 layout prop type 挂载):
  *   钠灯 / 售货机 / 长椅 / 施工围栏 / 自行车 / 垃圾袋堆+乌鸦 / 旧海报 /
@@ -1188,7 +1188,7 @@ export function Overpass() {
   const group = useMemo(() => {
     const g = new THREE.Group();
     const { deck, ramps } = OVERPASS;
-    const surfaceY = deck.y;           // 契约:deck.y = 5.2(行走面)
+    const surfaceY = deck.y;           // 行走面高度以 shared/cityplan 契约为准
     const slabT = 0.4;
     const bag = new MergeBag();
     const deckColor = shade(ENV.sidewalk, -0.015);

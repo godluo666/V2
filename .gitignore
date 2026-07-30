@@ -26,3 +26,5 @@ npm-debug.log*
 coverage/
 playwright-report/
 test-results/
+.cache/ms-playwright/
+cloud-artifacts/
