@@ -13,6 +13,7 @@
  * 流——内容加载与真实漂移由 sync-test.mjs + shared/test/media.test.ts 覆盖。
  */
 import { chromium } from 'playwright';
+import { prepareWorldInput, walkTo } from './browser-driver.mjs';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 const RUN = `${Date.now() % 1000000}`;
 const errors = [];
@@ -44,43 +45,12 @@ async function newPlayer(browser, name) {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!document.querySelector('canvas') && !!window.__nx, undefined, { timeout: 40000, polling: 500 });
   await page.waitForTimeout(800);
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(300);
+  await prepareWorldInput(page);
   return page;
 }
 
-async function walkTo(page, tx, tz, timeoutMs = 45000, stopAt = 1.0) {
-  const start = Date.now();
-  let lastD = Infinity, stall = 0, side = 'KeyA', swaps = 0;
-  await page.keyboard.down('KeyW');
-  await page.keyboard.down('ShiftLeft');
-  while (Date.now() - start < timeoutMs) {
-    const d = await page.evaluate(([x, z]) => {
-      const nx = window.__nx;
-      const dx = x - nx.hot.local.x;
-      const dz = z - nx.hot.local.z;
-      nx.hot.camera.yaw = Math.atan2(-dx, -dz);
-      return Math.hypot(dx, dz);
-    }, [tx, tz]);
-    if (d < stopAt) break;
-    if (lastD - d < 0.05) {
-      if (++stall > 6) {
-        await page.keyboard.down(side);
-        await page.waitForTimeout(950);
-        await page.keyboard.up(side);
-        if (++swaps % 2 === 0) side = side === 'KeyA' ? 'KeyD' : 'KeyA';
-        stall = 0;
-      }
-    } else stall = 0;
-    lastD = d;
-    await page.waitForTimeout(110);
-  }
-  await page.keyboard.up('KeyW');
-  await page.keyboard.up('ShiftLeft');
-  await page.waitForTimeout(300);
-}
-
 async function intoCinema(p) {
+  await p.bringToFront();
   await walkTo(p, 0, 22);
   await walkTo(p, 3, 2);
   await walkTo(p, 12, -6.7);
