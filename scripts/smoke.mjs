@@ -18,6 +18,20 @@ const errors = [];
 let failures = 0;
 const check = (label, ok) => { console.log(`${ok ? '✓' : '✗ FAIL'} ${label}`); if (!ok) failures++; };
 
+// 云端 SwiftShader 偶尔会在截图合成阶段停顿；截图只是留档证据，
+// 不应让已经通过的功能旅程被非功能性超时中断。
+async function captureEvidence(page, filename) {
+  try {
+    await page.screenshot({
+      path: `${OUT}/${filename}`,
+      timeout: 12000,
+      animations: 'disabled',
+    });
+  } catch (error) {
+    console.log(`  · 跳过超时截图 ${filename}: ${error instanceof Error ? error.name : 'Error'}`);
+  }
+}
+
 async function apiToken(name) {
   const body = { username: name, password: 'password123' };
   let res = await fetch(`${BASE}/api/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -97,7 +111,7 @@ await p2.waitForTimeout(1400);
 check('跨端聊天同步', await p1.evaluate(() =>
   [...document.querySelectorAll('.chat-line')].some((el) => el.textContent?.includes('团子二号来啦'))
 ));
-await p1.screenshot({ path: `${OUT}/smoke-plaza.png` });
+await captureEvidence(p1, 'smoke-plaza.png');
 
 // ── 两人进咖啡馆(短街南侧,门在 (-8.9, 15);出生点几步即到)──
 for (const p of [p1, p2]) {
@@ -121,7 +135,7 @@ const mj = await p1.evaluate(() => {
   return { phase: v?.pub.phase, gold: v?.pub.goldFace, hand: v?.priv?.hand.length ?? 0 };
 });
 check(`麻将开局(${JSON.stringify(mj)})`, (mj.phase === 'playing' && mj.gold >= 0 && mj.hand >= 13) || mj.phase === 'finished');
-await p1.screenshot({ path: `${OUT}/smoke-mahjong.png` });
+await captureEvidence(p1, 'smoke-mahjong.png');
 await p1.keyboard.press('Escape');
 const spec = await p2.evaluate(() => window.__nx.world.getState().mj['cafe-mj']?.priv ?? null);
 check('麻将旁观只见公开信息', spec === null);
@@ -168,7 +182,7 @@ await p1.waitForTimeout(700);
 await p1.locator('.inv-row', { hasText: '(我)' }).locator('button').click();
 await p1.waitForTimeout(2500);
 check('回到自己的房间', (await state(p1)).space.startsWith('room:'));
-await p1.screenshot({ path: `${OUT}/smoke-room.png` });
+await captureEvidence(p1, 'smoke-room.png');
 
 // ── 房间编辑器摆一件家具 ──
 await p1.click('.dock button[title="房间编辑器"]');
@@ -192,7 +206,7 @@ for (const [rx, ry] of [[0.50, 0.58], [0.40, 0.55], [0.60, 0.55], [0.47, 0.44], 
   await p1.waitForTimeout(700);
   after = await p1.evaluate(() => window.__nx.world.getState().room?.objects.length ?? -1);
 }
-await p1.screenshot({ path: `${OUT}/smoke-editor.png` });
+await captureEvidence(p1, 'smoke-editor.png');
 check(`编辑器放置家具(${before} → ${after})`, after === before + 1);
 await p1.keyboard.press('Escape');
 await p1.click('.dock button[title="房间编辑器"]'); // 退出编辑模式
@@ -207,7 +221,7 @@ await p1.keyboard.press('Escape');
 await p1.waitForTimeout(1500);
 const iframes = await p1.evaluate(() => document.querySelectorAll('iframe').length);
 check(`电视出现网页 iframe(${iframes})`, iframes >= 1);
-await p1.screenshot({ path: `${OUT}/smoke-tv.png` });
+await captureEvidence(p1, 'smoke-tv.png');
 
 console.log('CONSOLE ERRORS:', errors.length);
 for (const e of errors.slice(0, 10)) console.log(' ', e.slice(0, 200));
