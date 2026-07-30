@@ -15,7 +15,7 @@
  */
 import { chromium } from 'playwright';
 import {
-  JOURNEY_CHROMIUM_ARGS, interactWhenPrompt, prepareWorldInput, walkTo,
+  JOURNEY_CHROMIUM_ARGS, enterStreetVenue, prepareWorldInput,
 } from './browser-driver.mjs';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 // 每次跑用全新账号:老账号会"回到上次所在的空间",而测试假设从街区出生点开始
@@ -94,13 +94,7 @@ const send = (t, d) => p1.evaluate(([tt, dd]) => window.__nx.connection.send(tt,
 
 // ── 两人沿紧凑的一番街进入北侧电影院 ──
 for (const p of [p1, p2]) {
-  await walkTo(p, -8, 5.7, 12000);
-  await walkTo(p, -19, 5.7, 14000);
-  await walkTo(p, -19, -5.7, 14000);
-  await walkTo(p, -19, -7.45, 8000);
-  const entered = await interactWhenPrompt(p, '电影院', -19, -7.55, {
-    expectedSpace: 'cinema',
-  });
+  const entered = await enterStreetVenue(p, 'cinema');
   if (!entered) console.log('  没能进入电影院', JSON.stringify(await state(p)));
 }
 check('两人都进入电影院', (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema');

@@ -5,7 +5,8 @@
  */
 import { chromium } from 'playwright';
 import {
-  JOURNEY_CHROMIUM_ARGS, interactWhenPrompt, prepareWorldInput, walkTo,
+  JOURNEY_CHROMIUM_ARGS, enterStreetVenue, interactWhenPrompt,
+  prepareWorldInput, walkTo,
 } from './browser-driver.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
@@ -88,23 +89,12 @@ const state = (page) => page.evaluate(() => ({
 }));
 
 async function enterPartyHall(page) {
-  await walkTo(page, 12, 5.7, 12_000);
-  await walkTo(page, 19, 5.7, 12_000);
-  await walkTo(page, 19, -5.7, 14_000);
-  await walkTo(page, 19, -7.45, 8_000);
-  const entered = await interactWhenPrompt(page, '团子轰趴馆', 19, -7.55, {
-    expectedSpace: 'gameroom',
-  });
+  const entered = await enterStreetVenue(page, 'gameroom');
   if (!entered) console.log('  party-hall interaction failed', JSON.stringify(await state(page)));
 }
 
 async function enterCinema(page) {
-  await walkTo(page, -8, -5.7, 14_000);
-  await walkTo(page, -19, -5.7, 14_000);
-  await walkTo(page, -19, -7.45, 8_000);
-  const entered = await interactWhenPrompt(page, '电影院', -19, -7.55, {
-    expectedSpace: 'cinema',
-  });
+  const entered = await enterStreetVenue(page, 'cinema');
   if (!entered) console.log('  cinema interaction failed', JSON.stringify(await state(page)));
 }
 

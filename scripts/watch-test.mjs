@@ -14,7 +14,7 @@
  */
 import { chromium } from 'playwright';
 import {
-  JOURNEY_CHROMIUM_ARGS, interactWhenPrompt, prepareWorldInput, walkTo,
+  JOURNEY_CHROMIUM_ARGS, enterStreetVenue, prepareWorldInput,
 } from './browser-driver.mjs';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 const RUN = `${Date.now() % 1000000}`;
@@ -56,11 +56,7 @@ async function newPlayer(browser, name) {
 
 async function intoCinema(p) {
   await p.bringToFront();
-  await walkTo(p, -8, 5.7, 12000);
-  await walkTo(p, -19, 5.7, 14000);
-  await walkTo(p, -19, -5.7, 14000);
-  await walkTo(p, -19, -7.45, 8000);
-  await interactWhenPrompt(p, '电影院', -19, -7.55, { expectedSpace: 'cinema' });
+  await enterStreetVenue(p, 'cinema');
   return p.evaluate(() => window.__nx.world.getState().spaceKey);
 }
 
@@ -73,15 +69,13 @@ const p1Browser = await launchBrowser();
 const p1 = await newPlayer(p1Browser, `watch_p1_${RUN}`);
 check('p1 进入电影院', (await intoCinema(p1)) === 'cinema');
 
-// ── p1 放一个网页(iframe 播放器)并靠近银幕(巨幕厅:走西过道绕过座位段)──
-await walkTo(p1, -2.9, 4, 20000);
-await walkTo(p1, -2.9, -6.5, 25000);
-await interactWhenPrompt(p1, '银幕', 0, -9.4, { settleMs: 1_000 });
-await p1.locator('input[placeholder^="https"]').fill('https://watch-test.invalid/page');
-await p1.getByText('放映', { exact: true }).click();
+// ── p1 放一个网页 iframe 播放器 ──
+// Panel behavior is covered by sync-test; this lifecycle journey starts media
+// through the same public connection method to avoid low-FPS aisle navigation.
+await p1.evaluate(() => {
+  window.__nx.connection.send('media_set', { url: 'https://watch-test.invalid/page' });
+});
 await p1.waitForTimeout(1800);
-await p1.keyboard.press('Escape');
-await p1.waitForTimeout(1200);
 
 // ── 1) 世界内:单实例 + 标记 ──
 const world1 = await p1.evaluate(() => {

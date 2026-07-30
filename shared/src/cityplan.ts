@@ -18,6 +18,8 @@ export interface CityBuilding extends CityRect {
 export interface CityVenue {
   key: 'cinema' | 'netcafe' | 'gameroom';
   x: number; z: number; ry: number; label: string;
+  /** Street-side point where a player can reach the façade interaction. */
+  approach: [number, number];
 }
 export interface CityAnomaly { id: string; x: number; z: number; r: number }
 
@@ -102,9 +104,9 @@ export const BUILDINGS: CityBuilding[] = [
 
 /** 唯一三个可进入场馆，全部在同一条街的一层。 */
 export const VENUES: CityVenue[] = [
-  { key: 'cinema', x: -19, z: -7.82, ry: 0, label: '星汐电影院' },
-  { key: 'netcafe', x: 0, z: 7.82, ry: Math.PI, label: '镜界电竞观战馆' },
-  { key: 'gameroom', x: 19, z: -7.82, ry: 0, label: '团子轰趴馆' },
+  { key: 'cinema', x: -19, z: -7.82, ry: 0, label: '星汐电影院', approach: [-19, -7.45] },
+  { key: 'netcafe', x: 0, z: 7.82, ry: Math.PI, label: '镜界电竞观战馆', approach: [0, 7.45] },
+  { key: 'gameroom', x: 19, z: -7.82, ry: 0, label: '团子轰趴馆', approach: [19, -7.45] },
 ];
 
 /** 低频原创都市异象点，均贴在单街边缘，不扩张动线。 */

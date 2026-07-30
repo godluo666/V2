@@ -99,9 +99,7 @@ describe('一番街可走性', () => {
   it('出生点和三个门前站位没有卡进碰撞体', () => {
     const standSpots: Array<[number, number]> = [
       [city.spawn[0], city.spawn[2]],
-      [-19, -7.45],
-      [0, 7.45],
-      [19, -7.45],
+      ...VENUES.map((venue) => venue.approach),
     ];
     for (const [sx, sz] of standSpots) {
       const [x, z] = resolveCollisions(sx, sz, 0.34, city.colliders);
@@ -109,24 +107,25 @@ describe('一番街可走性', () => {
     }
   });
 
-  it.each([
-    ['电影院', -19, -7.45],
-    ['电竞观战馆', 0, 7.45],
-    ['团子轰趴馆', 19, -7.45],
-  ])('出生点能沿单街走到%s门前', (_label, targetX, targetZ) => {
-    const sideZ = targetZ < 0 ? -5.7 : 5.7;
+  it.each(VENUES)('出生点能经斑马线走到$label门前', (venue) => {
+    const crossing = CROSSWALKS[0];
+    const spawnWalk = SIDEWALKS.find((walk) => Math.sign(walk.z) === Math.sign(city.spawn[2]));
+    const venueWalk = SIDEWALKS.find((walk) => Math.sign(walk.z) === Math.sign(venue.z));
+    expect(spawnWalk).toBeTruthy();
+    expect(venueWalk).toBeTruthy();
     const p = march(city, [
       [city.spawn[0], city.spawn[2]],
-      [targetX, city.spawn[2]],
-      [targetX, sideZ],
-      [targetX, targetZ],
+      [crossing.x, spawnWalk!.z],
+      [crossing.x, venueWalk!.z],
+      [venue.x, venueWalk!.z],
+      venue.approach,
     ]);
-    expect(near(p, targetX, targetZ)).toBe(true);
+    expect(near(p, venue.approach[0], venue.approach[1])).toBe(true);
   });
 
   it('户外不再有天桥高度区', () => {
     expect(city.heightZones).toEqual([]);
-    expect(floorHeightAt(city, -19, -7.45)).toBe(0);
+    expect(floorHeightAt(city, VENUES[0].approach[0], VENUES[0].approach[1])).toBe(0);
     expect(floorHeightAt(city, 0, 0)).toBe(0);
   });
 });

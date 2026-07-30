@@ -197,7 +197,8 @@ function buildCity(): SpaceLayout {
     {
       id: -5, name: 'Rin', dialogueId: 'walker', speed: 1.2, pause: 4,
       avatar: npcAvatar('#f2a5b5', '#2f3b5c', '#9fb3d9', '#33383f', 0, '#333333', 2),
-      waypoints: [[10, -5.7], [18, -5.7], [27, -5.7], [20, -5.7]],
+      // Keep the club's north-side entrance clear; Rin animates the opposite pavement.
+      waypoints: [[10, 5.7], [18, 5.7], [27, 5.7], [20, 5.7]],
     },
   ];
 

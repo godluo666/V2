@@ -7,14 +7,26 @@ import HUD from './ui/HUD';
 import LoadingScreen from './ui/LoadingScreen';
 import { voice } from './voice/voice';
 import { connection } from './net/connection';
+import { CROSSWALKS, SIDEWALKS, VENUES } from '@nexuspark/shared';
+
+const cityMap = { crosswalks: CROSSWALKS, sidewalks: SIDEWALKS, venues: VENUES };
 
 // Debug/automation handle (used by the headless smoke test).
 declare global {
   interface Window {
-    __nx?: { hot: typeof hot; connection: typeof connection; world: typeof useWorld; ui: typeof useUI; voice: typeof voice };
+    __nx?: {
+      hot: typeof hot;
+      connection: typeof connection;
+      world: typeof useWorld;
+      ui: typeof useUI;
+      voice: typeof voice;
+      cityMap: typeof cityMap;
+    };
   }
 }
-if (typeof window !== 'undefined') window.__nx = { hot, connection, world: useWorld, ui: useUI, voice };
+if (typeof window !== 'undefined') {
+  window.__nx = { hot, connection, world: useWorld, ui: useUI, voice, cityMap };
+}
 
 export default function WorldApp() {
   const phase = useSession((s) => s.phase);

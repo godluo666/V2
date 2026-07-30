@@ -1,10 +1,12 @@
 /**
  * Browser-journey movement helpers.
  *
- * Chromium throttles requestAnimationFrame on background pages. Multiplayer
- * journeys keep more than one page open, so every movement first foregrounds
- * its page. Driving the game's hot key set directly also prevents a focused
- * chat field or a late first-run help panel from swallowing synthetic keys.
+ * Cloud Chromium can render the Three.js scene at only a few frames per second.
+ * Keyboard walking is tied to requestAnimationFrame, so it is unsuitable as a
+ * clock for multiplayer assertions. `walkTo` advances the same predicted player
+ * state in small, rate-limited steps and sends it through the normal input
+ * channel. The server still enforces speed, bounds, collisions and interaction
+ * distance; no test-only product endpoint or teleport bypass is involved.
  */
 export const JOURNEY_CHROMIUM_ARGS = [
   '--enable-unsafe-swiftshader',
@@ -29,54 +31,96 @@ export async function prepareWorldInput(page) {
   await page.waitForTimeout(100);
 }
 
-/** Walk toward a world-space target and sidestep if collision progress stalls. */
+/**
+ * Walk toward a world-space target using sub-run-speed input steps.
+ *
+ * 0.72m / 110ms is about 6.5m/s: below the 7m/s client run speed and far below
+ * the server's 11m/s anti-teleport ceiling. This makes the journey independent
+ * of renderer FPS while keeping authoritative movement validation in the loop.
+ */
 export async function walkTo(page, tx, tz, timeoutMs = 45000, stopAt = 1.0) {
   await prepareWorldInput(page);
   const start = Date.now();
-  let lastD = Infinity;
   let finalD = Infinity;
-  let stall = 0;
-  let side = 'KeyA';
-  let swaps = 0;
 
-  try {
-    await page.evaluate(() => {
-      window.__nx.hot.keys.add('KeyW');
-      window.__nx.hot.keys.add('ShiftLeft');
-    });
-    while (Date.now() - start < timeoutMs) {
-      finalD = await page.evaluate(([x, z]) => {
-        const nx = window.__nx;
-        nx.hot.keys.add('KeyW');
-        nx.hot.keys.add('ShiftLeft');
-        const dx = x - nx.hot.local.x;
-        const dz = z - nx.hot.local.z;
-        nx.hot.camera.yaw = Math.atan2(-dx, -dz);
-        return Math.hypot(dx, dz);
-      }, [tx, tz]);
-      if (finalD < stopAt) break;
-      if (lastD - finalD < 0.05) {
-        if (++stall > 6) {
-          await page.evaluate((key) => window.__nx.hot.keys.add(key), side);
-          await page.waitForTimeout(800);
-          await page.evaluate((key) => window.__nx.hot.keys.delete(key), side);
-          if (++swaps % 2 === 0) side = side === 'KeyA' ? 'KeyD' : 'KeyA';
-          stall = 0;
-        }
-      } else {
-        stall = 0;
-      }
-      lastD = finalD;
-      await page.waitForTimeout(110);
-    }
-  } finally {
-    await page.evaluate(() => {
-      const keys = window.__nx.hot.keys;
-      for (const key of ['KeyW', 'ShiftLeft', 'KeyA', 'KeyD']) keys.delete(key);
-    });
+  while (Date.now() - start < timeoutMs) {
+    finalD = await page.evaluate(([x, z, stop]) => {
+      const nx = window.__nx;
+      const dx = x - nx.hot.local.x;
+      const dz = z - nx.hot.local.z;
+      const distance = Math.hypot(dx, dz);
+      nx.hot.camera.yaw = Math.atan2(-dx, -dz);
+      if (distance <= stop) return distance;
+
+      const step = Math.min(0.72, Math.max(0, distance - stop * 0.72));
+      nx.hot.local.x += (dx / distance) * step;
+      nx.hot.local.z += (dz / distance) * step;
+      nx.connection.sendInput(true);
+      return distance;
+    }, [tx, tz, stopAt]);
+    if (finalD < stopAt) break;
+    await page.waitForTimeout(110);
   }
+
+  // Let a server snapshot/correction and the interaction scan catch up.
+  await page.evaluate(() => window.__nx.connection.sendInput(true));
   await page.waitForTimeout(300);
+  finalD = await page.evaluate(([x, z]) => {
+    const l = window.__nx.hot.local;
+    return Math.hypot(x - l.x, z - l.z);
+  }, [tx, tz]);
   return finalD < stopAt;
+}
+
+/** Run route points in order and stop immediately if one is blocked. */
+export async function walkRoute(page, points) {
+  for (const [x, z, timeoutMs = 12_000, stopAt = 1] of points) {
+    if (!await walkTo(page, x, z, timeoutMs, stopAt)) return false;
+  }
+  return true;
+}
+
+/**
+ * Follow the shared city plan to a venue façade via the marked crossing.
+ * Moving a building, pavement, or crossing therefore cannot silently leave
+ * three journey scripts with stale coordinates.
+ */
+export async function walkToVenueDoor(page, venueKey) {
+  const points = await page.evaluate((key) => {
+    const nx = window.__nx;
+    const venue = nx.cityMap.venues.find((candidate) => candidate.key === key);
+    const crossing = nx.cityMap.crosswalks[0];
+    if (!venue || !crossing) throw new Error(`Unknown street venue: ${key}`);
+
+    const currentZ = nx.hot.local.z;
+    const pavementFor = (z) => nx.cityMap.sidewalks
+      .filter((walk) => Math.sign(walk.z) === Math.sign(z))
+      .sort((a, b) => Math.abs(a.z - z) - Math.abs(b.z - z))[0];
+    const currentWalk = pavementFor(currentZ);
+    const venueWalk = pavementFor(venue.z);
+    if (!currentWalk || !venueWalk) throw new Error(`Missing pavement for venue: ${key}`);
+
+    return [
+      [crossing.x, currentWalk.z],
+      [crossing.x, venueWalk.z],
+      [venue.x, venueWalk.z],
+      [venue.approach[0], venue.approach[1], 8_000, 0.6],
+    ];
+  }, venueKey);
+  return walkRoute(page, points);
+}
+
+/** Reach and enter a street venue using only coordinates from `cityplan.ts`. */
+export async function enterStreetVenue(page, venueKey) {
+  await walkToVenueDoor(page, venueKey);
+  const venue = await page.evaluate((key) => {
+    const found = window.__nx.cityMap.venues.find((candidate) => candidate.key === key);
+    if (!found) throw new Error(`Unknown street venue: ${key}`);
+    return { label: found.label, approach: found.approach };
+  }, venueKey);
+  return interactWhenPrompt(page, venue.label, ...venue.approach, {
+    expectedSpace: venueKey,
+  });
 }
 
 /**
