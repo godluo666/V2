@@ -89,6 +89,10 @@ const sample = (page) => page.evaluate(() => ({
 }));
 const sampleBoth = () => Promise.all([sample(p1), sample(p2)]);
 const posOf = (s) => mediaPositionAt(s.media, s.now + s.offset);
+const positionsAtSameServerTime = (left, right) => {
+  const at = Math.min(left.now + left.offset, right.now + right.offset);
+  return [mediaPositionAt(left.media, at), mediaPositionAt(right.media, at)];
+};
 const mediaKey = (m) => JSON.stringify(m && ['url', 'kind', 'playing', 'position', 'rate', 'loop', 'updatedAt', 'setBy', 'revision'].map((k) => m[k]));
 const send = (t, d) => p1.evaluate(([tt, dd]) => window.__nx.connection.send(tt, dd), [t, d]);
 
@@ -109,8 +113,8 @@ let [a, b] = await sampleBoth();
 check(`两端 media 状态一致(kind=${a.media?.kind})`, !!a.media?.url && a.media.kind === 'video' && mediaKey(a.media) === mediaKey(b.media));
 check('服务器权威 position 已 seek 到 300', a.media?.position === 300 && a.media?.playing === true);
 {
-  const pa = posOf(a), pb = posOf(b);
-  check(`两端外推位置偏差 < 0.5s(p1=${pa.toFixed(3)} p2=${pb.toFixed(3)})`, Math.abs(pa - pb) < 0.5);
+  const [pa, pb] = positionsAtSameServerTime(a, b);
+  check(`同一服务器时刻的两端外推位置偏差 < 0.5s(p1=${pa.toFixed(3)} p2=${pb.toFixed(3)})`, Math.abs(pa - pb) < 0.5);
   check('外推位置落在 seek 点之后的合理区间', pa >= 299.5 && pa < 330 && pb >= 299.5 && pb < 330);
 }
 

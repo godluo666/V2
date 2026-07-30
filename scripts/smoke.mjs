@@ -5,8 +5,8 @@
  */
 import { chromium } from 'playwright';
 import {
-  JOURNEY_CHROMIUM_ARGS, enterStreetVenue, interactWhenPrompt,
-  prepareWorldInput, walkTo,
+  JOURNEY_CHROMIUM_ARGS, enterStreetVenue, exitToStreet,
+  interactWhenPrompt, prepareWorldInput, walkTo,
 } from './browser-driver.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
@@ -153,8 +153,9 @@ try {
 } catch { /* evidence is optional; assertions are authoritative */ }
 
 for (const page of [p1, p2]) {
-  await walkTo(page, 0, 8.35, 16_000);
-  await interactWhenPrompt(page, '返回一番街', 0, 8.55, { expectedSpace: 'plaza' });
+  if (!await exitToStreet(page)) {
+    console.log('  street-exit interaction failed', JSON.stringify(await state(page)));
+  }
 }
 check('both players returned to the compact street', (await state(p1)).space === 'plaza' && (await state(p2)).space === 'plaza');
 

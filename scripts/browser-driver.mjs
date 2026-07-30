@@ -19,7 +19,7 @@ export const JOURNEY_CHROMIUM_ARGS = [
 
 export async function prepareWorldInput(page) {
   await page.bringToFront();
-  await page.evaluate(() => {
+  const stoodUp = await page.evaluate(() => {
     const nx = window.__nx;
     nx.ui.getState().setHelpSeen();
     nx.ui.getState().closePanel();
@@ -27,8 +27,16 @@ export async function prepareWorldInput(page) {
     nx.hot.chatFocused = false;
     nx.hot.uiOpen = false;
     nx.hot.keys.clear();
+    if (nx.hot.local.seatId) {
+      // A one-frame Space key can be missed by a low-FPS cloud renderer.
+      // This is the same protocol action LocalPlayer sends when movement starts.
+      nx.connection.send('stand', {});
+      nx.hot.local.seatId = null;
+      return true;
+    }
+    return false;
   });
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(stoodUp ? 300 : 100);
 }
 
 /**
@@ -120,6 +128,35 @@ export async function enterStreetVenue(page, venueKey) {
   }, venueKey);
   return interactWhenPrompt(page, venue.label, ...venue.approach, {
     expectedSpace: venueKey,
+  });
+}
+
+/** Leave the current public interior through its shared-layout exit door. */
+export async function exitToStreet(page) {
+  await prepareWorldInput(page);
+  const exit = await page.evaluate(() => {
+    const nx = window.__nx;
+    const layout = nx.layouts[nx.world.getState().spaceKey];
+    const door = layout?.interactables.find(
+      (candidate) => candidate.kind === 'door' && candidate.data?.target === 'plaza',
+    );
+    if (!door) throw new Error(`No street exit in ${nx.world.getState().spaceKey}`);
+    const [x, , z] = door.pos;
+    const axis = Math.abs(z) >= Math.abs(x) ? 'z' : 'x';
+    const inward = axis === 'z'
+      ? [x, z - Math.sign(z) * 3]
+      : [x - Math.sign(x) * 3, z];
+    const approach = axis === 'z'
+      ? [x, z - Math.sign(z) * 0.35]
+      : [x - Math.sign(x) * 0.35, z];
+    return { label: door.label, inward, approach };
+  });
+  await walkRoute(page, [
+    [exit.inward[0], exit.inward[1]],
+    [exit.approach[0], exit.approach[1], 8_000, 0.6],
+  ]);
+  return interactWhenPrompt(page, exit.label, ...exit.approach, {
+    expectedSpace: 'plaza',
   });
 }
 

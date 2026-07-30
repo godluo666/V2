@@ -7,7 +7,7 @@ import HUD from './ui/HUD';
 import LoadingScreen from './ui/LoadingScreen';
 import { voice } from './voice/voice';
 import { connection } from './net/connection';
-import { CROSSWALKS, SIDEWALKS, VENUES } from '@nexuspark/shared';
+import { CROSSWALKS, LAYOUTS, SIDEWALKS, VENUES } from '@nexuspark/shared';
 
 const cityMap = { crosswalks: CROSSWALKS, sidewalks: SIDEWALKS, venues: VENUES };
 
@@ -21,11 +21,14 @@ declare global {
       ui: typeof useUI;
       voice: typeof voice;
       cityMap: typeof cityMap;
+      layouts: typeof LAYOUTS;
     };
   }
 }
 if (typeof window !== 'undefined') {
-  window.__nx = { hot, connection, world: useWorld, ui: useUI, voice, cityMap };
+  window.__nx = {
+    hot, connection, world: useWorld, ui: useUI, voice, cityMap, layouts: LAYOUTS,
+  };
 }
 
 export default function WorldApp() {
