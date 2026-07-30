@@ -3,15 +3,16 @@
 import { describe, it, expect } from 'vitest';
 import { testRig, lastOf } from './helpers';
 import { handlers } from '../src/game/handlers';
-import { SPACE, roomSpaceKey } from '@nexuspark/shared';
+import { SPACE, roomSpaceKey, VENUES } from '@nexuspark/shared';
 
 function cinemaRig() {
   const rig = testRig();
   const a = rig.mkSession('alice'); // 共享者
   const b = rig.mkSession('bob');   // 操作投屏的人
+  const cinemaDoor = VENUES.find((v) => v.key === 'cinema')!;
   for (const p of [a, b]) {
     rig.world.join(p.session, SPACE.PLAZA);
-    p.session.x = 30; p.session.z = -17.4; // 影院门口
+    p.session.x = cinemaDoor.x; p.session.z = cinemaDoor.z;
     handlers.switch_space(rig.world, p.session, { target: SPACE.CINEMA });
   }
   return { ...rig, a, b, cinema: rig.world.spaces.get(SPACE.CINEMA)! };
