@@ -42,9 +42,10 @@ export async function prepareWorldInput(page) {
 /**
  * Walk toward a world-space target using sub-run-speed input steps.
  *
- * 0.72m / 110ms is about 6.5m/s: below the 7m/s client run speed and far below
- * the server's 11m/s anti-teleport ceiling. This makes the journey independent
- * of renderer FPS while keeping authoritative movement validation in the loop.
+ * Each step starts from the latest server self-snapshot, not from unconfirmed
+ * local prediction. A dropped/rejected input is therefore retried instead of
+ * accumulating into a client-only position. 0.62m / 130ms is about 4.8m/s:
+ * below the 7m/s client run speed and the server's 11m/s ceiling.
  */
 export async function walkTo(page, tx, tz, timeoutMs = 45000, stopAt = 1.0) {
   await prepareWorldInput(page);
@@ -54,28 +55,29 @@ export async function walkTo(page, tx, tz, timeoutMs = 45000, stopAt = 1.0) {
   while (Date.now() - start < timeoutMs) {
     finalD = await page.evaluate(([x, z, stop]) => {
       const nx = window.__nx;
-      const dx = x - nx.hot.local.x;
-      const dz = z - nx.hot.local.z;
+      const confirmed = nx.hot.selfSnap ?? nx.hot.local;
+      const dx = x - confirmed.x;
+      const dz = z - confirmed.z;
       const distance = Math.hypot(dx, dz);
       nx.hot.camera.yaw = Math.atan2(-dx, -dz);
       if (distance <= stop) return distance;
 
-      const step = Math.min(0.72, Math.max(0, distance - stop * 0.72));
-      nx.hot.local.x += (dx / distance) * step;
-      nx.hot.local.z += (dz / distance) * step;
+      const step = Math.min(0.62, Math.max(0, distance - stop * 0.72));
+      nx.hot.local.x = confirmed.x + (dx / distance) * step;
+      nx.hot.local.y = confirmed.y;
+      nx.hot.local.z = confirmed.z + (dz / distance) * step;
       nx.connection.sendInput(true);
       return distance;
     }, [tx, tz, stopAt]);
     if (finalD < stopAt) break;
-    await page.waitForTimeout(110);
+    await page.waitForTimeout(130);
   }
 
-  // Let a server snapshot/correction and the interaction scan catch up.
-  await page.evaluate(() => window.__nx.connection.sendInput(true));
+  // Let a final server snapshot and the interaction scan catch up.
   await page.waitForTimeout(300);
   finalD = await page.evaluate(([x, z]) => {
-    const l = window.__nx.hot.local;
-    return Math.hypot(x - l.x, z - l.z);
+    const confirmed = window.__nx.hot.selfSnap ?? window.__nx.hot.local;
+    return Math.hypot(x - confirmed.x, z - confirmed.z);
   }, [tx, tz]);
   return finalD < stopAt;
 }
@@ -215,7 +217,12 @@ export async function interactWhenPrompt(
     expectedSpace = null,
   } = {},
 ) {
+  const isInExpectedSpace = () => expectedSpace
+    ? page.evaluate((space) => window.__nx.world.getState().spaceKey === space, expectedSpace)
+    : Promise.resolve(false);
+
   const tryInteract = async () => {
+    if (await isInExpectedSpace()) return true;
     const prompt = await page.evaluate(
       () => document.querySelector('.prompt')?.textContent ?? '',
     );
@@ -229,7 +236,7 @@ export async function interactWhenPrompt(
           { timeout: 4_000, polling: 100 },
         );
       } catch {
-        return false;
+        return isInExpectedSpace();
       }
     } else {
       await page.waitForTimeout(settleMs);
@@ -239,6 +246,7 @@ export async function interactWhenPrompt(
 
   await prepareWorldInput(page);
   for (let attempt = 0; attempt < attempts; attempt++) {
+    if (await isInExpectedSpace()) return true;
     if (await tryInteract()) return true;
     await walkTo(page, tx, tz, moveTimeoutMs, stopAt + attempt * 0.04);
     if (await tryInteract()) return true;
