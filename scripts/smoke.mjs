@@ -202,11 +202,21 @@ await p1.waitForTimeout(400);
 await p1.getByText('单人沙发').click();
 await p1.waitForTimeout(400);
 const before = await p1.evaluate(() => window.__nx.world.getState().room?.objects.length ?? -1);
-await p1.mouse.move(640, 430);
-await p1.waitForTimeout(300);
-await p1.mouse.click(640, 430);
-await p1.waitForTimeout(1200);
-const after = await p1.evaluate(() => window.__nx.world.getState().room?.objects.length ?? -1);
+const canvasBox = await p1.locator('canvas').boundingBox();
+let after = before;
+// 第三人称镜头与房间家具会改变单个屏幕点是否命中地面；在画布中央的安全区
+// 依次寻找一个可放置点，成功后立即停止，避免测试依赖固定分辨率/相机角度。
+for (const [rx, ry] of [[0.50, 0.58], [0.40, 0.55], [0.60, 0.55], [0.47, 0.44], [0.65, 0.46], [0.35, 0.46]]) {
+  if (!canvasBox || after > before) break;
+  const x = canvasBox.x + canvasBox.width * rx;
+  const y = canvasBox.y + canvasBox.height * ry;
+  await p1.mouse.move(x, y);
+  await p1.waitForTimeout(250);
+  await p1.mouse.click(x, y);
+  await p1.waitForTimeout(700);
+  after = await p1.evaluate(() => window.__nx.world.getState().room?.objects.length ?? -1);
+}
+await p1.screenshot({ path: `${OUT}/smoke-editor.png` });
 check(`编辑器放置家具(${before} → ${after})`, after === before + 1);
 await p1.keyboard.press('Escape');
 await p1.click('.dock button[title="房间编辑器"]'); // 退出编辑模式

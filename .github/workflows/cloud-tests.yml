@@ -100,10 +100,20 @@ jobs:
             exit 1
           fi
 
-          node scripts/smoke.mjs
-          node scripts/sync-test.mjs
-          node scripts/watch-test.mjs
-          node scripts/mobile-test.mjs
+          journey_failures=0
+          for journey in \
+            scripts/smoke.mjs \
+            scripts/sync-test.mjs \
+            scripts/watch-test.mjs \
+            scripts/mobile-test.mjs
+          do
+            echo "::group::Running $journey"
+            if ! node "$journey"; then
+              journey_failures=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$journey_failures"
 
       - name: Upload browser evidence
         if: always()
