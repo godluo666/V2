@@ -15,15 +15,16 @@
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { ANOMALY_POINTS, STATION, seededRandom } from '@nexuspark/shared';
+import { ANOMALY_POINTS, seededRandom } from '@nexuspark/shared';
 import { ENV, ACCENT } from './palette';
 import { hot } from '../../state/hot';
 
 /** 环境色污染强度 0..1(玩家离最近异常点的归一化接近度,已阻尼)。SkySystem 读取。 */
 export const anomalyPollution = { current: 0 };
 
-const PT_A = ANOMALY_POINTS.find((p) => p.id === 'a-alley-mouth') ?? ANOMALY_POINTS[0];
-const PT_B = ANOMALY_POINTS.find((p) => p.id === 'b-alley-end') ?? ANOMALY_POINTS[0];
+const PT_A = ANOMALY_POINTS.find((p) => p.id === 'a-cinema-poster') ?? ANOMALY_POINTS[0];
+const PT_B = ANOMALY_POINTS.find((p) => p.id === 'c-club-alley') ?? ANOMALY_POINTS[0];
+const PT_C = ANOMALY_POINTS.find((p) => p.id === 'b-crossing-glow') ?? ANOMALY_POINTS[0];
 
 /* ── §6 黑色碎片(异常点 A):缓慢上浮、不发光、速度不一致 ─────────────── */
 
@@ -132,14 +133,14 @@ function InkGrowth() {
   });
   // 巷底 B 点东侧围合楼(x=44 的西墙)上贴 decal;稍离墙防 z-fight
   return (
-    <mesh ref={mesh} position={[43.92, 1.35, PT_B.z]} rotation={[0, -Math.PI / 2, 0]}>
+    <mesh ref={mesh} position={[28.48, 1.35, PT_B.z]} rotation={[0, -Math.PI / 2, 0]}>
       <planeGeometry args={[2.4, 2.4]} />
       <meshBasicMaterial ref={mat} map={inkTexture()} transparent opacity={0.5} depthWrite={false} />
     </mesh>
   );
 }
 
-/* ── §6 逆重力纸张(站前广场):3-4 张传单向上飘,到 2m 消散,~60s 一次 ── */
+/* ── §6 逆重力纸张(街心斑马线):3-4 张传单向上飘,到 2m 消散,~60s 一次 ── */
 
 const FLYER_PERIOD = 60;
 const FLYER_ACTIVE = 6;   // 每轮动画时长(秒)
@@ -148,10 +149,10 @@ const FLYER_TOP = 2;      // 消散高度(米)
 function AntigravityFlyers() {
   const flyers = useMemo(() => {
     const rnd = seededRandom(66003);
-    // 站前广场(出生点旁,地铁口 STATION 附近)散布 4 张
+    // 街心斑马线附近散布 4 张，不再依赖旧车站坐标。
     return Array.from({ length: 4 }, (_, i) => ({
-      x: STATION.x - 6 + rnd() * 6,
-      z: STATION.z - 7 + rnd() * 5,
+      x: PT_C.x - 2.2 + rnd() * 4.4,
+      z: PT_C.z - 1.4 + rnd() * 2.8,
       delay: i * 3.1 + rnd() * 1.5,   // 同轮内错峰起飞
       wobble: 0.6 + rnd() * 0.8,
       ry: rnd() * Math.PI * 2,

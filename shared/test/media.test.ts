@@ -28,6 +28,11 @@ describe('mediaPositionAt(服务器时钟外推)', () => {
     expect(mediaPositionAt(m, T0 + 61_500)).toBeCloseTo(71.5, 9);
   });
 
+  it('校时时钟短暂落后于新锚点时不倒播', () => {
+    const futureAnchor = base({ position: 18, updatedAt: T0 + 500 });
+    expect(mediaPositionAt(futureAnchor, T0)).toBe(18);
+  });
+
   it('暂停时位置冻结,不随时间移动', () => {
     const m = base({ playing: false, position: 42.25 });
     expect(mediaPositionAt(m, T0)).toBe(42.25);

@@ -1,10 +1,8 @@
 /**
- * 月汐町·晴日生活街平面数据 —— 服务端碰撞与客户端渲染共享的唯一坐标契约。
- * 坐标系:x 向东,z 向南(北 = -z)。所有矩形均为「中心 + 全宽全深」。
+ * 月汐町·一番街平面数据。
  *
- * 首段可玩区严格收在 96×84m 内，真正的逛街动线约 70m；远景楼只承担构图，
- * 不把玩家引向几百米外。中央小路口、站前口袋广场、两条生活巷和天桥形成
- * “几步就有内容”的短街节奏，同时保留七个既有场馆入口。
+ * 坐标系：x 向东，z 向南。首阶段只开放一条 58m 的生活街，三座可进入
+ * 场馆嵌在连续住宅立面中；服务端碰撞与客户端渲染共享这份坐标契约。
  */
 import { seededRandom } from './math';
 
@@ -15,141 +13,103 @@ export interface CityBuilding extends CityRect {
   ry?: number;
   style: 'shopfront' | 'tower' | 'apartment' | 'backstreet' | 'silhouette';
   sign?: { text: string; color: string };
-  /** 填场馆 key 时 = 带门店面(门位见 VENUES)。 */
-  venue?: string;
-}
-export interface CityRamp extends CityRect {
-  /** 坡道下坡朝向(下坡指向的罗盘方向;n = -z)。 */
-  dir: 'n' | 's' | 'e' | 'w';
+  venue?: CityVenue['key'];
 }
 export interface CityVenue {
-  key: 'cinema' | 'netcafe' | 'gameroom' | 'cafe' | 'shop' | 'arcade' | 'tower';
+  key: 'cinema' | 'netcafe' | 'gameroom';
   x: number; z: number; ry: number; label: string;
 }
 export interface CityAnomaly { id: string; x: number; z: number; r: number }
 
-export const CITY_BOUNDS = { minX: -48, maxX: 48, minZ: -42, maxZ: 42 };
-
-/** 双向生活街 10m，两侧 3.5m 人行道；路口压缩为 16×16m。 */
-export const ROAD_W = 10;
+/** 62×46m 可玩边界；主街本体仅 58m。 */
+export const CITY_BOUNDS = { minX: -31, maxX: 31, minZ: -23, maxZ: 23 };
+export const ROAD_W = 8;
 export const SIDEWALK_W = 3.5;
 
-/** 沥青路面矩形:路口四臂(东西南北)。 */
+/** 单轴双向生活街，不再使用十字路口和四条空旷支路。 */
 export const ROADS: CityRect[] = [
-  { x: 27, z: 0, w: 38, d: ROAD_W },   // 东街 x 8..46
-  { x: -27, z: 0, w: 38, d: ROAD_W },  // 西街 x -46..-8
-  { x: 0, z: -25, w: ROAD_W, d: 34 },  // 北街 z -42..-8
-  { x: 0, z: 25, w: ROAD_W, d: 34 },   // 南街 z 8..42
+  { x: 0, z: 0, w: 58, d: ROAD_W },
 ];
 
-/** 中央大十字路口(斑马线区)。 */
-export const CROSSING: CityRect = { x: 0, z: 0, w: 16, d: 16 };
-
-/** 斑马线条纹带;dir = 行人穿行方向('z' 跨东西向车道,'x' 跨南北向车道)。 */
+/** 中段漫画化路面构图区，仍属于同一条街。 */
+export const CROSSING: CityRect = { x: 0, z: 0, w: 7, d: ROAD_W };
 export const CROSSWALKS: CityCrosswalk[] = [
-  { x: 0, z: -6.5, w: ROAD_W, d: 3, dir: 'z' },
-  { x: 0, z: 6.5, w: ROAD_W, d: 3, dir: 'z' },
-  { x: -6.5, z: 0, w: 3, d: ROAD_W, dir: 'x' },
-  { x: 6.5, z: 0, w: 3, d: ROAD_W, dir: 'x' },
+  { x: 0, z: 0, w: 3.6, d: ROAD_W, dir: 'z' },
 ];
 
-/** 人行道砖区(含站前广场铺装与窄巷地面)。 */
+/** 两侧连续步道 + 三处入口前的小型拓宽区。 */
 export const SIDEWALKS: CityRect[] = [
-  // 东街两侧
-  { x: 27, z: -6.75, w: 38, d: SIDEWALK_W },
-  { x: 27, z: 6.75, w: 38, d: SIDEWALK_W },
-  // 西街两侧
-  { x: -27, z: -6.75, w: 38, d: SIDEWALK_W },
-  { x: -27, z: 6.75, w: 38, d: SIDEWALK_W },
-  // 北街两侧
-  { x: -6.75, z: -25, w: SIDEWALK_W, d: 34 },
-  { x: 6.75, z: -25, w: SIDEWALK_W, d: 34 },
-  // 南街两侧
-  { x: -6.75, z: 25, w: SIDEWALK_W, d: 34 },
-  { x: 6.75, z: 25, w: SIDEWALK_W, d: 34 },
-  // 站前口袋广场(出生点):只做 28×12m，不再铺成空旷大广场
-  { x: 0, z: 33, w: 28, d: 12 },
-  // 东/西两条短生活巷，给照片构图和近距离探索，不做迷宫
-  { x: 21.5, z: 25.5, w: 25, d: 2.4 },
-  { x: 33, z: 30, w: 2.4, d: 11.4 },
-  { x: -21.5, z: 25.5, w: 25, d: 2.4 },
-  { x: -33, z: 30, w: 2.4, d: 11.4 },
+  { x: 0, z: -5.75, w: 58, d: SIDEWALK_W },
+  { x: 0, z: 5.75, w: 58, d: SIDEWALK_W },
+  { x: -17, z: -6.95, w: 10, d: 1.8 },
+  { x: 0, z: 6.95, w: 10, d: 1.8 },
+  { x: 17, z: -6.95, w: 10, d: 1.8 },
 ];
 
-// ── 建筑 ────────────────────────────────────────────────────────────────────
-const b = (x: number, z: number, w: number, d: number, h: number,
-  style: CityBuilding['style'], extra?: Partial<CityBuilding>): CityBuilding =>
-  ({ x, z, w, d, h, style, ...extra });
+const b = (
+  x: number, z: number, w: number, d: number, h: number,
+  style: CityBuilding['style'], extra?: Partial<CityBuilding>,
+): CityBuilding => ({ x, z, w, d, h, style, ...extra });
 
-/** 视觉建筑体;非 silhouette 全部参与碰撞(layouts.ts 逐一 box)。 */
-export const BUILDINGS: CityBuilding[] = [
-  // 北侧沿街:大门面之间留出 2-3m 立面节奏，入口一眼可见
-  b(22, -14.5, 18, 11, 12, 'shopfront', { venue: 'cinema', sign: { text: 'AURORA', color: '#d96f82' } }),
-  b(-22, -14.5, 18, 11, 10, 'shopfront', { venue: 'netcafe', sign: { text: 'NEXUS', color: '#72a7d8' } }),
-  b(-39, -14, 10, 10, 9, 'shopfront', { venue: 'shop', sign: { text: '团子百货', color: '#79cdb8' } }),
-  b(39, -14, 10, 10, 10, 'shopfront', { venue: 'arcade', sign: { text: '像素宫', color: '#cf685f' } }),
-  // 南街两侧:咖啡与雀庄面对面，构成最短的日常社交环
-  b(-14.5, 15, 11, 12, 8, 'shopfront', { venue: 'cafe', sign: { text: '研磨咖啡', color: '#efc878' } }),
-  b(14.5, 15, 11, 12, 9, 'shopfront', { venue: 'gameroom', sign: { text: '东风阁', color: '#d49a54' } }),
-  // 北街终点的个人房间塔，不再需要步行一百多米
-  b(14.5, -32, 11, 14, 25, 'tower', { venue: 'tower', sign: { text: '团子塔', color: '#efc878' } }),
-  b(-14.5, -32, 11, 14, 15, 'apartment', { sign: { text: '月汐公寓', color: '#8eb7c8' } }),
-  // 两条短巷的围合体:密度来自近景细节，不来自无尽重复街墙
-  b(24, 31.8, 15.6, 10, 12, 'backstreet'),
-  b(39.2, 28.5, 8.8, 17, 13, 'backstreet'),
-  b(-24, 31.8, 15.6, 10, 11, 'backstreet'),
-  b(-39.2, 28.5, 8.8, 17, 12, 'backstreet'),
-  // 东西街端头用小体量收景，避免道路直通空无天际
-  b(45, 14, 6, 10, 12, 'apartment'),
-  b(-45, 14, 6, 10, 11, 'apartment'),
+/**
+ * 连续住宅街墙：三座场馆与三栋住宅交错，首层有橱窗与门棚，上层是阳台、
+ * 外廊和暖窗。密度来自立面层次，不靠扩大地图。
+ */
+const ACTIVE_BUILDINGS: CityBuilding[] = [
+  // 北侧：影院—住宅—轰趴馆
+  b(-19, -13.1, 19, 10.2, 14, 'shopfront', {
+    venue: 'cinema', sign: { text: '星汐 CINEMA', color: '#ff3f6c' },
+  }),
+  b(0, -13.1, 14.5, 10.2, 18, 'apartment', {
+    sign: { text: '月汐荘', color: '#ffd34f' },
+  }),
+  b(19, -13.1, 19, 10.2, 13, 'shopfront', {
+    venue: 'gameroom', sign: { text: '团子 CLUB', color: '#ff704d' },
+  }),
+  // 南侧：住宅—电竞馆—住宅
+  b(-20.5, 13.1, 17, 10.2, 16, 'backstreet', {
+    sign: { text: '一番住宅', color: '#42d7c7' },
+  }),
+  b(0, 13.1, 19, 10.2, 12, 'shopfront', {
+    venue: 'netcafe', sign: { text: '镜界 ARENA', color: '#3db7ff' },
+  }),
+  b(20.5, 13.1, 17, 10.2, 17, 'apartment', {
+    sign: { text: '潮风公寓', color: '#ffcf66' },
+  }),
 ];
 
-// 近距离远景楼群(r=62..108m):纯视觉、零碰撞；短街尽头仍有完整天际线。
-{
+/** 近距离天际线只承担街端层叠透视，不形成可到达的第二片地图。 */
+function createSilhouettes(count: number): CityBuilding[] {
   const rnd = seededRandom(7707);
+  const silhouettes: CityBuilding[] = [];
   let guard = 0;
-  while (BUILDINGS.filter((x) => x.style === 'silhouette').length < 18 && guard++ < 400) {
-    const a = rnd() * Math.PI * 2;
-    const r = 62 + rnd() * 46;
-    const x = Math.round(Math.cos(a) * r);
-    const z = Math.round(Math.sin(a) * r);
-    // 让开主街走廊,保住街道尽头的天际线视线
-    if (Math.abs(x) < 18 || Math.abs(z) < 18) continue;
-    const w = 12 + Math.round(rnd() * 16);
-    const d = 12 + Math.round(rnd() * 15);
-    const h = 18 + Math.round(rnd() * 30);
-    BUILDINGS.push(b(x, z, w, d, h, 'silhouette', { ry: (rnd() - 0.5) * 0.5 }));
+  while (silhouettes.length < count && guard++ < count * 24) {
+    const side = rnd() > 0.5 ? 1 : -1;
+    const x = -48 + rnd() * 96;
+    const z = side * (34 + rnd() * 24);
+    const w = 9 + Math.round(rnd() * 13);
+    const d = 8 + Math.round(rnd() * 10);
+    const h = 18 + Math.round(rnd() * 28);
+    silhouettes.push(b(x, z, w, d, h, 'silhouette', { ry: (rnd() - 0.5) * 0.18 }));
   }
+  return silhouettes;
 }
 
-/** 小型高架人行天桥:桥面横跨北街，坡道完全收在短街内。 */
-export const OVERPASS: { deck: CityRect & { y: number }; ramps: CityRamp[] } = {
-  deck: { x: 0, z: -25, w: 18, d: 4, y: 4.2 },
-  ramps: [
-    { x: -6.75, z: -17.5, w: 3, d: 11, dir: 's' },
-    { x: 6.75, z: -17.5, w: 3, d: 11, dir: 's' },
-    { x: -6.75, z: -32.5, w: 3, d: 11, dir: 'n' },
-    { x: 6.75, z: -32.5, w: 3, d: 11, dir: 'n' },
-  ],
-};
-
-/** 封闭的旧电车入口，位于站前口袋广场西侧。 */
-export const STATION: { x: number; z: number; ry: number } = { x: -20, z: 34, ry: Math.PI / 2 };
-
-/** 七个场馆门位(全部在主街一层;tower = 个人房间塔入口)。 */
-export const VENUES: CityVenue[] = [
-  { key: 'cinema', x: 22, z: -8.9, ry: Math.PI, label: '极光影院 AURORA' },
-  { key: 'netcafe', x: -22, z: -8.9, ry: Math.PI, label: '镜界电竞馆 NEXUS' },
-  { key: 'gameroom', x: 8.9, z: 15, ry: Math.PI / 2, label: '雀庄·东风阁' },
-  { key: 'cafe', x: -8.9, z: 15, ry: -Math.PI / 2, label: '研磨咖啡馆' },
-  { key: 'shop', x: -39, z: -8.9, ry: Math.PI, label: '团子百货' },
-  { key: 'arcade', x: 39, z: -8.9, ry: Math.PI, label: '像素宫游戏厅' },
-  { key: 'tower', x: 8.9, z: -32, ry: Math.PI / 2, label: '团子塔' },
+export const BUILDINGS: CityBuilding[] = [
+  ...ACTIVE_BUILDINGS,
+  ...createSilhouettes(14),
 ];
 
-/** 低频事件点:两条短巷与天桥下。 */
+/** 唯一三个可进入场馆，全部在同一条街的一层。 */
+export const VENUES: CityVenue[] = [
+  { key: 'cinema', x: -19, z: -7.82, ry: 0, label: '星汐电影院' },
+  { key: 'netcafe', x: 0, z: 7.82, ry: Math.PI, label: '镜界电竞观战馆' },
+  { key: 'gameroom', x: 19, z: -7.82, ry: 0, label: '团子轰趴馆' },
+];
+
+/** 低频原创都市异象点，均贴在单街边缘，不扩张动线。 */
 export const ANOMALY_POINTS: CityAnomaly[] = [
-  { id: 'a-alley-mouth', x: -10.5, z: 25.5, r: 3.2 },
-  { id: 'b-alley-end', x: 33, z: 34.5, r: 3.5 },
-  { id: 'c-overpass', x: 0, z: -21.8, r: 4 },
+  { id: 'a-cinema-poster', x: -27, z: -6.2, r: 2.8 },
+  { id: 'b-crossing-glow', x: 0, z: 0, r: 3.2 },
+  { id: 'c-club-alley', x: 27, z: -6.2, r: 2.8 },
 ];

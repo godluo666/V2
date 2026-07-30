@@ -88,12 +88,40 @@ export function CinemaSeat({ position, rotation }: { position: [number, number, 
   const frame = useMemo(() => mat('#2b2129', 0.6), []);
   return (
     <group position={position} rotation={[0, rotation, 0]}>
-      <mesh position={[0, 0.45, 0]} castShadow material={fabric}><boxGeometry args={[0.52, 0.1, 0.45]} /></mesh>
-      <mesh position={[0, 0.7, -0.24]} rotation={[-0.12, 0, 0]} castShadow material={fabric}><boxGeometry args={[0.52, 0.65, 0.12]} /></mesh>
+      <mesh position={[0, 0.4, 0]} castShadow material={fabric}><boxGeometry args={[0.52, 0.12, 0.45]} /></mesh>
+      <mesh position={[0, 0.68, -0.24]} rotation={[-0.12, 0, 0]} castShadow material={fabric}><boxGeometry args={[0.52, 0.65, 0.12]} /></mesh>
       {[-0.29, 0.29].map((x, i) => (
-        <mesh key={i} position={[x, 0.55, 0]} material={frame}><boxGeometry args={[0.06, 0.5, 0.45]} /></mesh>
+        <mesh key={i} position={[x, 0.5, 0]} material={frame}><boxGeometry args={[0.06, 0.5, 0.45]} /></mesh>
       ))}
-      <mesh position={[0, 0.25, 0]} material={frame}><boxGeometry args={[0.5, 0.4, 0.4]} /></mesh>
+      {/* The seat origin is the actual floor/deck contact plane. */}
+      <mesh position={[0, 0.19, 0]} material={frame}><boxGeometry args={[0.5, 0.38, 0.4]} /></mesh>
+    </group>
+  );
+}
+
+/** Carpeted cinema row platform. Its top is exactly `h`, matching layout heightZones. */
+export function CinemaRiser({
+  position, rotation, w, d, h,
+}: {
+  position: [number, number, number];
+  rotation: number;
+  w: number;
+  d: number;
+  h: number;
+}) {
+  const carpet = useMemo(() => mat('#351e2b', 0.96), []);
+  const edge = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#ef9a62', emissive: '#ef7653', emissiveIntensity: 0.42, roughness: 0.65,
+  }), []);
+  if (h <= 0) return null;
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      <mesh position={[0, h / 2, 0]} receiveShadow castShadow material={carpet}>
+        <boxGeometry args={[w, h, d]} />
+      </mesh>
+      <mesh position={[0, h + 0.008, -d / 2 + 0.035]} material={edge}>
+        <boxGeometry args={[w, 0.016, 0.07]} />
+      </mesh>
     </group>
   );
 }

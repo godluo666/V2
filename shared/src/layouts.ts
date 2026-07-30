@@ -10,7 +10,7 @@ import type { Bounds, Collider } from './math';
 import type { AvatarConfig } from './types';
 import { SPACE } from './constants';
 import {
-  BUILDINGS, CITY_BOUNDS, OVERPASS, STATION, VENUES,
+  BUILDINGS, CITY_BOUNDS, VENUES,
 } from './cityplan';
 
 export type InteractKind =
@@ -121,149 +121,91 @@ class B {
   lamp(x: number, z: number) { this.prop('c_lamp', x, 0, z); this.circle(x, z, 0.22); return this; }
 }
 
-// ═══════════════════════ 月汐町·晴日生活街(户外) ════════════════════════════
+/** Safe fallback used by archived rooms that no longer have a public façade. */
+const STREET_SPAWN: [number, number, number, number] = [-1.8, 0, 5.4, Math.PI / 2];
+
+// ═══════════════════════ 月汐町·一番街(户外) ════════════════════════════════
 function buildCity(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { ...CITY_BOUNDS };
 
-  // ── 建筑碰撞(非剪影全部实心;剪影楼在雾里,不可达也不必碰撞)──
+  // 连续住宅街墙全部参与碰撞；远景剪影纯视觉。
   for (const bd of BUILDINGS) {
     if (bd.style === 'silhouette') continue;
     b.box(bd.x, bd.z, bd.w, bd.d);
   }
 
-  // ── 场馆门(七个,全部在主街一层;门位由 cityplan.VENUES 精排)──
-  const doorTarget: Record<string, { target: string; label: string }> = {
-    cinema: { target: SPACE.CINEMA, label: '进入电影院' },
-    netcafe: { target: SPACE.NETCAFE, label: '进入网吧 NEXUS' },
-    gameroom: { target: SPACE.GAMEROOM, label: '进入雀庄·东风阁' },
-    cafe: { target: SPACE.CAFE, label: '进入咖啡馆' },
-    shop: { target: SPACE.SHOP, label: '进入便利店' },
-    arcade: { target: SPACE.ARCADE, label: '进入游戏厅' },
-    tower: { target: SPACE.LOBBY, label: '进入团子塔' },
-  };
+  // 首阶段严格只开放三个入口。
   for (const v of VENUES) {
-    const t = doorTarget[v.key];
-    b.inter(`d-${v.key}`, 'door', v.x, 0, v.z, v.ry, t.label, { target: t.target });
+    b.inter(`d-${v.key}`, 'door', v.x, 0, v.z, v.ry, `进入${v.label}`, { target: v.key });
   }
 
-  // ── 小型高架天桥(北街;heightZones:4 条线性坡道 + 平台)──
-  const dk = OVERPASS.deck;
-  b.heightZones.push({
-    minX: dk.x - dk.w / 2, maxX: dk.x + dk.w / 2,
-    minZ: dk.z - dk.d / 2, maxZ: dk.z + dk.d / 2, kind: 'deck', y: dk.y,
-  });
-  for (const r of OVERPASS.ramps) {
-    b.heightZones.push({
-      minX: r.x - r.w / 2, maxX: r.x + r.w / 2,
-      minZ: r.z - r.d / 2, maxZ: r.z + r.d / 2, kind: 'ramp', dir: r.dir, y: dk.y,
-    });
-  }
-  // 桥面栏杆兼桥下柔性封条:短街不留压迫的长距离桥体。
-  const railW = 10.4;
-  const railNorthZ = dk.z - dk.d / 2 - 0.25;
-  const railSouthZ = dk.z + dk.d / 2 + 0.25;
-  b.box(0, railNorthZ, railW, 0.5);
-  b.box(0, railSouthZ, railW, 0.5);
-  b.prop('c_fence', 0, 0, railNorthZ, 0, { w: railW, bridge: true });
-  b.prop('c_fence', 0, 0, railSouthZ, 0, { w: railW, bridge: true });
-  // 桥墩 4 根
-  for (const [px, pz] of [[-4, -23.8], [4, -23.8], [-4, -26.2], [4, -26.2]] as const) {
-    b.circle(px, pz, 0.45);
-    b.prop('c_pier', px, 0, pz);
-  }
+  // 漫画都市街角设施：只贴步道外缘布置，三处入口前保持 3m 净空。
+  b.inter('city-board', 'board', 8.2, 0, 6.9, Math.PI, '月汐町社团公告栏', {});
+  b.box(8.2, 6.9, 1.6, 0.45);
+  b.inter('v-vend1', 'vending', -27.3, 0, 6.75, Math.PI, '草莓汽水机', { items: ['soda', 'pizza'] });
+  b.box(-27.3, 6.75, 0.8, 0.9);
+  b.inter('v-vend2', 'vending', 27.1, 0, -6.75, 0, '海盐汽水机', { items: ['soda', 'pizza'] });
+  b.box(27.1, -6.75, 0.8, 0.9);
 
-  // ── 封闭旧电车口(口袋广场西侧)──
-  b.box(STATION.x, STATION.z, 7, 4.5);
+  b.bench('sb0', -9, 6.35, Math.PI);
+  b.bench('sb1', 10, -6.35, 0);
+  b.bench('sb2', 25, 6.35, Math.PI);
 
-  // ── 口袋广场家什:边缘有内容，中线保持宽敞出生/集合通道 ──
-  b.inter('city-board', 'board', 10.5, 0, 35.5, -Math.PI / 2 - 0.18, '月汐町留言板', {});
-  b.box(10.5, 35.5, 0.5, 1.6);
-  b.inter('v-vend1', 'vending', -11.3, 0, 29.2, 0, '晴日汽水机', { items: ['soda', 'pizza'] });
-  b.box(-11.3, 29.2, 0.8, 0.9);
-  b.inter('v-vend2', 'vending', 34.5, 0, -6.7, Math.PI, '蓝莓汽水机', { items: ['soda', 'pizza'] });
-  b.box(34.5, -6.7, 0.8, 0.9);
-
-  // 街边长椅 ×5:以小组分布，保证门口和主通道净宽
-  b.bench('sb0', 8.8, 29.5, Math.PI);
-  b.bench('sb1', -8.5, 37, 0);
-  b.bench('sb2', 17.5, 6.7, Math.PI);
-  b.bench('sb3', -15.5, 6.7, Math.PI);
-  b.bench('sb4', -6.75, -37.5, -Math.PI / 2);
-
-  // ── 路灯(8-14m 错落;短街密度高但不排成走廊)──
   const lamps: Array<[number, number]> = [
-    [-11.5, 37.5], [11.5, 38], [-11.2, 28], [11.2, 24],
-    [16, -6.8], [31, -6.7], [17.5, 6.8], [33, 6.7],
-    [-16, -6.8], [-31, -6.7], [-17, 6.8], [-34, 6.7],
-    [-6.8, -13], [6.8, -15], [-6.8, -36], [6.8, -39],
+    [-27.5, -6.2], [-18, 6.2], [-8, -6.2],
+    [12, -6.2], [21, 6.2], [28, -6.2],
   ];
   for (const [lx, lz] of lamps) b.lamp(lx, lz);
 
-  // ── 生活事件组:每组 2-4 件，靠边组织，中央动线不堆物 ──
-  // 广场:储物柜、电话、三组花槽形成温柔边界
-  b.prop('c_locker', 12.2, 0, 31.2, -Math.PI / 2);
-  b.prop('c_locker', 12.2, 0, 32.6, -Math.PI / 2);
-  b.box(12.2, 31.9, 0.6, 3);
-  b.prop('c_phone', -12.1, 0, 36.5, Math.PI / 2);
-  b.box(-12.1, 36.5, 0.9, 0.9);
-  for (const [x, z] of [[-12.2, 31.5], [-12, 34], [12, 38.3]] as const) {
+  // 住宅生活细节：自行车、花槽、电话、海报、电线杆和空调形成近景层次。
+  for (const [x, z] of [[-24, -6.65], [-4, 6.65], [14, 6.65], [24, -6.65]] as const) {
     b.prop('c_planter', x, 0, z);
     b.box(x, z, 0.9, 0.9);
   }
-  // 咖啡馆与雀庄之间:自行车、海报、消防栓
-  b.prop('c_bike', -8.1, 0, 20.8, 1.35); b.circle(-8.1, 20.8, 0.35);
-  b.prop('c_poster', -9.05, 1.45, 18.5, -Math.PI / 2);
-  b.prop('c_hydrant', 6.7, 0, 20.5); b.circle(6.7, 20.5, 0.25);
-  b.prop('c_manhole', 2.2, 0, 18);
-  // 东巷:单车与少量杂物，巷底仍留 2m 回转空间
-  b.prop('c_trash', 25.5, 0, 25.5); b.circle(25.5, 25.5, 0.34);
-  b.prop('c_bike', 32.4, 0, 33.3, 2.75); b.circle(32.4, 33.3, 0.35);
-  b.prop('c_ac', 33.9, 2.35, 28.2, -Math.PI / 2);
-  // 西巷:绿植花槽替代大堆垃圾，让生活感更温和
-  b.prop('c_planter', -25.2, 0, 25.5); b.box(-25.2, 25.5, 0.9, 0.9);
-  b.prop('c_bike', -32.4, 0, 33.5, -2.7); b.circle(-32.4, 33.5, 0.35);
-  b.prop('c_poster', -33.9, 1.45, 29, Math.PI / 2);
-  // 电线杆/井盖与小路口信号
-  for (const [x, z] of [[15, 7.9], [33, 8], [-15, -7.9], [-33, -8]] as const) {
-    b.prop('c_wires', x, 0, z);
+  b.prop('c_phone', -13.2, 0, 6.7, Math.PI); b.box(-13.2, 6.7, 0.9, 0.9);
+  b.prop('c_locker', 13.1, 0, -6.75, 0); b.box(13.1, -6.75, 1.4, 0.6);
+  for (const [x, z, ry] of [
+    [-26, -6.55, 0.2], [-12, 6.55, 2.8], [6, -6.55, 0.35], [25, 6.55, 2.7],
+  ] as const) {
+    b.prop('c_bike', x, 0, z, ry); b.circle(x, z, 0.35);
+  }
+  for (const [x, z, ry] of [
+    [-9.8, -7.15, 0], [10.6, 7.15, Math.PI], [28.4, -7.15, 0],
+  ] as const) {
+    b.prop('c_poster', x, 1.45, z, ry);
+  }
+  b.prop('c_hydrant', -2.2, 0, -6.6); b.circle(-2.2, -6.6, 0.25);
+  b.prop('c_manhole', -15, 0, 0.8);
+  b.prop('c_manhole', 16, 0, -0.7);
+  for (const [x, z] of [[-29, 6.85], [-15, -6.85], [15, -6.85], [29, 6.85]] as const) {
+    b.prop('c_wires', x, 0, z, 0, { len: 14, sag: 0.8, strands: 3 });
     b.circle(x, z, 0.18);
   }
-  b.prop('c_manhole', -2, 0, -17);
-  for (const [x, z, ry] of [
-    [8.6, 8.6, -Math.PI * 0.75], [-8.6, 8.6, Math.PI * 0.75],
-    [8.6, -8.6, -Math.PI * 0.25], [-8.6, -8.6, Math.PI * 0.25],
-  ] as const) {
-    b.prop('c_signal', x, 0, z, ry);
-    b.circle(x, z, 0.2);
-  }
-  // 场馆门前只放轻量识别物，门口 2.4m 范围保持无碰撞
-  b.prop('c_vend', -17.5, 0, -7.2, 0, { variant: 'blue' }); b.box(-17.5, -7.2, 0.7, 0.8);
-  b.prop('c_bike', 8.2, 0, -35.5, 0.35); b.circle(8.2, -35.5, 0.35);
 
   const npcs: NpcDef[] = [
     {
       id: -1, name: 'Yuki', dialogueId: 'greeter', speed: 1.1, pause: 6,
       avatar: npcAvatar('#f2a5b5', '#5a3b8c', '#cbb8d9', '#5a3b8c', 1, '#5a3b8c', 1),
-      waypoints: [[7, 32], [-7, 36], [-3, 28]],
+      waypoints: [[-4, -5.7], [4, -5.7], [8, 5.7], [-2, 5.7]],
     },
     {
       id: -2, name: 'Kaito', dialogueId: 'walker', speed: 1.4, pause: 3,
       avatar: npcAvatar('#f5b8c4', '#3f7d44', '#b7cf8f', '#4a4a55', 0, '#333333', 0),
-      waypoints: [[13, 6.7], [25, 6.7], [36, 6.6], [24, 6.8]],
+      waypoints: [[-25, 5.7], [-14, 5.7], [-6, 5.7], [-17, 5.7]],
     },
     {
       id: -5, name: 'Rin', dialogueId: 'walker', speed: 1.2, pause: 4,
       avatar: npcAvatar('#f2a5b5', '#2f3b5c', '#9fb3d9', '#33383f', 0, '#333333', 2),
-      waypoints: [[-13, -6.7], [-25, -6.7], [-35, -6.6], [-23, -6.8]],
+      waypoints: [[10, -5.7], [18, -5.7], [27, -5.7], [20, -5.7]],
     },
   ];
 
   return {
-    key: SPACE.PLAZA, label: '月汐町·晴日生活街', indoor: false, bounds,
-    spawn: [0, 0, 32, Math.PI],
+    key: SPACE.PLAZA, label: '月汐町·一番街', indoor: false, bounds,
+    spawn: STREET_SPAWN,
     colliders: b.colliders, interactables: b.interactables, props: b.props,
-    npcs, heightZones: b.heightZones, hasBall: true,
+    npcs, heightZones: [], hasBall: false,
   };
 }
 
@@ -272,7 +214,7 @@ function buildCafe(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -9, maxX: 9, minZ: -7, maxZ: 7 };
 
-  b.inter('cafe-exit', 'door', 0, 0, 6.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [-7.7, 0, 15, Math.PI / 2] });
+  b.inter('cafe-exit', 'door', 0, 0, 6.7, 0, '返回一番街', { target: SPACE.PLAZA, spawn: STREET_SPAWN });
   b.inter('cafe-lights', 'switch', 1.7, 1.2, 6.85, 0, '电灯开关', { switchId: 'cafe-lights' });
 
   // Counter along north wall
@@ -347,16 +289,25 @@ function buildCinema(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -15, maxX: 15, minZ: -12, maxZ: 12 };
 
-  b.inter('cine-exit', 'door', 0, 0, 11.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [22, 0, -7.6, 0] });
+  b.inter('cine-exit', 'door', 0, 0, 11.7, 0, '返回一番街', {
+    target: SPACE.PLAZA, spawn: [-19, 0, -5.55, Math.PI],
+  });
   // 巨幕:互动锚点在银幕下沿中线;视觉尺寸(24×10)在客户端 registry 里定义
   b.inter('cine-screen', 'screen', 0, 5.8, -11.4, 0, '影院银幕');
 
-  // 5 排 × 10 座(3-4-3 三段):2.4m 排距、2.6m 主过道、两侧均可绕行。
+  // 5 排 × 10 座(3-4-3 三段)：台阶、座椅原点和座位 Snap Point 共用 lift。
   const seatX = [-8.6, -7.4, -6.2, -1.8, -0.6, 0.6, 1.8, 6.2, 7.4, 8.6];
   let seatIdx = 0;
   for (let row = 0; row < 5; row++) {
     const z = -3.4 + row * 2.4;
-    const lift = 0.32 * row;
+    const lift = 0.24 * row;
+    if (lift > 0) {
+      b.prop('cinema_riser', 0, 0, z, 0, { w: 21, d: 2.4, h: lift, row });
+      b.heightZones.push({
+        minX: -10.5, maxX: 10.5, minZ: z - 1.2, maxZ: z + 1.2,
+        kind: 'deck', y: lift,
+      });
+    }
     for (const x of seatX) {
       b.prop('cinema_seat', x, lift, z, Math.PI);
       b.inter(`cine-s${seatIdx++}`, 'seat', x, 0.47 + lift, z, Math.PI, '坐下');
@@ -385,7 +336,7 @@ function buildCinema(): SpaceLayout {
     key: SPACE.CINEMA, label: '极光影院·巨幕厅', indoor: true, bounds,
     spawn: [0, 0, 10, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
-    npcs: [], heightZones: [], mediaPolicy: 'everyone',
+    npcs: [], heightZones: b.heightZones, mediaPolicy: 'everyone',
   };
 }
 
@@ -394,7 +345,7 @@ function buildArcade(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -8, maxX: 8, minZ: -7, maxZ: 7 };
 
-  b.inter('arc-exit', 'door', -7.7, 0, 0, Math.PI / 2, '返回街区', { target: SPACE.PLAZA, spawn: [39, 0, -7.6, 0] });
+  b.inter('arc-exit', 'door', -7.7, 0, 0, Math.PI / 2, '返回一番街', { target: SPACE.PLAZA, spawn: STREET_SPAWN });
   b.inter('arcade-neon', 'switch', -7.85, 1.2, 1.8, Math.PI / 2, '霓虹开关', { switchId: 'arcade-neon' });
 
   // Playable machines along north wall
@@ -437,7 +388,7 @@ function buildShop(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -8, maxX: 8, minZ: -7, maxZ: 7 };
 
-  b.inter('shop-exit', 'door', 7.7, 0, 0, -Math.PI / 2, '返回街区', { target: SPACE.PLAZA, spawn: [-39, 0, -7.6, 0] });
+  b.inter('shop-exit', 'door', 7.7, 0, 0, -Math.PI / 2, '返回一番街', { target: SPACE.PLAZA, spawn: STREET_SPAWN });
   b.inter('shop-lights', 'switch', 7.85, 1.2, 1.8, -Math.PI / 2, '电灯开关', { switchId: 'shop-lights' });
 
   // Furniture kiosk (center)
@@ -477,7 +428,7 @@ function buildLobby(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -9, maxX: 9, minZ: -7, maxZ: 7 };
 
-  b.inter('lobby-exit', 'door', 0, 0, 6.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [7.7, 0, -32, -Math.PI / 2] });
+  b.inter('lobby-exit', 'door', 0, 0, 6.7, 0, '返回一番街', { target: SPACE.PLAZA, spawn: STREET_SPAWN });
   b.inter('lobby-lights', 'switch', 1.7, 1.2, 6.85, 0, '电灯开关', { switchId: 'lobby-lights' });
 
   // Elevator bank (north wall): two doors + call panel
@@ -514,7 +465,9 @@ function buildNetcafe(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -10, maxX: 10, minZ: -7.5, maxZ: 7.5 };
 
-  b.inter('nc-exit', 'door', 0, 0, 7.2, 0, '返回街区', { target: SPACE.PLAZA, spawn: [-22, 0, -7.6, 0] });
+  b.inter('nc-exit', 'door', 0, 0, 7.2, 0, '返回一番街', {
+    target: SPACE.PLAZA, spawn: [0, 0, 5.55, 0],
+  });
   b.inter('nc-lights', 'switch', 1.7, 1.2, 7.35, 0, '电灯开关', { switchId: 'nc-lights' });
 
   // 墙上 7.2m 联赛大屏(北墙;共享画面/媒体都可投上来)
@@ -551,49 +504,65 @@ function buildNetcafe(): SpaceLayout {
   };
 }
 
-// ═════════════════════════ 雀庄「东风阁」(新室内) ══════════════════════════
+// ═════════════════════════ 团子轰趴馆·社团活动室 ═══════════════════════════
 function buildGameroom(): SpaceLayout {
   const b = new B();
-  const bounds: Bounds = { minX: -9, maxX: 9, minZ: -7, maxZ: 7 };
+  const bounds: Bounds = { minX: -12, maxX: 12, minZ: -9, maxZ: 9 };
 
-  b.inter('gr-exit', 'door', 0, 0, 6.7, 0, '返回街区', { target: SPACE.PLAZA, spawn: [7.7, 0, 15, -Math.PI / 2] });
-  b.inter('gr-lights', 'switch', 1.7, 1.2, 6.85, 0, '电灯开关', { switchId: 'gr-lights' });
-
-  // 2 张全自动日麻桌(引擎/面板归 P6;这里只出桌位数据)
-  const riichiSeats: Array<[number, number, number]> = [
-    [0, 1.15, Math.PI],      // 南
-    [1.15, 0, -Math.PI / 2], // 东
-    [0, -1.15, 0],           // 北
-    [-1.15, 0, Math.PI / 2], // 西
-  ];
-  ([['gr-rj1', -4.1, -1.8], ['gr-rj2', 4.1, -1.8]] as const).forEach(([id, tx, tz]) => {
-    b.inter(id, 'riichi', tx, 0, tz, 0, '立直麻将桌');
-    b.box(tx, tz, 1.3, 1.3);
-    riichiSeats.forEach(([ox, oz, sry], i) => {
-      b.prop('chair', tx + ox, 0, tz + oz, sry);
-      b.inter(`${id}-s${i}`, 'seat', tx + ox, 0.47, tz + oz, sry, '坐下');
-    });
+  b.inter('gr-exit', 'door', 0, 0, 8.7, 0, '返回一番街', {
+    target: SPACE.PLAZA, spawn: [19, 0, -5.55, Math.PI],
   });
+  b.inter('gr-lights', 'switch', 1.7, 1.2, 8.85, 0, '活动室灯光', { switchId: 'gr-lights' });
 
-  // 1 张象棋桌
-  b.inter('gr-xq', 'xiangqi', 0, 0, 4.3, 0, '象棋桌');
-  b.box(0, 4.3, 1.0, 1.0);
-  for (const [sx, sry, i] of [[-1.05, Math.PI / 2, 0], [1.05, -Math.PI / 2, 1]] as const) {
-    b.prop('chair', sx, 0, 4.3, sry);
-    b.inter(`gr-xq-s${i}`, 'seat', sx, 0.47, 4.3, sry, '坐下');
+  // 主客厅：围坐沙发与软毯留出中央活动区，30 人也能从两侧绕行。
+  b.prop('club_rug', -4.2, 0.012, 1.2, 0, { w: 8.2, d: 6.4 });
+  b.prop('club_sofa', -7.6, 0, 1.2, Math.PI / 2); b.box(-7.6, 1.2, 1.05, 3.8);
+  b.inter('gr-sofa-w0', 'seat', -7.5, 0.44, 0.25, Math.PI / 2, '窝进沙发');
+  b.inter('gr-sofa-w1', 'seat', -7.5, 0.44, 1.2, Math.PI / 2, '窝进沙发');
+  b.inter('gr-sofa-w2', 'seat', -7.5, 0.44, 2.15, Math.PI / 2, '窝进沙发');
+  b.prop('club_sofa', -4.2, 0, -1.8, 0); b.box(-4.2, -1.8, 3.8, 1.05);
+  b.inter('gr-sofa-n0', 'seat', -5.15, 0.44, -1.72, 0, '窝进沙发');
+  b.inter('gr-sofa-n1', 'seat', -4.2, 0.44, -1.72, 0, '窝进沙发');
+  b.inter('gr-sofa-n2', 'seat', -3.25, 0.44, -1.72, 0, '窝进沙发');
+  b.prop('coffee_table', -4.2, 0, 1.1); b.circle(-4.2, 1.1, 0.55);
+
+  // 社团棋桌：象棋为现有服务端权威玩法；飞行棋为可围坐实体桌游陈设。
+  b.inter('gr-xq', 'xiangqi', 6.5, 0, 2.8, 0, '社团象棋桌');
+  b.box(6.5, 2.8, 1.0, 1.0);
+  for (const [x, z, ry, i] of [
+    [5.4, 2.8, Math.PI / 2, 0], [7.6, 2.8, -Math.PI / 2, 1],
+  ] as const) {
+    b.prop('chair', x, 0, z, ry);
+    b.inter(`gr-xq-s${i}`, 'seat', x, 0.47, z, ry, '坐下下棋');
+  }
+  b.prop('club_flying_chess', 6.5, 0, -3.4);
+  b.box(6.5, -3.4, 1.25, 1.25);
+  for (const [x, z, ry, i] of [
+    [6.5, -2.05, Math.PI, 0], [7.85, -3.4, -Math.PI / 2, 1],
+    [6.5, -4.75, 0, 2], [5.15, -3.4, Math.PI / 2, 3],
+  ] as const) {
+    b.prop('chair', x, 0, z, ry);
+    b.inter(`gr-flight-s${i}`, 'seat', x, 0.47, z, ry, '围坐飞行棋');
   }
 
-  // 茶水台(西)+ 点棒柜台(东北)+ 灯笼
-  b.prop('gr_tea', -8.2, 0, 4.2, Math.PI / 2); b.box(-8.2, 4.2, 0.8, 2.2);
-  b.prop('gr_counter', 8.2, 0, -5.5, -Math.PI / 2); b.box(8.2, -5.5, 1.2, 2.0);
-  b.prop('gr_lantern', -8.2, 2.3, -6.2);
-  b.prop('gr_lantern', 8.2, 2.3, 6.2);
-  b.prop('plant', -8.1, 0, -5.3); b.circle(-8.1, -5.3, 0.3);
-  b.prop('plant', 8.1, 0, 3.2); b.circle(8.1, 3.2, 0.3);
+  // 小舞台、点歌机、茶水零食台、社团墙与安静阅读角。
+  b.prop('club_stage', -5.2, 0, -7.3, 0); b.box(-5.2, -7.3, 7.4, 2.2);
+  b.inter('gr-jukebox', 'jukebox', -10.9, 0, -5.7, Math.PI / 2, '社团点歌机');
+  b.box(-10.9, -5.7, 0.8, 0.6);
+  b.prop('gr_tea', 10.9, 0, 5.7, -Math.PI / 2); b.box(10.9, 5.7, 0.8, 2.2);
+  b.prop('club_trophy_wall', 11.85, 1.8, -0.2, -Math.PI / 2);
+  b.inter('gr-books', 'bookshelf', -11.55, 0, 5.8, Math.PI / 2, '社团书架');
+  b.box(-11.55, 5.8, 0.45, 1.3);
+  b.inter('gr-wb', 'whiteboard', 2.5, 1.55, -8.85, 0, '社团活动板', { boardId: 'gr-wb' });
+  b.prop('gr_lantern', -8.8, 2.5, 7.6);
+  b.prop('gr_lantern', 8.8, 2.5, 7.6);
+  for (const [x, z] of [[-10.9, -8], [10.9, -8], [-10.9, 8], [10.9, 8]] as const) {
+    b.prop('plant', x, 0, z); b.circle(x, z, 0.3);
+  }
 
   return {
-    key: SPACE.GAMEROOM, label: '雀庄·东风阁', indoor: true, bounds,
-    spawn: [2.6, 0, 5.6, Math.PI],
+    key: SPACE.GAMEROOM, label: '团子轰趴馆·社团活动室', indoor: true, bounds,
+    spawn: [0, 0, 7.5, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: [],
   };

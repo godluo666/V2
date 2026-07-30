@@ -884,7 +884,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
   },
 
   ping(_world, s, d: C2SPayload<'ping'>) {
-    send(s, 'pong', { t: d.t });
+    send(s, 'pong', { t: d.t, serverTime: Date.now() });
   },
 };
 

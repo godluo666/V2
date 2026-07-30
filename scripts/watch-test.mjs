@@ -54,15 +54,14 @@ async function newPlayer(browser, name) {
 
 async function intoCinema(p) {
   await p.bringToFront();
-  await walkTo(p, 0, 22);
-  await walkTo(p, 3, 2);
-  await walkTo(p, 12, -6.7);
-  await walkTo(p, 20, -6.7, 15000);
-  await walkTo(p, 22, -7.6, 12000);
+  await walkTo(p, -8, 5.7, 12000);
+  await walkTo(p, -19, 5.7, 14000);
+  await walkTo(p, -19, -5.7, 14000);
+  await walkTo(p, -19, -7.45, 8000);
   for (let i = 0; i < 6; i++) {
     const prompt = await p.evaluate(() => document.querySelector('.prompt')?.textContent ?? null);
     if (prompt && prompt.includes('电影院')) { await p.keyboard.press('KeyE'); await p.waitForTimeout(2000); break; }
-    await walkTo(p, 22, -8.1, 5000, 0.55 + i * 0.1);
+    await walkTo(p, -19, -7.55, 5000, 0.55 + i * 0.1);
   }
   return p.evaluate(() => window.__nx.world.getState().spaceKey);
 }

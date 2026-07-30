@@ -1,36 +1,48 @@
 /** All interaction panels: media, jukebox, boards, games, shopping, elevator,
  *  books, inventory, notes, storage. Each is fully wired to the server. */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWorld, useSession, useUI, inventoryCount } from '../state/stores';
 import { connection } from '../net/connection';
 import { audio } from '../audio/engine';
 import { hot } from '../state/hot';
 import {
   TRACKS, ITEMS_BY_ID, FURNITURE, isRoomSpace, roomSpaceKey, HOLD_ITEM_DURATION_MS,
-  BOARD_POST_MAX_LEN, NOTES_MAX_LEN,
+  BOARD_POST_MAX_LEN, NOTES_MAX_LEN, mediaPositionAt,
 } from '@nexuspark/shared';
+import type { MediaState } from '@nexuspark/shared';
 import { BOOKS } from './books';
 import { mediaRuntime } from '../world3d/media/runtime';
 import { useFullscreenMedia } from '../world3d/media/fullscreen';
 
 /* ─── Media ──────────────────────────────────────────────────────────────── */
-/** Draggable seek bar fed by the LOCAL player (duration/pos read from the
- *  local video element / YouTube API — the server only relays tiny control
- *  messages, it never streams media). */
-function SeekBar({ playing }: { playing: boolean }) {
-  const [now, setNow] = useState({ cur: mediaRuntime.current, dur: mediaRuntime.duration });
+/** Visible progress always comes from the shared server anchor and clock. */
+function useAuthoritativeMediaPosition(media: MediaState | null): number {
+  const calculate = () => media ? mediaPositionAt(media, Date.now() + hot.serverTimeOffset) : 0;
+  const [position, setPosition] = useState(calculate);
+  useEffect(() => {
+    setPosition(calculate());
+    if (!media?.playing) return;
+    const iv = setInterval(() => setPosition(calculate()), 200);
+    return () => clearInterval(iv);
+  }, [media]);
+  return position;
+}
+
+function SeekBar({ media, position }: { media: MediaState; position: number }) {
+  const [duration, setDuration] = useState(mediaRuntime.duration);
   const [dragging, setDragging] = useState<number | null>(null);
   useEffect(() => {
-    const iv = setInterval(() => setNow({ cur: mediaRuntime.current, dur: mediaRuntime.duration }), 400);
+    setDuration(0);
+    const iv = setInterval(() => setDuration(mediaRuntime.duration), 400);
     return () => clearInterval(iv);
-  }, []);
-  if (!now.dur || now.dur <= 0) return null;
-  const value = dragging ?? now.cur;
+  }, [media.url, media.kind]);
+  if (!duration || duration <= 0) return null;
+  const value = dragging ?? position;
   return (
     <div className="row" style={{ width: '100%' }}>
       <span className="dim" style={{ fontSize: 11, width: 40 }}>{fmtTime(value)}</span>
       <input
-        type="range" className="seek" min={0} max={now.dur} step={0.5} value={Math.min(value, now.dur)}
+        type="range" className="seek" min={0} max={duration} step={0.5} value={Math.min(value, duration)}
         onChange={(e) => setDragging(Number(e.target.value))}
         onPointerUp={() => {
           if (dragging !== null) {
@@ -45,8 +57,8 @@ function SeekBar({ playing }: { playing: boolean }) {
           }
         }}
       />
-      <span className="dim" style={{ fontSize: 11, width: 40 }}>{fmtTime(now.dur)}</span>
-      <span style={{ fontSize: 11 }}>{playing ? '▶' : '⏸'}</span>
+      <span className="dim" style={{ fontSize: 11, width: 40 }}>{fmtTime(duration)}</span>
+      <span style={{ fontSize: 11 }}>{media.playing ? '▶' : '⏸'}</span>
     </div>
   );
 }
@@ -74,12 +86,7 @@ export function MediaPanel() {
     ? roster.find((p) => p.id === media?.ownerId)?.username ?? media?.setBy ?? '?'
     : null;
 
-  const position = useMemo(() => {
-    if (!media?.url) return 0;
-    return media.playing
-      ? media.position + ((Date.now() + hot.serverTimeOffset - media.updatedAt) / 1000) * media.rate
-      : media.position;
-  }, [media]);
+  const position = useAuthoritativeMediaPosition(media);
 
   return (
     <div className="col">
@@ -160,7 +167,7 @@ export function MediaPanel() {
               {roster.filter((p) => !p.isNpc).map((p) => p.username).join('、')}
             </div>
           )}
-          {media?.url && isTimed && <SeekBar playing={media.playing} />}
+          {media?.url && isTimed && <SeekBar media={media} position={position} />}
           {media?.url && isTimed && (
             <div className="media-controls">
               <button className="btn small" onClick={() => connection.send('media_ctrl', { op: media.playing ? 'pause' : 'play' })}>
@@ -178,7 +185,13 @@ export function MediaPanel() {
               >
                 {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => <option key={r} value={r}>{r}×</option>)}
               </select>
-              <span className="dim" style={{ fontSize: 12 }}>{fmtTime(position)}</span>
+              <span
+                className="dim"
+                data-authoritative-position={position.toFixed(3)}
+                style={{ fontSize: 12 }}
+              >
+                {fmtTime(position)}
+              </span>
             </div>
           )}
           {media?.url && (
@@ -506,7 +519,7 @@ export function InventoryPanel() {
   return (
     <div className="col">
       <div className="dim" style={{ fontSize: 13 }}>金币:<b>{self.credits}</b> · 每天第一次登录有奖励</div>
-      {entries.length === 0 && <div className="dim">背包空空。商店、游戏厅、大堂和电影院都有贩卖机。</div>}
+      {entries.length === 0 && <div className="dim">背包空空。一番街两端和电影院里都有贩卖机。</div>}
       {entries.map((e) => {
         const item = ITEMS_BY_ID[e.itemId];
         if (!item) return null;

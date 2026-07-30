@@ -89,7 +89,7 @@ function SpaceRenderer({ spaceKey }: { spaceKey: string }) {
   }
 }
 
-/** 后期栈(§7):SMAA → Bloom(0.82/0.28)→ 去饱和分级 → 暗角 0.4 → 颗粒 → 色差。 */
+/** 一番街后期：清晰边缘、招牌柔光、轻微增艳和克制暗角。 */
 function PostFX() {
   const quality = useSettings((s) => s.quality);
   const grain = useSettings((s) => s.grain);
@@ -98,10 +98,9 @@ function PostFX() {
   const children = [
     <SMAA key="smaa" />,
     // 只让招牌/灯芯起光晕,禁止大范围糊屏(§7)
-    <Bloom key="bloom" intensity={0.28} luminanceThreshold={0.82} luminanceSmoothing={0.18} mipmapBlur />,
-    // 整体去饱和 -8%(强调色靠自发光/Bloom 拉回存在感)
-    <HueSaturation key="grade" saturation={-0.08} />,
-    <Vignette key="vig" eskil={false} offset={0.28} darkness={0.4} />,
+    <Bloom key="bloom" intensity={0.38} luminanceThreshold={0.78} luminanceSmoothing={0.2} mipmapBlur />,
+    <HueSaturation key="grade" saturation={0.08} />,
+    <Vignette key="vig" eskil={false} offset={0.38} darkness={0.22} />,
   ];
   // 胶片颗粒 0.035(settings.grain 开关,§10 Medium 档起默认关)
   if (grain) children.push(<Noise key="noise" premultiply opacity={0.035} />);

@@ -59,9 +59,9 @@ const KEYS: Key[] = [
   // 海边金色黎明
   { t: 0.28, skyTop: '#8bc9ed', skyHorizon: '#f5d7ad', sun: 1.15, sunColor: '#ffe2ac', hemi: 0.7, hemiSky: '#a9d7ee', hemiGround: '#78836f', stars: 0.18 },
   // 明媚晴日(默认服务器从 0.35 开始)
-  { t: 0.36, skyTop: '#67b9e8', skyHorizon: '#e9f5f8', sun: 2.05, sunColor: '#fff0cf', hemi: 0.86, hemiSky: '#b9dff0', hemiGround: '#81906f', stars: 0 },
-  { t: 0.5,  skyTop: '#55afe6', skyHorizon: '#edf8fa', sun: 2.35, sunColor: '#fff4d8', hemi: 0.96, hemiSky: '#c4e5f2', hemiGround: '#879774', stars: 0 },
-  { t: 0.66, skyTop: '#69bae7', skyHorizon: '#f6e8ca', sun: 1.9, sunColor: '#ffe9bd', hemi: 0.84, hemiSky: '#b8dcea', hemiGround: '#8b9072', stars: 0 },
+  { t: 0.36, skyTop: '#47bdf2', skyHorizon: '#ecf8ff', sun: 2.2, sunColor: '#fff1c8', hemi: 0.92, hemiSky: '#c7e8f5', hemiGround: '#87996f', stars: 0 },
+  { t: 0.5,  skyTop: '#38afe8', skyHorizon: '#f2fbff', sun: 2.45, sunColor: '#fff4ce', hemi: 1, hemiSky: '#d0edf7', hemiGround: '#8ca076', stars: 0 },
+  { t: 0.66, skyTop: '#59b8e9', skyHorizon: '#fff0d0', sun: 2.05, sunColor: '#ffe4a9', hemi: 0.9, hemiSky: '#c4e5f1', hemiGround: '#909578', stars: 0 },
   // 暖金黄昏
   { t: 0.74, skyTop: '#75aeda', skyHorizon: '#f3c49f', sun: 1.35, sunColor: '#ffd19a', hemi: 0.7, hemiSky: '#a5bfd2', hemiGround: '#796e61', stars: 0.08 },
   { t: 0.8,  skyTop: '#5c78a5', skyHorizon: '#eaa990', sun: 0.82, sunColor: '#ffc4a0', hemi: 0.56, hemiSky: '#748cab', hemiGround: '#554d4c', stars: 0.42 },

@@ -56,6 +56,25 @@ function guardEdge(s: { x: number; z: number; w: number; d: number }): { alongX:
   return { alongX: true, ex: s.x, ez: s.z + Math.sign(dirZ) * (s.d / 2 - 0.18) };
 }
 
+/** Derive the storefront front from the shared road rectangles. */
+function storefrontRy(b: (typeof BUILDINGS)[number]): number {
+  if (b.ry !== undefined) return b.ry;
+  let best = Infinity;
+  let dirX = 0;
+  let dirZ = 1;
+  for (const road of ROADS) {
+    const roadX = Math.max(road.x - road.w / 2, Math.min(b.x, road.x + road.w / 2));
+    const roadZ = Math.max(road.z - road.d / 2, Math.min(b.z, road.z + road.d / 2));
+    const distance = (roadX - b.x) ** 2 + (roadZ - b.z) ** 2;
+    if (distance < best) {
+      best = distance;
+      dirX = roadX - b.x;
+      dirZ = roadZ - b.z;
+    }
+  }
+  return Math.round(Math.atan2(dirX, dirZ) / (Math.PI / 2)) * (Math.PI / 2);
+}
+
 // ── 悬挂店招贴图(4 款通用小灯箱,不构成完整店名)────────────────────────────
 const HANG_SIGNS: { text: string; color: string }[] = [
   { text: '呑', color: ACCENT.mahjongLantern },
@@ -196,19 +215,24 @@ export function enqueueForeground(queue: BuildQueue): THREE.Group {
     const brackets = new MergeBag();
     for (const b of BUILDINGS) {
       if (b.style !== 'shopfront') continue;
-      if (rnd() > 0.45 * density) continue;
-      // 立面朝向:has ry 用 ry,否则粗略面向最近的路(与 buildings 相同推导,不精确无妨——纯视觉)
-      const ry = b.ry ?? 0;
+      const ry = storefrontRy(b);
       const c = Math.cos(ry), s = Math.sin(ry);
-      const lx = (rnd() - 0.5) * b.w * 0.7;
-      const ly = 3.0 + rnd() * 1.6;
-      const lz = b.d / 2 + 0.5;
-      const x = b.x + lx * c + lz * s;
-      const z = b.z - lx * s + lz * c;
-      const vi = Math.floor(rnd() * HANG_SIGNS.length);
-      // 灯箱垂直于立面(可读向街道两个方向)
-      variantBags[vi].box(x, ly, z, 0.1, 0.62, 0.62, jitterColor(shade(ENV.wallPale, 0.02), rnd), ry);
-      brackets.box(x, ly + 0.42, z - 0.28 * c, 0.06, 0.06, 0.6, ENV.metal, ry);
+      const signCount = density >= 0.7 ? 2 : 1;
+      for (let signIndex = 0; signIndex < signCount; signIndex++) {
+        const side = signIndex === 0 ? -0.28 : 0.28;
+        const lx = b.w * side + (rnd() - 0.5) * b.w * 0.15;
+        const ly = 3.1 + signIndex * 1.15 + rnd() * 0.45;
+        const lz = b.d / 2 + 0.5;
+        const x = b.x + lx * c + lz * s;
+        const z = b.z - lx * s + lz * c;
+        const vi = (signIndex + Math.floor(rnd() * HANG_SIGNS.length)) % HANG_SIGNS.length;
+        variantBags[vi].box(
+          x, ly, z, 0.1, 0.62, 0.62,
+          jitterColor(shade(ENV.wallPale, 0.02), rnd),
+          ry,
+        );
+        brackets.box(x, ly + 0.42, z - 0.28 * c, 0.06, 0.06, 0.6, ENV.metal, ry);
+      }
     }
     variantBags.forEach((bag, i) => {
       const geo = bag.build();

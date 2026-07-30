@@ -8,7 +8,8 @@ import { LAYOUTS } from '@nexuspark/shared';
 import type { SpaceLayout } from '@nexuspark/shared';
 import { useWorld, useSettings } from '../../state/stores';
 import { renderProp, renderInteractable } from './registry';
-import { NetcafeExtras, GameroomExtras } from '../prefabs/venueInteriors';
+import { NetcafeExtras } from '../prefabs/venueInteriors';
+import { ClubExtras } from '../prefabs/clubInteriors';
 import { WindowFrame } from '../prefabs/interiors';
 import { plankTexture, tileTexture, marbleTexture, carpetTexture, gridGlowTexture } from './textures';
 
@@ -100,13 +101,14 @@ const CONFIGS: Record<string, InteriorConfig> = {
   },
   // ── 雀庄「东风阁」(P5,总纲 §4.4):暖木 + 木板地 + 暖橙灯笼光 ──────────
   gameroom: {
-    wallColor: '#80654e', trimColor: '#4b382a', ceilingColor: '#634b39', height: 3.6,
+    wallColor: '#f1d9bf', trimColor: '#8b5b45', ceilingColor: '#fff1d9', height: 4.2,
     floor: 'planks', gaps: [{ side: 's', center: 0, width: 2.2 }],
     lightSwitchId: 'gr-lights',
     lights: [
-      { x: -4.1, z: -1.8, color: '#ffd3a0', intensity: 7.5 },
-      { x: 4.1, z: -1.8, color: '#ffd3a0', intensity: 7.5 },
-      { x: 0, z: 4.3, color: '#ffd3a0', intensity: 5.5 },
+      { x: -6, z: 1.2, color: '#ffd3a0', intensity: 7.5 },
+      { x: 6, z: 1.2, color: '#ffd3a0', intensity: 7.5 },
+      { x: 0, z: -6.2, color: '#fff0c2', intensity: 6.5 },
+      { x: 0, z: 6.1, color: '#ffd3a0', intensity: 6 },
     ],
     windows: [{ side: 's', center: -5.6, w: 2.2 }, { side: 's', center: 5.6, w: 2.2 }],
   },
@@ -333,7 +335,7 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
 
       {/* 场馆专属挂件(P5):网吧墙面灯带 / 雀庄障子窗 + 役种挂轴 */}
       {spaceKey === 'netcafe' && <NetcafeExtras lightsOn={lightsOn} />}
-      {spaceKey === 'gameroom' && <GameroomExtras lightsOn={lightsOn} />}
+      {spaceKey === 'gameroom' && <ClubExtras lightsOn={lightsOn} />}
 
       {layout.props.map((p, i) => renderProp(p, i))}
       {layout.interactables.map((it) => renderInteractable(it, it.id))}

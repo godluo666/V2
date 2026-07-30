@@ -161,7 +161,7 @@ export interface S2CMap {
   grab_state: { grabberId: number; targetId: number; pointLocal: [number, number, number]; phase: 'held' | 'released' | 'broken' };
   toast: { level: 'info' | 'warn' | 'error'; text: string };
   kicked: { reason: string };
-  pong: { t: number };
+  pong: { t: number; serverTime: number };
 }
 export type S2CType = keyof S2CMap;
 

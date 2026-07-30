@@ -79,7 +79,7 @@ export function RoomEditorBar() {
             ))}
           </div>
           <div className="dim" style={{ fontSize: 11, marginTop: 8 }}>
-            高级家具要先去广场商店的购买台解锁。
+            已解锁的高级家具会继续保留；新的解锁方式将在后续街区活动中开放。
           </div>
         </div>
       )}

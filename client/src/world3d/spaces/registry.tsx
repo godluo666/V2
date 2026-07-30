@@ -10,7 +10,7 @@ import {
   Sofa, CoffeeTable, Chair, Plant, Fireplace,
 } from '../prefabs/furniture';
 import {
-  CafeCounter, CinemaSeat, Concession, RopeBarrier, ShopShelf, ShopCounter,
+  CafeCounter, CinemaSeat, CinemaRiser, Concession, RopeBarrier, ShopShelf, ShopCounter,
   Directory, Mailboxes, WindowFrame, TableRound, HedgeRing,
 } from '../prefabs/interiors';
 import { MirrorStanding } from '../prefabs/furniture';
@@ -24,6 +24,9 @@ import { XiangqiTablePrefab, MahjongTablePrefab, RiichiTablePrefab } from '../pr
 import {
   NcStation, NcCounter, GrTea, GrCounter, GrLantern,
 } from '../prefabs/venueInteriors';
+import {
+  ClubRug, ClubSofa, ClubStage, FlyingChessTable, ClubTrophyWall,
+} from '../prefabs/clubInteriors';
 import {
   CLamp, CVend, CBench, CFence, CBike, CTrash, CPoster, CAc, CWires, CSignal,
   CPhone, CLocker, CManhole, CHydrant, CPlanter, CPier,
@@ -48,6 +51,12 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'bld_tower': return <BldTower key={key} position={pos} />;
     case 'cafe_counter': return <CafeCounter key={key} position={pos} rotation={p.ry} />;
     case 'cinema_seat': return <group key={key}><CinemaSeat position={pos} rotation={p.ry} /></group>;
+    case 'cinema_riser': return (
+      <CinemaRiser key={key} position={pos} rotation={p.ry}
+        w={(p.data?.w as number) ?? 21}
+        d={(p.data?.d as number) ?? 2.4}
+        h={(p.data?.h as number) ?? 0.24} />
+    );
     case 'concession': return <Concession key={key} position={pos} rotation={p.ry} />;
     case 'rope_barrier': return <RopeBarrier key={key} position={pos} rotation={p.ry} />;
     case 'arcade_deco': return <ArcadeDeco key={key} position={pos} rotation={p.ry} variant={(p.data?.variant as number) ?? 0} />;
@@ -70,6 +79,14 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'gr_tea': return <GrTea key={key} position={pos} ry={p.ry} />;
     case 'gr_counter': return <GrCounter key={key} position={pos} ry={p.ry} />;
     case 'gr_lantern': return <GrLantern key={key} position={pos} />;
+    case 'club_rug': return (
+      <ClubRug key={key} position={pos} ry={p.ry}
+        w={(p.data?.w as number) ?? 8.2} d={(p.data?.d as number) ?? 6.4} />
+    );
+    case 'club_sofa': return <ClubSofa key={key} position={pos} ry={p.ry} />;
+    case 'club_stage': return <ClubStage key={key} position={pos} ry={p.ry} />;
+    case 'club_flying_chess': return <FlyingChessTable key={key} position={pos} ry={p.ry} />;
+    case 'club_trophy_wall': return <ClubTrophyWall key={key} position={pos} ry={p.ry} />;
     // ── 「月汐町·晴日生活街」c_* 城市道具(cityplan/P2 布局 → city/props2 组件)──
     case 'c_lamp': return <CLamp key={key} position={pos} ry={p.ry} />;
     case 'c_vend': return (

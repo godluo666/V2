@@ -4,8 +4,8 @@
  * - c_* 全套道具组件(经 spaces/registry.tsx 按 layout prop type 挂载):
  *   钠灯 / 售货机 / 长椅 / 施工围栏 / 自行车 / 垃圾袋堆+乌鸦 / 旧海报 /
  *   空调外机 / 悬垂电缆 / 红绿灯 / 电话亭 / 储物柜 / 井盖 / 消防栓 / 花坛;
- * - 封闭地铁口 StationEntrance(下沉台阶 + 拉闸 + 还亮着的灯箱,§4.1);
- * - 高架天桥 Overpass(桥面/栏杆/桥墩/坡道,栏杆实例化,§4.1)。
+ * - StationEntrance / Overpass 仅为旧存档预制件归档，不从当前 cityplan 取坐标，
+ *   也不在一番街注册。
  *
  * 全部程序化、全走 palette/toon/outline;重复道具几何模块级缓存共享,
  * 每实例只做种子化旋转/缩放抖动(§5 重复物体变化)。
@@ -16,7 +16,6 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from '@nexuspark/shared';
 import { hot } from '../../state/hot';
-import { STATION, OVERPASS } from '@nexuspark/shared/src/cityplan';
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
 import { addOutline } from './outline';
@@ -26,6 +25,19 @@ import {
 } from './streets';
 
 type P3 = [number, number, number];
+
+/**
+ * Archived procedural prefabs below still use their original local dimensions,
+ * but no current city data imports or exposes these coordinates.
+ */
+const LEGACY_STATION = { x: 0, z: -1000, ry: 0 };
+const LEGACY_OVERPASS = {
+  deck: { x: 0, z: -1000, w: 14, d: 5, y: 4.2 },
+  ramps: [] as Array<{
+    x: number; z: number; w: number; d: number;
+    dir: 'n' | 's' | 'e' | 'w';
+  }>,
+};
 
 /** 位置派生的确定性种子(同一位置每次进图外观一致)。 */
 function posSeed(p: P3): number {
@@ -1032,7 +1044,7 @@ let _pierGeo: THREE.BufferGeometry | null = null;
 function pierGeo(): THREE.BufferGeometry {
   if (_pierGeo) return _pierGeo;
   const bag = new MergeBag();
-  const h = OVERPASS.deck.y - 0.4; // 到桥板底
+  const h = LEGACY_OVERPASS.deck.y - 0.4; // 到桥板底
   bag.add(unitCylinder(), { x: 0, y: h / 2, z: 0, sx: 0.9, sy: h, sz: 0.9, color: shade(ENV.sidewalk, -0.05) });
   bag.add(unitCylinder(), { x: 0, y: 0.14, z: 0, sx: 1.15, sy: 0.28, sz: 1.15, color: shade(ENV.sidewalk, -0.075) });
   bag.box(0, h - 0.25, 0, 1.25, 0.5, 1.25, shade(ENV.sidewalk, -0.065));
@@ -1165,8 +1177,8 @@ export function StationEntrance() {
   return (
     <primitive
       object={group}
-      position={[STATION.x, 0, STATION.z]}
-      rotation={[0, STATION.ry, 0]}
+      position={[LEGACY_STATION.x, 0, LEGACY_STATION.z]}
+      rotation={[0, LEGACY_STATION.ry, 0]}
     />
   );
 }
@@ -1187,7 +1199,7 @@ let _railPostMat: THREE.MeshToonMaterial | null = null;
 export function Overpass() {
   const group = useMemo(() => {
     const g = new THREE.Group();
-    const { deck, ramps } = OVERPASS;
+    const { deck, ramps } = LEGACY_OVERPASS;
     const surfaceY = deck.y;           // 行走面高度以 shared/cityplan 契约为准
     const slabT = 0.4;
     const bag = new MergeBag();

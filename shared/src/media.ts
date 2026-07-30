@@ -23,5 +23,7 @@ export type MediaClock = Pick<MediaState, 'url' | 'playing' | 'position' | 'rate
  */
 export function mediaPositionAt(m: MediaClock, nowMs: number): number {
   if (!m.url) return 0;
-  return m.playing ? m.position + ((nowMs - m.updatedAt) / 1000) * m.rate : m.position;
+  if (!m.playing) return Math.max(0, m.position);
+  const elapsed = Math.max(0, nowMs - m.updatedAt) / 1000;
+  return Math.max(0, m.position + elapsed * m.rate);
 }

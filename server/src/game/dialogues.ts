@@ -20,7 +20,7 @@ export interface DialogueCtx {
 export const DIALOGUES: Record<string, Record<string, DNode>> = {
   greeter: {
     root: {
-      text: (c) => `${c.username},欢迎来到团子广场!第一次来吗?`,
+      text: (c) => `${c.username},欢迎来到月汐町·一番街!第一次来吗?`,
       options: [
         { id: 'tour', label: '这里有什么好玩的?', next: 'tour' },
         { id: 'controls', label: '怎么操作呀?', next: 'controls' },
@@ -28,14 +28,14 @@ export const DIALOGUES: Record<string, Record<string, DNode>> = {
       ],
     },
     tour: {
-      text: '咖啡馆有现磨咖啡和点歌机,还有象棋桌和福州麻将桌;电影院的大银幕谁都能点片;游戏厅有双人对战机;坐团子塔的电梯能拜访大家的房间——你自己也有一间哦!',
+      text: '这条街现在开放三个地方:星汐电影院能一起看片;团子轰趴馆像温馨的社团活动室,有象棋和飞行棋;镜界电竞观战馆有联赛大屏和机位。都在几步路内!',
       options: [
         { id: 'rooms', label: '我也有房间?', next: 'rooms' },
         { id: 'thanks', label: '谢啦!', action: 'end' },
       ],
     },
     rooms: {
-      text: '每位住户都有。去我身后的团子塔,坐电梯选你的名字。家具随便摆,墙纸随便刷,还能锁门谢客——你说了算。',
+      text: '每位老住户的小屋档案都还保留着。不过一番街首阶段先专心开放三个公共场馆,住宅入口会在后续街区内容里重新接上。',
       options: [{ id: 'ok', label: '这就去!', action: 'end' }],
     },
     controls: {
@@ -55,17 +55,17 @@ export const DIALOGUES: Record<string, Record<string, DNode>> = {
     root: {
       text: (c) =>
         c.weather === 'rain'
-          ? '下雨天也很好呀,池塘都涨水了。我照样遛弯——淋点雨怕什么。'
+          ? '雨把一番街的招牌照得亮晶晶的。我照样遛弯——淋点雨怕什么。'
           : c.isNight
-            ? '夜里散步最舒服了。喷泉边的路灯刚亮,这是我最喜欢的时辰。'
-            : '今天真适合在公园里转转。池塘上的小桥你走过了吗?',
+            ? '夜里散步最舒服了。一番街的灯箱刚亮,这是我最喜欢的时辰。'
+            : '今天阳光真好。电影院、轰趴馆和电竞观战馆,你最想去哪一个?',
       options: [
         { id: 'route', label: '你常在这儿散步?', next: 'route' },
         { id: 'bye', label: '慢走哦!', action: 'end' },
       ],
     },
     route: {
-      text: '风雨无阻,每天一圈:喷泉、公园、小桥,再绕回来。西边草坪的野餐桌是看日落的最佳位置,别错过。',
+      text: '风雨无阻,每天从电影院走到轰趴馆,再从电竞馆这边绕回来。街虽不长,每一段招牌都不一样。',
       options: [{ id: 'ok', label: '一定去看看。', action: 'end' }],
     },
   },

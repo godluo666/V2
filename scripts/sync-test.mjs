@@ -27,7 +27,7 @@ const check = (label, ok) => { console.log(`${ok ? '✓' : '✗ FAIL'} ${label}`
 // "服务器时钟下的应播位置"再互相对比,验证的是整条同步链路)。
 const mediaPositionAt = (m, nowMs) => {
   if (!m || !m.url) return 0;
-  return m.playing ? m.position + ((nowMs - m.updatedAt) / 1000) * m.rate : m.position;
+  return m.playing ? m.position + (Math.max(0, nowMs - m.updatedAt) / 1000) * m.rate : m.position;
 };
 
 async function apiToken(name) {
@@ -103,17 +103,16 @@ const sample = (page) => page.evaluate(() => ({
 }));
 const sampleBoth = () => Promise.all([sample(p1), sample(p2)]);
 const posOf = (s) => mediaPositionAt(s.media, s.now + s.offset);
-const mediaKey = (m) => JSON.stringify(m && ['url', 'kind', 'playing', 'position', 'rate', 'loop', 'updatedAt', 'setBy'].map((k) => m[k]));
+const mediaKey = (m) => JSON.stringify(m && ['url', 'kind', 'playing', 'position', 'rate', 'loop', 'updatedAt', 'setBy', 'revision'].map((k) => m[k]));
 const send = (t, d) => p1.evaluate(([tt, dd]) => window.__nx.connection.send(tt, dd), [t, d]);
 
-// ── 两人从口袋广场穿过小路口,进东街北侧的电影院(门在 (22, -8.9))──
+// ── 两人沿紧凑的一番街进入北侧电影院 ──
 for (const p of [p1, p2]) {
-  await walkTo(p, 0, 22);
-  await walkTo(p, 3, 2);        // 穿过小十字路口
-  await walkTo(p, 12, -6.7);    // 东街北侧人行道
-  await walkTo(p, 20, -6.7, 15000);
-  await walkTo(p, 22, -7.6, 12000);
-  await interactWhenPrompt(p, '电影院', 22, -8.1);
+  await walkTo(p, -8, 5.7, 12000);
+  await walkTo(p, -19, 5.7, 14000);
+  await walkTo(p, -19, -5.7, 14000);
+  await walkTo(p, -19, -7.45, 8000);
+  await interactWhenPrompt(p, '电影院', -19, -7.55);
 }
 check('两人都进入电影院', (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema');
 
@@ -131,6 +130,20 @@ check('服务器权威 position 已 seek 到 300', a.media?.position === 300 && 
   check(`两端外推位置偏差 < 0.5s(p1=${pa.toFixed(3)} p2=${pb.toFixed(3)})`, Math.abs(pa - pb) < 0.5);
   check('外推位置落在 seek 点之后的合理区间', pa >= 299.5 && pa < 330 && pb >= 299.5 && pb < 330);
 }
+
+// The visible control panel must use the room clock, not each media element.
+for (const page of [p1, p2]) {
+  await page.evaluate(() => window.__nx.ui.getState().openPanel({ kind: 'media', screenId: 'cine-screen' }));
+}
+await p1.waitForTimeout(350);
+const [uiA, uiB] = await Promise.all([p1, p2].map((page) => page.evaluate(() =>
+  Number(document.querySelector('[data-authoritative-position]')?.getAttribute('data-authoritative-position')),
+)));
+check(
+  `两端可见进度条使用同一权威位置(p1=${uiA.toFixed(3)} p2=${uiB.toFixed(3)})`,
+  Number.isFinite(uiA) && Number.isFinite(uiB) && Math.abs(uiA - uiB) < 0.35,
+);
+for (const page of [p1, p2]) await page.keyboard.press('Escape');
 
 // ── p1 暂停 → 两端冻结在同一位置 ──
 await send('media_ctrl', { op: 'pause' });

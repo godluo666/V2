@@ -51,10 +51,10 @@ export default function AuthScreen() {
   return (
     <div className="auth-screen">
       <div className="panel auth-card">
-        <div className="auth-logo">团子<em>广场</em></div>
+        <div className="auth-logo">月汐<em>町</em></div>
         <div className="auth-sub">
-          一个持久存在的多人 3D 小世界:逛广场、在电影院一起看片、装扮自己的小屋、
-          打麻将下象棋,和朋友们一起蹦蹦跳跳。
+          一个持久存在的多人 3D 小世界:逛绚烂的一番街、在电影院一起看片、
+          去温馨的轰趴馆下象棋,和朋友们一起蹦蹦跳跳。
         </div>
         <div className="auth-tabs">
           <button className={`btn ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>登录</button>

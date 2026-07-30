@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from '@nexuspark/shared';
 import { ROADS, CROSSING, CROSSWALKS, SIDEWALKS } from '@nexuspark/shared/src/cityplan';
-import { ENV } from './palette';
+import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
 import type { BuildQueue } from './progressive';
 import { manholeResources, drainResources } from './props2';
@@ -306,6 +306,22 @@ export function crossingTexture(): THREE.CanvasTexture {
   const [c, ctx] = makeCanvas(512);
   ctx.clearRect(0, 0, 512, 512);
   const line = cssShade(ENV.wallPale, 0.3, 0, -0.12);
+
+  // Original manga-urban graphic: asymmetric color wedges and hard ink cuts.
+  ctx.globalAlpha = 0.72;
+  ctx.fillStyle = ACCENT.cinemaSign;
+  ctx.beginPath(); ctx.moveTo(0, 34); ctx.lineTo(225, 196); ctx.lineTo(0, 286); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 0.62;
+  ctx.fillStyle = ACCENT.netcafeSign;
+  ctx.beginPath(); ctx.moveTo(512, 80); ctx.lineTo(294, 218); ctx.lineTo(512, 318); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 0.76;
+  ctx.fillStyle = ACCENT.lampSodium;
+  ctx.beginPath(); ctx.moveTo(104, 512); ctx.lineTo(250, 286); ctx.lineTo(348, 512); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 0.88;
+  ctx.strokeStyle = ENV.outline;
+  ctx.lineWidth = 22;
+  ctx.beginPath(); ctx.moveTo(-20, 408); ctx.lineTo(532, 114); ctx.stroke();
+
   ctx.strokeStyle = line;
   ctx.globalAlpha = 0.65;
   ctx.lineWidth = 10;
@@ -316,6 +332,15 @@ export function crossingTexture(): THREE.CanvasTexture {
   ctx.moveTo(256, 40); ctx.lineTo(472, 256); ctx.lineTo(256, 472); ctx.lineTo(40, 256); ctx.closePath();
   ctx.stroke();
   ctx.setLineDash([]);
+
+  ctx.globalAlpha = 0.82;
+  ctx.lineWidth = 7;
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(54 + i * 25, 360 + i * 18);
+    ctx.lineTo(174 + i * 25, 296 + i * 18);
+    ctx.stroke();
+  }
   // 磨损
   ctx.globalCompositeOperation = 'destination-out';
   for (let i = 0; i < 60; i++) {

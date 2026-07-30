@@ -140,7 +140,10 @@ export const useWorld = create<WorldStore>((set) => ({
     else seats[e.seatId] = e.playerId;
     return { seats };
   }),
-  setMedia: (media) => set({ media }),
+  setMedia: (media) => set((s) => {
+    if (media && s.media && (media.revision ?? 0) < (s.media.revision ?? 0)) return {};
+    return { media };
+  }),
   setMusic: (music) => set({ music }),
   addStroke: (boardId, stroke) => set((s) => ({
     whiteboards: { ...s.whiteboards, [boardId]: [...(s.whiteboards[boardId] ?? []), stroke] },

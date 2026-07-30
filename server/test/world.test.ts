@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { testRig, lastOf } from './helpers';
 import { handlers } from '../src/game/handlers';
 import {
-  packState, Anim, SPACE, roomSpaceKey, LAYOUTS, STATION, VENUES,
+  packState, Anim, SPACE, roomSpaceKey, LAYOUTS, VENUES,
 } from '@nexuspark/shared';
 
 type PositionedSession = { x: number; z: number };
@@ -50,20 +50,21 @@ describe('world membership and movement', () => {
     expect(lastOf(a.ws, 'correction')).toBeTruthy();
   });
 
-  it('blocks walking into the closed subway entrance (station steps)', () => {
+  it('blocks walking into the continuous residential frontage', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    // 从站前口袋广场一步步走向封闭电车口；台阶区 box 7×4.5 拦住
+    const targetX = 0;
+    const targetZ = -13.1;
     for (let i = 0; i < 80; i++) {
       a.session.lastInputAt = Date.now() - 120;
-      const dx = STATION.x - a.session.x, dz = STATION.z - a.session.z;
+      const dx = targetX - a.session.x, dz = targetZ - a.session.z;
       const d = Math.hypot(dx, dz) || 1;
       handlers.input(world, a.session, {
         p: [a.session.x + (dx / d) * 0.32, 0, a.session.z + (dz / d) * 0.32], ry: 0, st: 0, seq: i + 1,
       });
     }
-    const inside = Math.abs(a.session.x - STATION.x) < 3.7 && Math.abs(a.session.z - STATION.z) < 2.5;
+    const inside = Math.abs(a.session.x - targetX) < 7.25 && Math.abs(a.session.z - targetZ) < 5.1;
     expect(inside).toBe(false);
   });
 
@@ -73,7 +74,7 @@ describe('world membership and movement', () => {
     const b = mkSession('bob');
     world.join(a.session, SPACE.PLAZA);
     world.join(b.session, SPACE.PLAZA);
-    // teleport near a station-plaza bench seat
+    // teleport near a compact-street bench seat
     moveToInteractable(a.session, SPACE.PLAZA, 'sb0-s0');
     moveToInteractable(b.session, SPACE.PLAZA, 'sb0-s0');
     handlers.sit(world, a.session, { seatId: 'sb0-s0' });
@@ -90,13 +91,13 @@ describe('world membership and movement', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    // far from the café door: rejected
-    handlers.switch_space(world, a.session, { target: SPACE.CAFE });
+    // far from the cinema door: rejected
+    handlers.switch_space(world, a.session, { target: SPACE.CINEMA });
     expect(a.session.spaceKey).toBe('plaza');
-    // move to the café door and try again
-    moveToVenue(a.session, 'cafe');
-    handlers.switch_space(world, a.session, { target: SPACE.CAFE });
-    expect(a.session.spaceKey).toBe('cafe');
+    // move to the cinema door and try again
+    moveToVenue(a.session, 'cinema');
+    handlers.switch_space(world, a.session, { target: SPACE.CINEMA });
+    expect(a.session.spaceKey).toBe('cinema');
   });
 
   it('chat is rate limited and broadcast', () => {
@@ -109,6 +110,18 @@ describe('world membership and movement', () => {
     const received = b.ws.sent.filter((m) => m.t === 'chat' && (m.d as any).fromId === a.session.id);
     expect(received.length).toBeGreaterThan(0);
     expect(received.length).toBeLessThan(10); // limiter kicked in
+  });
+
+  it('ping response carries a server timestamp for RTT-midpoint clock sync', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    world.join(a.session, SPACE.PLAZA);
+    const before = Date.now();
+    handlers.ping(world, a.session, { t: 123456 });
+    const pong = lastOf(a.ws, 'pong');
+    expect(pong?.d.t).toBe(123456);
+    expect(pong?.d.serverTime).toBeGreaterThanOrEqual(before);
+    expect(pong?.d.serverTime).toBeLessThanOrEqual(Date.now());
   });
 });
 
@@ -241,9 +254,7 @@ describe('arcade games', () => {
     const a = rig.mkSession('alice');
     const b = rig.mkSession('bob');
     for (const p of [a, b]) {
-      rig.world.join(p.session, SPACE.PLAZA);
-      moveToVenue(p.session, 'arcade');
-      handlers.switch_space(rig.world, p.session, { target: SPACE.ARCADE });
+      rig.world.join(p.session, SPACE.ARCADE);
       moveToInteractable(p.session, SPACE.ARCADE, 'ttt1');
     }
     return { ...rig, a, b };
@@ -294,9 +305,7 @@ describe('象棋 + 麻将牌桌', () => {
     const a = rig.mkSession('alice');
     const b = rig.mkSession('bob');
     for (const p of [a, b]) {
-      rig.world.join(p.session, SPACE.PLAZA);
-      moveToVenue(p.session, 'cafe');
-      handlers.switch_space(rig.world, p.session, { target: SPACE.CAFE });
+      rig.world.join(p.session, SPACE.CAFE);
       moveToInteractable(p.session, SPACE.CAFE, 'cafe-xq');
     }
     return { ...rig, a, b };
@@ -439,9 +448,7 @@ describe('economy', () => {
   it('vends items with credit deduction', () => {
     const { world, mkSession, db } = testRig();
     const a = mkSession('alice');
-    world.join(a.session, SPACE.PLAZA);
-    moveToVenue(a.session, 'shop');
-    handlers.switch_space(world, a.session, { target: SPACE.SHOP });
+    world.join(a.session, SPACE.SHOP);
     moveToInteractable(a.session, SPACE.SHOP, 'shop-vend1');
     const before = (db.prepare('SELECT credits FROM users WHERE id = ?').get(a.session.user.id) as { credits: number }).credits;
     handlers.buy(world, a.session, { itemId: 'soda', source: 'shop-vend1' });

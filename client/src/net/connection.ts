@@ -14,6 +14,7 @@ class Connection {
   private inputSeq = 0;
   private extraHandlers = new Map<string, Set<(d: unknown) => void>>();
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private clockSamples: Array<{ rtt: number; offset: number }> = [];
 
   /** Latency estimate (ms). */
   rtt = 0;
@@ -49,6 +50,7 @@ class Connection {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${location.host}/ws`);
     this.ws = ws;
+    this.clockSamples = [];
 
     ws.onopen = () => {
       ws.send(encode('hello', { token, v: PROTOCOL_VERSION }));
@@ -137,6 +139,7 @@ class Connection {
         if (!this.pingTimer) {
           this.pingTimer = setInterval(() => this.send('ping', { t: Date.now() }), 5000);
         }
+        this.send('ping', { t: Date.now() });
         break;
       }
       case 'space_init':
@@ -167,10 +170,12 @@ class Connection {
       }
       case 'snap': {
         const s = d as S2CMap['snap'];
-        // refine server clock offset from snapshot timestamps
-        const localNow = Date.now();
-        const off = s.t - localNow;
-        hot.serverTimeOffset = hot.serverTimeOffset === 0 ? off : hot.serverTimeOffset * 0.9 + off * 0.1;
+        // Snapshot arrival is latency-biased. It is only a bootstrap until a
+        // ping/pong RTT midpoint sample becomes available.
+        if (this.clockSamples.length === 0) {
+          const off = s.t - Date.now();
+          hot.serverTimeOffset = hot.serverTimeOffset === 0 ? off : hot.serverTimeOffset * 0.9 + off * 0.1;
+        }
         hot.applySnapshot(s.t, s.e, s.o);
         break;
       }
@@ -280,7 +285,7 @@ class Connection {
       }
       case 'pong': {
         const p = d as S2CMap['pong'];
-        this.rtt = Date.now() - p.t;
+        this.updateServerClock(p.t, Date.now(), p.serverTime);
         break;
       }
       default:
@@ -292,6 +297,28 @@ class Connection {
   }
 
   stunServers: string[] = [];
+
+  /**
+   * NTP-style midpoint estimate. Keeping the lowest-RTT samples prevents
+   * temporary queueing from pulling clients onto different room clocks.
+   */
+  private updateServerClock(clientSentAt: number, clientReceivedAt: number, serverTime: number): void {
+    const rtt = Math.max(0, clientReceivedAt - clientSentAt);
+    const offset = serverTime - (clientSentAt + clientReceivedAt) / 2;
+    if (!Number.isFinite(rtt) || !Number.isFinite(offset) || rtt > 30_000) return;
+    this.rtt = this.rtt === 0 ? rtt : this.rtt * 0.75 + rtt * 0.25;
+    this.clockSamples.push({ rtt, offset });
+    if (this.clockSamples.length > 8) this.clockSamples.shift();
+    const best = [...this.clockSamples].sort((a, b) => a.rtt - b.rtt).slice(0, 3);
+    let weighted = 0;
+    let totalWeight = 0;
+    for (const sample of best) {
+      const weight = 1 / Math.max(1, sample.rtt);
+      weighted += sample.offset * weight;
+      totalWeight += weight;
+    }
+    if (totalWeight > 0) hot.serverTimeOffset = weighted / totalWeight;
+  }
 
   private applySpaceInit(init: SpaceInit): void {
     const world = useWorld.getState();
