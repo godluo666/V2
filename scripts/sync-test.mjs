@@ -93,6 +93,16 @@ const positionsAtSameServerTime = (left, right) => {
   const at = Math.min(left.now + left.offset, right.now + right.offset);
   return [mediaPositionAt(left.media, at), mediaPositionAt(right.media, at)];
 };
+const waitForMediaOnBoth = (expected, timeout = 10_000) => Promise.all(
+  [p1, p2].map((page) => page.waitForFunction(
+    (wanted) => {
+      const media = window.__nx.world.getState().media;
+      return Object.entries(wanted).every(([key, value]) => media?.[key] === value);
+    },
+    expected,
+    { timeout, polling: 100 },
+  )),
+);
 const mediaKey = (m) => JSON.stringify(m && ['url', 'kind', 'playing', 'position', 'rate', 'loop', 'updatedAt', 'setBy', 'revision'].map((k) => m[k]));
 const send = (t, d) => p1.evaluate(([tt, dd]) => window.__nx.connection.send(tt, dd), [t, d]);
 
@@ -104,10 +114,11 @@ for (const p of [p1, p2]) {
 check('两人都进入电影院', (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema');
 
 // ── p1 放一个假直链视频(播放器会报错,同步状态照常流动)并 seek 到 300s ──
-await send('media_set', { url: 'https://sync-test.invalid/clip.mp4' });
-await p1.waitForTimeout(1200);
+const testUrl = 'https://sync-test.invalid/clip.mp4';
+await send('media_set', { url: testUrl });
+await waitForMediaOnBoth({ url: testUrl, kind: 'video', playing: true });
 await send('media_ctrl', { op: 'seek', value: 300 });
-await p1.waitForTimeout(1200);
+await waitForMediaOnBoth({ position: 300, playing: true });
 
 let [a, b] = await sampleBoth();
 check(`两端 media 状态一致(kind=${a.media?.kind})`, !!a.media?.url && a.media.kind === 'video' && mediaKey(a.media) === mediaKey(b.media));
@@ -134,7 +145,7 @@ for (const page of [p1, p2]) await page.keyboard.press('Escape');
 
 // ── p1 暂停 → 两端冻结在同一位置 ──
 await send('media_ctrl', { op: 'pause' });
-await p1.waitForTimeout(1000);
+await waitForMediaOnBoth({ playing: false });
 [a, b] = await sampleBoth();
 const frozenA = posOf(a), frozenB = posOf(b);
 check(`暂停后两端位置相同(p1=${frozenA.toFixed(3)} p2=${frozenB.toFixed(3)})`, a.media?.playing === false && b.media?.playing === false && Math.abs(frozenA - frozenB) < 0.001);
@@ -144,8 +155,9 @@ check('暂停 1.5s 后位置不动', Math.abs(posOf(a) - frozenA) < 0.001 && Mat
 
 // ── p1 1.5 倍速并继续播放 → 两端推进速率一致(隔 3s 采样两次)──
 await send('media_ctrl', { op: 'rate', value: 1.5 });
-await p1.waitForTimeout(400);
+await waitForMediaOnBoth({ rate: 1.5, playing: false });
 await send('media_ctrl', { op: 'play' });
+await waitForMediaOnBoth({ rate: 1.5, playing: true });
 await p1.waitForTimeout(1000);
 const [ra0, rb0] = await sampleBoth();
 await p1.waitForTimeout(3000);
@@ -161,7 +173,7 @@ check('两端都在以 rate=1.5 播放', ra1.media?.playing === true && ra1.medi
 
 // ── 清屏还原(影院是持久化的公共空间,别把假链接留给真玩家)──
 await send('media_ctrl', { op: 'clear' });
-await p1.waitForTimeout(1000);
+await waitForMediaOnBoth({ url: null });
 [a, b] = await sampleBoth();
 check('清屏后两端银幕都空了', a.media?.url === null && b.media?.url === null);
 
