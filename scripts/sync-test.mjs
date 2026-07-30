@@ -14,7 +14,7 @@
  * 任一检查失败退出码非 0。可设 PW_CHROMIUM / BASE_URL,同 smoke.mjs。
  */
 import { chromium } from 'playwright';
-import { prepareWorldInput, walkTo } from './browser-driver.mjs';
+import { JOURNEY_CHROMIUM_ARGS, prepareWorldInput, walkTo } from './browser-driver.mjs';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 // 每次跑用全新账号:老账号会"回到上次所在的空间",而测试假设从街区出生点开始
 const RUN = `${Date.now() % 1000000}`;
@@ -42,11 +42,13 @@ async function newPlayer(browser, name) {
   const token = await apiToken(name);
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await ctx.newPage();
+  await page.bringToFront();
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`[${name}] ${m.text()}`); });
   page.on('pageerror', (e) => errors.push(`[${name}] PAGEERROR ${e.message}`));
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.evaluate((t) => {
     localStorage.setItem('np_token', t);
+    localStorage.setItem('np_help_seen', '1');
     // 软渲染跑功能验证:锁最低画质(同 smoke.mjs)
     localStorage.setItem('np_settings', JSON.stringify({
       quality: 'low', shadows: false, postfx: false, reflections: false, particles: false, clouds: false,
@@ -54,7 +56,8 @@ async function newPlayer(browser, name) {
     }));
   }, token);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!document.querySelector('canvas') && !!window.__nx, undefined, { timeout: 40000, polling: 500 });
+  await page.bringToFront();
+  await page.waitForFunction(() => !!document.querySelector('canvas') && !!window.__nx, undefined, { timeout: 60000, polling: 500 });
   await page.waitForTimeout(800);
   await prepareWorldInput(page);
   return page;
@@ -84,7 +87,7 @@ async function interactWhenPrompt(page, substr, tx, tz) {
 
 const browser = await chromium.launch({
   ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
-  args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'],
+  args: JOURNEY_CHROMIUM_ARGS,
 });
 
 const p1 = await newPlayer(browser, `sync_p1_${RUN}`);

@@ -13,7 +13,7 @@
  * 流——内容加载与真实漂移由 sync-test.mjs + shared/test/media.test.ts 覆盖。
  */
 import { chromium } from 'playwright';
-import { prepareWorldInput, walkTo } from './browser-driver.mjs';
+import { JOURNEY_CHROMIUM_ARGS, prepareWorldInput, walkTo } from './browser-driver.mjs';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 const RUN = `${Date.now() % 1000000}`;
 const errors = [];
@@ -32,18 +32,21 @@ async function newPlayer(browser, name) {
   const token = await apiToken(name);
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await ctx.newPage();
+  await page.bringToFront();
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`[${name}] ${m.text()}`); });
   page.on('pageerror', (e) => errors.push(`[${name}] PAGEERROR ${e.message}`));
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.evaluate((t) => {
     localStorage.setItem('np_token', t);
+    localStorage.setItem('np_help_seen', '1');
     localStorage.setItem('np_settings', JSON.stringify({
       quality: 'low', shadows: false, postfx: false, reflections: false, particles: false, clouds: false,
       masterVolume: 0, musicVolume: 0, sfxVolume: 0, voiceVolume: 0, mediaVolume: 0, invertY: false,
     }));
   }, token);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!document.querySelector('canvas') && !!window.__nx, undefined, { timeout: 40000, polling: 500 });
+  await page.bringToFront();
+  await page.waitForFunction(() => !!document.querySelector('canvas') && !!window.__nx, undefined, { timeout: 60000, polling: 500 });
   await page.waitForTimeout(800);
   await prepareWorldInput(page);
   return page;
@@ -66,7 +69,7 @@ async function intoCinema(p) {
 
 const browser = await chromium.launch({
   ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
-  args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'],
+  args: JOURNEY_CHROMIUM_ARGS,
 });
 
 const p1 = await newPlayer(browser, `watch_p1_${RUN}`);

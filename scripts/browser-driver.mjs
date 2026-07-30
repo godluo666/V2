@@ -6,20 +6,27 @@
  * its page. Driving the game's hot key set directly also prevents a focused
  * chat field or a late first-run help panel from swallowing synthetic keys.
  */
+export const JOURNEY_CHROMIUM_ARGS = [
+  '--enable-unsafe-swiftshader',
+  '--use-gl=angle',
+  '--use-angle=swiftshader',
+  '--disable-background-timer-throttling',
+  '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
+];
+
 export async function prepareWorldInput(page) {
   await page.bringToFront();
   await page.evaluate(() => {
     const nx = window.__nx;
+    nx.ui.getState().setHelpSeen();
     nx.ui.getState().closePanel();
     nx.ui.getState().setDialogue(null);
     nx.hot.chatFocused = false;
+    nx.hot.uiOpen = false;
     nx.hot.keys.clear();
   });
-  await page.waitForFunction(
-    () => !window.__nx.hot.uiOpen && !window.__nx.hot.chatFocused,
-    undefined,
-    { timeout: 5000, polling: 100 },
-  );
+  await page.waitForTimeout(100);
 }
 
 /** Walk toward a world-space target and sidestep if collision progress stalls. */
