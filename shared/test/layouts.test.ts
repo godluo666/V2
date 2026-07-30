@@ -166,7 +166,8 @@ describe('新室内空间(网吧/雀庄)', () => {
     const nc = LAYOUTS[SPACE.NETCAFE];
     expect(nc).toBeTruthy();
     expect(nc.mediaPolicy).toBe('everyone');
-    expect(nc.interactables.filter((i) => i.kind === 'seat' && i.id.startsWith('nc-s'))).toHaveLength(8);
+    expect(nc.interactables.filter((i) => i.kind === 'seat' && /^nc-s\d+$/.test(i.id))).toHaveLength(8);
+    expect(nc.interactables.filter((i) => i.kind === 'seat' && i.id.startsWith('nc-sofa-'))).toHaveLength(2);
     expect(nc.props.filter((p) => p.type === 'nc_station')).toHaveLength(8);
     expect(nc.interactables.find((i) => i.id === 'nc-wall')?.kind).toBe('screen');
     const door = nc.interactables.find((i) => i.kind === 'door');
