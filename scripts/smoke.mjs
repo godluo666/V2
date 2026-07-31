@@ -19,6 +19,20 @@ const check = (label, ok) => {
   if (!ok) failures++;
 };
 
+async function captureEvidence(page, fileName, label) {
+  try {
+    await page.screenshot({
+      path: `${OUT}/${fileName}`,
+      timeout: 30_000,
+      animations: 'disabled',
+    });
+    check(`${label} cloud screenshot captured`, true);
+  } catch (error) {
+    console.log(`  ${label} screenshot failed: ${error instanceof Error ? error.message : String(error)}`);
+    check(`${label} cloud screenshot captured`, false);
+  }
+}
+
 async function apiToken(name) {
   const body = { username: name, password: 'password123' };
   let response = await fetch(`${BASE}/api/register`, {
@@ -116,6 +130,7 @@ check('cross-client chat synchronized', await p1.evaluate(() =>
     element.textContent?.includes('团子二号来啦'),
   ),
 ));
+await captureEvidence(p1, 'street-crossroads-desktop.png', 'compact crossroads desktop');
 
 for (const page of [p1, p2]) await enterPartyHall(page);
 check(
@@ -148,9 +163,7 @@ await interactWhenPrompt(p1, '飞行棋', 6.5, -2.05);
 check('flying-chess table has a usable surrounding seat', (await state(p1)).seatId?.startsWith('gr-flight-s'));
 await p1.keyboard.press('Space');
 await p1.waitForTimeout(300);
-try {
-  await p1.screenshot({ path: `${OUT}/smoke-party-hall.png`, timeout: 12_000, animations: 'disabled' });
-} catch { /* evidence is optional; assertions are authoritative */ }
+await captureEvidence(p1, 'party-hall-desktop.png', 'party hall desktop');
 
 for (const page of [p1, p2]) {
   if (!await exitToStreet(page)) {
@@ -168,6 +181,7 @@ check(
   `highest-row cinema seat is grounded at y=${highestSeat.y.toFixed(2)} (actual ${topSeat.y.toFixed(2)})`,
   topSeat.seatId === highestSeat.id && Math.abs(topSeat.y - highestSeat.y) < 0.03,
 );
+await captureEvidence(p1, 'cinema-highest-row-desktop.png', 'cinema highest row');
 
 console.log(`CONSOLE ERRORS: ${errors.length}`);
 for (const error of errors.slice(0, 8)) console.log(' ', error.slice(0, 180));

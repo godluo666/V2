@@ -4,6 +4,7 @@
  */
 import { chromium } from 'playwright';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
+const OUT = process.env.OUT_DIR ?? '.';
 const RUN = `${Date.now() % 1000000}`;
 let failures = 0;
 const check = (label, ok) => { console.log(`${ok ? '✓' : '✗ FAIL'} ${label}`); if (!ok) failures++; };
@@ -35,6 +36,17 @@ await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
 
 check('触控层渲染(4 个动作键)', await page.evaluate(() => document.querySelectorAll('.touch-btn').length === 4));
+try {
+  await page.screenshot({
+    path: `${OUT}/street-crossroads-mobile.png`,
+    timeout: 30_000,
+    animations: 'disabled',
+  });
+  check('移动端十字街景云端截图', true);
+} catch (error) {
+  console.log(`  移动端街景截图失败: ${error instanceof Error ? error.message : String(error)}`);
+  check('移动端十字街景云端截图', false);
+}
 
 // 摇杆:向上推(合成 PointerEvent 走 React 委托)
 const before = await page.evaluate(() => [window.__nx.hot.local.x, window.__nx.hot.local.z]);
