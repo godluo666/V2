@@ -107,6 +107,7 @@ const ACTIVE_BUILDINGS: CityBuilding[] = [
       { text: 'DAY//NIGHT', color: '#42d7c7', anchor: 0.18, y: 28.6, w: 7.8, h: 1.15 },
       { text: 'LIVE', color: '#ffd34f', anchor: 0.43, y: 12.2, w: 1.05, h: 4.5, vertical: true, projecting: true },
       { text: 'MUSIC', color: '#3db7ff', anchor: -0.43, y: 8.4, w: 1.0, h: 4.2, vertical: true, projecting: true },
+      { text: 'MOON MARKET · OPEN', color: '#ff3f6c', anchor: 0, y: 3.72, w: 9.6, h: 0.86 },
       { text: 'CITY FEED // 35.68N', color: '#ffd34f', anchor: 0.05, y: 14.2, w: 8.8, h: 0.9 },
       { text: 'STREET WAVE', color: '#42d7c7', anchor: -0.18, y: 23.4, w: 6.2, h: 0.95 },
     ],

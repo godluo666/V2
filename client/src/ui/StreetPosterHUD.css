@@ -86,8 +86,8 @@
 
 .street-objective {
   top: 58px;
-  right: 64px;
-  width: min(320px, 32vw);
+  right: 34px;
+  width: min(282px, 29vw);
   padding: 10px 34px 10px 24px;
   background: #f6f1e2;
   color: #15171e;
@@ -407,7 +407,7 @@
   .street-objective {
     top: 70px;
     right: -14px;
-    width: 72vw;
+    width: 66vw;
     padding: 10px 32px 11px 22px;
   }
 
