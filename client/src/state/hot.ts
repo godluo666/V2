@@ -89,7 +89,7 @@ class HotState {
     this.camera.yaw = spawn[3] + Math.PI; // behind the player
     // The compact high-rise street needs a near-level establishing shot.
     // Interiors retain the closer, more top-down camera used for furniture.
-    this.camera.pitch = outdoor ? 0.08 : 0.32;
+    this.camera.pitch = outdoor ? -0.055 : 0.32;
     this.camera.dist = outdoor ? 6.4 : 5.2;
   }
 
