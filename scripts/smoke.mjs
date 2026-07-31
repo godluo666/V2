@@ -170,7 +170,7 @@ if (!await exitToStreet(p1)) {
   console.log('  street-exit interaction failed', JSON.stringify(await state(p1)));
 }
 p2Browser = await launchBrowser();
-p2 = await newPlayer(p2Browser, `smoke_p2_rejoin_${RUN}`);
+p2 = await newPlayer(p2Browser, `sm2r_${RUN}`);
 check('both players returned to the compact street', (await state(p1)).space === 'plaza' && (await state(p2)).space === 'plaza');
 
 for (const page of [p1, p2]) await enterCinema(page);
