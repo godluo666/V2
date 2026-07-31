@@ -118,9 +118,10 @@ check('WebGL context available', await p1.evaluate(() => {
   const canvas = document.querySelector('canvas');
   return !!(canvas?.getContext('webgl2') || canvas?.getContext('webgl'));
 }));
+await captureEvidence(p1, 'street-crossroads-desktop.png', 'compact crossroads desktop');
 
-const p2Browser = await launchBrowser();
-const p2 = await newPlayer(p2Browser, `smoke_p2_${RUN}`);
+let p2Browser = await launchBrowser();
+let p2 = await newPlayer(p2Browser, `smoke_p2_${RUN}`);
 await p2.keyboard.press('Enter');
 await p2.keyboard.type('团子二号来啦！');
 await p2.keyboard.press('Enter');
@@ -130,7 +131,6 @@ check('cross-client chat synchronized', await p1.evaluate(() =>
     element.textContent?.includes('团子二号来啦'),
   ),
 ));
-await captureEvidence(p1, 'street-crossroads-desktop.png', 'compact crossroads desktop');
 
 for (const page of [p1, p2]) await enterPartyHall(page);
 check(
@@ -163,13 +163,14 @@ await interactWhenPrompt(p1, '飞行棋', 6.5, -2.05);
 check('flying-chess table has a usable surrounding seat', (await state(p1)).seatId?.startsWith('gr-flight-s'));
 await p1.keyboard.press('Space');
 await p1.waitForTimeout(300);
+await p2Browser.close();
 await captureEvidence(p1, 'party-hall-desktop.png', 'party hall desktop');
 
-for (const page of [p1, p2]) {
-  if (!await exitToStreet(page)) {
-    console.log('  street-exit interaction failed', JSON.stringify(await state(page)));
-  }
+if (!await exitToStreet(p1)) {
+  console.log('  street-exit interaction failed', JSON.stringify(await state(p1)));
 }
+p2Browser = await launchBrowser();
+p2 = await newPlayer(p2Browser, `smoke_p2_rejoin_${RUN}`);
 check('both players returned to the compact street', (await state(p1)).space === 'plaza' && (await state(p2)).space === 'plaza');
 
 for (const page of [p1, p2]) await enterCinema(page);
@@ -181,10 +182,11 @@ check(
   `highest-row cinema seat is grounded at y=${highestSeat.y.toFixed(2)} (actual ${topSeat.y.toFixed(2)})`,
   topSeat.seatId === highestSeat.id && Math.abs(topSeat.y - highestSeat.y) < 0.03,
 );
+await p2Browser.close();
 await captureEvidence(p1, 'cinema-highest-row-desktop.png', 'cinema highest row');
 
 console.log(`CONSOLE ERRORS: ${errors.length}`);
 for (const error of errors.slice(0, 8)) console.log(' ', error.slice(0, 180));
 console.log(failures === 0 ? '✓ compact-street multiplayer smoke passed' : `✗ ${failures} checks failed`);
-await Promise.all([p1Browser.close(), p2Browser.close()]);
+await p1Browser.close();
 process.exit(failures ? 1 : 0);
