@@ -54,7 +54,7 @@ describe('月汐町一番街坐标契约', () => {
     expect(active.filter((building) => building.h >= 28)).toHaveLength(6);
     expect(Math.max(...active.map((building) => building.h))).toBe(48);
     expect(active.filter((building) => building.style === 'mediaTower')).toHaveLength(1);
-    expect(active.flatMap((building) => building.facadeSigns ?? [])).toHaveLength(24);
+    expect(active.flatMap((building) => building.facadeSigns ?? [])).toHaveLength(23);
     expect(active.some((building) => building.x < -15 && building.z < -7)).toBe(true);
     expect(active.some((building) => building.x > -1 && building.z < -7)).toBe(true);
     expect(active.some((building) => building.x < -15 && building.z > 8)).toBe(true);

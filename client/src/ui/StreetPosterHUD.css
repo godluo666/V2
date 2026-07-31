@@ -127,14 +127,14 @@
 }
 
 .street-route-map {
-  right: -5vw;
-  bottom: -19vh;
-  width: min(760px, 58vw);
-  height: min(760px, 72vw);
+  right: -3vw;
+  bottom: -15vh;
+  width: min(470px, 38vw);
+  height: min(470px, 46vw);
   z-index: -1;
   overflow: visible;
   color: #15171e;
-  opacity: .58;
+  opacity: .38;
   transform: translate(calc(var(--poster-x) * .42), calc(var(--poster-y) * .42)) rotate(-8deg);
   filter: drop-shadow(0 0 1px rgba(246, 241, 226, .5));
 }
@@ -413,7 +413,7 @@
   .street-objective strong { font-size: 15px; }
   .street-objective small { display: none; }
   .street-route-map { display: none; }
-  .street-poster-speed { width: 72vw; opacity: .2; }
+  .street-poster-speed { display: none; }
 
   .street-venue {
     min-width: 0;

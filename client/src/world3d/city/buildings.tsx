@@ -449,7 +449,8 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   canopy.rotation.x = -0.12;
   local.add(canopy);
 
-  const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(w * 0.94, 9.3, 0.34), inkMat);
+  const displayW = Math.max(w * 0.94, 8.2);
+  const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(displayW + 0.28, 9.3, 0.34), inkMat);
   screenFrame.position.set(0, 10.3, d / 2 + 0.15);
   local.add(screenFrame);
   const tex = mediaTowerTexture();
@@ -460,7 +461,7 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
     emissiveIntensity: 0.48,
     fog: false,
   });
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.9, 8.86), screenMat);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(displayW, 8.86), screenMat);
   screen.position.set(0, 10.3, d / 2 + 0.34);
   local.add(screen);
 
