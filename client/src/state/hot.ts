@@ -76,7 +76,7 @@ class HotState {
   chatFocused = false;
   uiOpen = false;
 
-  reset(selfId: number, spawn: [number, number, number, number]): void {
+  reset(selfId: number, spawn: [number, number, number, number], outdoor = false): void {
     this.selfId = selfId;
     this.players.clear();
     this.ball.active = false;
@@ -87,6 +87,10 @@ class HotState {
     l.grabbedBy = null; l.grabbing = null; l.grabPointLocal = null;
     this.selfSnap = null;
     this.camera.yaw = spawn[3] + Math.PI; // behind the player
+    // The compact high-rise street needs a near-level establishing shot.
+    // Interiors retain the closer, more top-down camera used for furniture.
+    this.camera.pitch = outdoor ? 0.08 : 0.32;
+    this.camera.dist = outdoor ? 6.4 : 5.2;
   }
 
   upsertPlayer(profile: PublicProfile): RemoteEntity {
