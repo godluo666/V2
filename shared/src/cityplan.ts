@@ -1,18 +1,32 @@
 /**
  * 月汐町·一番街平面数据。
  *
- * 坐标系：x 向东，z 向南。首阶段只开放一条 58m 的生活街，三座可进入
- * 场馆嵌在连续住宅立面中；服务端碰撞与客户端渲染共享这份坐标契约。
+ * 坐标系：x 向东，z 向南。首阶段开放一个紧凑的十字街头节点：东西向一番街
+ * 与南北短街在漫画化四向路口汇合。三座可进入场馆嵌在连续高层立面中；
+ * 服务端碰撞、客户端渲染与云端旅程共享这份坐标契约。
  */
 import { seededRandom } from './math';
 
 export interface CityRect { x: number; z: number; w: number; d: number }
 export interface CityCrosswalk extends CityRect { dir: 'x' | 'z' }
+export interface CityFacadeSign {
+  text: string;
+  color: string;
+  /** -0.5..0.5 across the street-facing façade. */
+  anchor: number;
+  y: number;
+  w: number;
+  h: number;
+  vertical?: boolean;
+  /** Blade sign perpendicular to the façade, readable down the street canyon. */
+  projecting?: boolean;
+}
 export interface CityBuilding extends CityRect {
   h: number;
   ry?: number;
   style: 'shopfront' | 'tower' | 'apartment' | 'backstreet' | 'silhouette';
   sign?: { text: string; color: string };
+  facadeSigns?: CityFacadeSign[];
   venue?: CityVenue['key'];
 }
 export interface CityVenue {
@@ -20,32 +34,44 @@ export interface CityVenue {
   x: number; z: number; ry: number; label: string;
   /** Street-side point where a player can reach the façade interaction. */
   approach: [number, number];
+  /** Collision-valid route from the shared street spawn to the approach point. */
+  route: Array<[number, number]>;
 }
 export interface CityAnomaly { id: string; x: number; z: number; r: number }
 
-/** 62×46m 可玩边界；主街本体仅 58m。 */
-export const CITY_BOUNDS = { minX: -31, maxX: 31, minZ: -23, maxZ: 23 };
-export const ROAD_W = 8;
+/** 58×46m 可玩边界，比旧直街更窄；密度来自围合而非扩大地图。 */
+export const CITY_BOUNDS = { minX: -29, maxX: 29, minZ: -23, maxZ: 23 };
+export const ROAD_W = 7.2;
 export const SIDEWALK_W = 3.5;
 
-/** 单轴双向生活街，不再使用十字路口和四条空旷支路。 */
+/**
+ * 一条东西向主街 + 一条仅贯穿当前街区的南北短街，形成紧凑十字街角。
+ * 它不是四向大广场：四个街角立刻由建筑围合，所有入口都在一个街区内。
+ */
 export const ROADS: CityRect[] = [
-  { x: 0, z: 0, w: 58, d: ROAD_W },
+  { x: 2, z: 1, w: 54, d: ROAD_W },
+  { x: -8, z: 0, w: ROAD_W, d: 42 },
 ];
 
-/** 中段漫画化路面构图区，仍属于同一条街。 */
-export const CROSSING: CityRect = { x: 0, z: 0, w: 7, d: ROAD_W };
+/** 四向路口的漫画化墨切构图区；只覆盖道路本身，不做空旷大广场。 */
+export const CROSSING: CityRect = { x: -8, z: 1, w: 10, d: ROAD_W };
 export const CROSSWALKS: CityCrosswalk[] = [
-  { x: 0, z: 0, w: 3.6, d: ROAD_W, dir: 'z' },
+  { x: -13, z: 1, w: 3, d: ROAD_W, dir: 'z' },
+  { x: -3, z: 1, w: 3, d: ROAD_W, dir: 'z' },
+  { x: -8, z: -4.2, w: ROAD_W, d: 3, dir: 'x' },
+  { x: -8, z: 5.2, w: ROAD_W, d: 3, dir: 'x' },
 ];
 
-/** 两侧连续步道 + 三处入口前的小型拓宽区。 */
+/** 八段短步道贴住四个街角，转身即可看到店面、住宅与招牌。 */
 export const SIDEWALKS: CityRect[] = [
-  { x: 0, z: -5.75, w: 58, d: SIDEWALK_W },
-  { x: 0, z: 5.75, w: 58, d: SIDEWALK_W },
-  { x: -17, z: -6.95, w: 10, d: 1.8 },
-  { x: 0, z: 6.95, w: 10, d: 1.8 },
-  { x: 17, z: -6.95, w: 10, d: 1.8 },
+  { x: -18.3, z: -5.35, w: 13.4, d: SIDEWALK_W },
+  { x: 12.3, z: -5.35, w: 33.4, d: SIDEWALK_W },
+  { x: -18.3, z: 6.35, w: 13.4, d: SIDEWALK_W },
+  { x: 12.3, z: 6.35, w: 33.4, d: SIDEWALK_W },
+  { x: -13.35, z: -14.05, w: SIDEWALK_W, d: 13.9 },
+  { x: -2.65, z: -14.05, w: SIDEWALK_W, d: 13.9 },
+  { x: -13.35, z: 15.05, w: SIDEWALK_W, d: 13.9 },
+  { x: -2.65, z: 15.05, w: SIDEWALK_W, d: 13.9 },
 ];
 
 const b = (
@@ -54,44 +80,99 @@ const b = (
 ): CityBuilding => ({ x, z, w, d, h, style, ...extra });
 
 /**
- * 连续住宅街墙：三座场馆与三栋住宅交错，首层有橱窗与门棚，上层是阳台、
- * 外廊和暖窗。密度来自立面层次，不靠扩大地图。
+ * 连续高层街墙围住十字节点。窄开间住宅、街角高楼和三座场馆同时进入视野；
+ * 高密度来自短视距、四角贴边建筑与垂直招牌，不靠扩大地图。
  */
 const ACTIVE_BUILDINGS: CityBuilding[] = [
-  // 北侧：影院—住宅—轰趴馆
-  b(-19, -13.1, 19, 10.2, 14, 'shopfront', {
-    venue: 'cinema', sign: { text: '星汐 CINEMA', color: '#ff3f6c' },
-  }),
-  b(0, -13.1, 14.5, 10.2, 18, 'apartment', {
-    sign: { text: '月汐荘', color: '#ffd34f' },
-  }),
-  b(19, -13.1, 19, 10.2, 13, 'shopfront', {
+  // 北街西侧：团子轰趴馆沿纵向立面成为进入街谷后的第一视觉锚点。
+  b(-22.05, -14.55, 13.9, 14.9, 22, 'shopfront', {
+    ry: Math.PI / 2,
     venue: 'gameroom', sign: { text: '团子 CLUB', color: '#ff704d' },
+    facadeSigns: [
+      { text: 'DANGO', color: '#ffd34f', anchor: -0.34, y: 8.2, w: 1.05, h: 4.8, vertical: true, projecting: true },
+      { text: '社团活动室', color: '#ff704d', anchor: 0.12, y: 5.8, w: 4.8, h: 0.82 },
+      { text: 'PLAY · TALK · MUSIC', color: '#42d7c7', anchor: 0.27, y: 10.5, w: 5.8, h: 0.72 },
+      { text: 'DANGO CLUB', color: '#ff3f6c', anchor: 0.02, y: 16.3, w: 8.6, h: 2.4 },
+    ],
   }),
-  // 南侧：住宅—电竞馆—住宅
-  b(-20.5, 13.1, 17, 10.2, 16, 'backstreet', {
-    sign: { text: '一番住宅', color: '#42d7c7' },
+
+  // 北街东侧：窄高媒体楼 + 转角小店，形成低视角招牌峡谷。
+  b(1.8, -16, 5.4, 12, 42, 'shopfront', {
+    ry: -Math.PI / 2,
+    sign: { text: '月汐 LIVE', color: '#ff3f6c' },
+    facadeSigns: [
+      { text: 'MOON//7', color: '#ff3f6c', anchor: -0.18, y: 15.8, w: 5.1, h: 2.8 },
+      { text: 'MOON VISION', color: '#ff3f6c', anchor: 0, y: 31, w: 10.4, h: 4.2 },
+      { text: 'DAY//NIGHT', color: '#42d7c7', anchor: 0.16, y: 24.8, w: 7.4, h: 1.2 },
+      { text: 'LIVE', color: '#ffd34f', anchor: 0.34, y: 10.5, w: 0.95, h: 4.2, vertical: true, projecting: true },
+      { text: 'MUSIC', color: '#3db7ff', anchor: -0.36, y: 6.7, w: 0.9, h: 3.8, vertical: true },
+    ],
   }),
-  b(0, 13.1, 19, 10.2, 12, 'shopfront', {
+  b(1.8, -8.55, 5.4, 2.9, 18, 'shopfront', {
+    ry: -Math.PI / 2,
+    sign: { text: '潮风书店', color: '#42d7c7' },
+    facadeSigns: [
+      { text: 'BOOKS', color: '#42d7c7', anchor: 0.18, y: 6.3, w: 0.82, h: 3.7, vertical: true, projecting: true },
+    ],
+  }),
+  b(8, -12, 7, 9.8, 24, 'apartment', {
+    sign: { text: '月汐荘', color: '#ffd34f' },
+    facadeSigns: [
+      { text: '月汐荘', color: '#ffd34f', anchor: -0.08, y: 15.8, w: 4.8, h: 1.2 },
+      { text: '24H', color: '#42d7c7', anchor: 0.36, y: 9.4, w: 0.9, h: 3.2, vertical: true, projecting: true },
+    ],
+  }),
+  b(19.75, -14.5, 16.5, 14.8, 30, 'shopfront', {
+    venue: 'cinema', sign: { text: '星汐 CINEMA', color: '#ff3f6c' },
+    facadeSigns: [
+      { text: 'NOW SHOWING', color: '#ffd34f', anchor: 0, y: 7.1, w: 7.6, h: 1.0 },
+      { text: 'CINEMA', color: '#ff3f6c', anchor: -0.39, y: 11.5, w: 1.15, h: 5.6, vertical: true, projecting: true },
+      { text: 'AURORA SCREEN', color: '#3db7ff', anchor: 0.29, y: 13.6, w: 5.8, h: 0.8 },
+      { text: 'STAR TIDE', color: '#ff3f6c', anchor: 0.02, y: 22, w: 10.8, h: 3.5 },
+    ],
+  }),
+
+  // 南侧：高层住宅首层夹住电竞观战馆，四角都紧贴步道而非退成广场。
+  b(-22.05, 15.05, 13.9, 13.9, 36, 'tower', {
+    ry: Math.PI / 2,
+    sign: { text: '夕凪住宅', color: '#ffd34f' },
+    facadeSigns: [
+      { text: 'YUNAGI', color: '#ffd34f', anchor: 0.02, y: 23.5, w: 9.4, h: 3.8 },
+      { text: '月汐 07', color: '#ff3f6c', anchor: -0.34, y: 13.8, w: 1.1, h: 5.6, vertical: true, projecting: true },
+    ],
+  }),
+  b(4.05, 15.05, 9.9, 13.9, 28, 'shopfront', {
+    ry: -Math.PI / 2,
     venue: 'netcafe', sign: { text: '镜界 ARENA', color: '#3db7ff' },
+    facadeSigns: [
+      { text: 'MATCH LIVE', color: '#42d7c7', anchor: -0.18, y: 7.5, w: 6.2, h: 1.0 },
+      { text: 'ARENA', color: '#3db7ff', anchor: 0.39, y: 10.2, w: 1.05, h: 5.0, vertical: true, projecting: true },
+      { text: 'WATCH · PLAY', color: '#ffd34f', anchor: 0.18, y: 12.2, w: 5.2, h: 0.72 },
+      { text: 'FINAL ROUND', color: '#3db7ff', anchor: 0, y: 20, w: 9.6, h: 2.8 },
+    ],
   }),
-  b(20.5, 13.1, 17, 10.2, 17, 'apartment', {
+  b(18.5, 15.05, 19, 13.9, 34, 'apartment', {
     sign: { text: '潮风公寓', color: '#ffcf66' },
+    facadeSigns: [
+      { text: 'SHIOKAZE', color: '#42d7c7', anchor: 0.1, y: 22.5, w: 10.6, h: 2.4 },
+      { text: 'MOON TIDE', color: '#ff3f6c', anchor: -0.36, y: 13, w: 1.1, h: 5.4, vertical: true, projecting: true },
+    ],
   }),
 ];
 
-/** 近距离天际线只承担街端层叠透视，不形成可到达的第二片地图。 */
+/** 四周近距离天际线封住街端透视，不形成可到达的第二片地图。 */
 function createSilhouettes(count: number): CityBuilding[] {
   const rnd = seededRandom(7707);
   const silhouettes: CityBuilding[] = [];
-  let guard = 0;
-  while (silhouettes.length < count && guard++ < count * 24) {
-    const side = rnd() > 0.5 ? 1 : -1;
-    const x = -48 + rnd() * 96;
-    const z = side * (34 + rnd() * 24);
+  for (let i = 0; i < count; i++) {
+    const edge = i % 4;
+    const along = -52 + rnd() * 104;
+    const depth = 34 + rnd() * 22;
+    const x = edge === 0 ? -depth : edge === 1 ? depth : along;
+    const z = edge === 2 ? -depth : edge === 3 ? depth : along;
     const w = 9 + Math.round(rnd() * 13);
     const d = 8 + Math.round(rnd() * 10);
-    const h = 18 + Math.round(rnd() * 28);
+    const h = 28 + Math.round(rnd() * 36);
     silhouettes.push(b(x, z, w, d, h, 'silhouette', { ry: (rnd() - 0.5) * 0.18 }));
   }
   return silhouettes;
@@ -99,19 +180,39 @@ function createSilhouettes(count: number): CityBuilding[] {
 
 export const BUILDINGS: CityBuilding[] = [
   ...ACTIVE_BUILDINGS,
-  ...createSilhouettes(14),
+  ...createSilhouettes(18),
 ];
 
-/** 唯一三个可进入场馆，全部在同一条街的一层。 */
+/** 唯一三个可进入场馆；入口分布在北、西、南三侧的近距离街墙。 */
 export const VENUES: CityVenue[] = [
-  { key: 'cinema', x: -19, z: -7.82, ry: 0, label: '星汐电影院', approach: [-19, -7.45] },
-  { key: 'netcafe', x: 0, z: 7.82, ry: Math.PI, label: '镜界电竞观战馆', approach: [0, 7.45] },
-  { key: 'gameroom', x: 19, z: -7.82, ry: 0, label: '团子轰趴馆', approach: [19, -7.45] },
+  {
+    key: 'cinema', x: 19.75, z: -6.92, ry: 0, label: '星汐电影院',
+    approach: [19.75, -6.5],
+    route: [[-13, 5.2], [-8, 5.2], [-3, 1], [-3.2, -5.35], [19.75, -5.35], [19.75, -6.5]],
+  },
+  {
+    key: 'netcafe', x: -1.08, z: 15.05, ry: -Math.PI / 2, label: '镜界电竞观战馆',
+    approach: [-1.45, 15.05],
+    route: [[-8, 5.2], [-3, 5.2], [-2.65, 15.05], [-1.45, 15.05]],
+  },
+  {
+    key: 'gameroom', x: -14.92, z: -14.55, ry: Math.PI / 2, label: '团子轰趴馆',
+    approach: [-14.55, -14.55],
+    route: [[-13, 5.2], [-11.7, 5.2], [-11.7, -14.55], [-14.55, -14.55]],
+  },
 ];
 
-/** 低频原创都市异象点，均贴在单街边缘，不扩张动线。 */
+/** 低频原创都市异象点，贴在三条视觉轴边缘，不扩张动线。 */
 export const ANOMALY_POINTS: CityAnomaly[] = [
-  { id: 'a-cinema-poster', x: -27, z: -6.2, r: 2.8 },
-  { id: 'b-crossing-glow', x: 0, z: 0, r: 3.2 },
-  { id: 'c-club-alley', x: 27, z: -6.2, r: 2.8 },
+  { id: 'a-cinema-poster', x: 26.5, z: -4.8, r: 2.8 },
+  { id: 'b-crossing-glow', x: -8, z: 1, r: 3.2 },
+  { id: 'c-club-alley', x: -13.2, z: -20, r: 2.8 },
 ];
+
+/** World-space collider dimensions become local frontage/depth after a quarter turn. */
+export function cityBuildingLocalSize(building: CityBuilding): { frontage: number; depth: number } {
+  const quarterTurns = Math.round((building.ry ?? 0) / (Math.PI / 2));
+  return Math.abs(quarterTurns) % 2 === 1
+    ? { frontage: building.d, depth: building.w }
+    : { frontage: building.w, depth: building.d };
+}

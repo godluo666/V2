@@ -31,17 +31,33 @@ const near = (p: [number, number], x: number, z: number, tolerance = 0.8) =>
   Math.hypot(p[0] - x, p[1] - z) < tolerance;
 
 describe('月汐町一番街坐标契约', () => {
-  it('只有一条 58m 主街，整个可玩区保持紧凑', () => {
-    expect(CITY_BOUNDS).toEqual({ minX: -31, maxX: 31, minZ: -23, maxZ: 23 });
+  it('以紧凑十字路口替代空旷直街，边界没有扩大', () => {
+    expect(CITY_BOUNDS).toEqual({ minX: -29, maxX: 29, minZ: -23, maxZ: 23 });
     expect(city.bounds).toEqual(CITY_BOUNDS);
-    expect(ROADS).toEqual([{ x: 0, z: 0, w: 58, d: 8 }]);
-    expect(CROSSING).toEqual({ x: 0, z: 0, w: 7, d: 8 });
-    expect(CROSSWALKS).toHaveLength(1);
-    expect(CITY_BOUNDS.maxX - CITY_BOUNDS.minX).toBe(62);
+    expect(ROADS).toEqual([
+      { x: 2, z: 1, w: 54, d: 7.2 },
+      { x: -8, z: 0, w: 7.2, d: 42 },
+    ]);
+    expect(CROSSING).toEqual({ x: -8, z: 1, w: 10, d: 7.2 });
+    expect(CROSSWALKS).toHaveLength(4);
+    expect(SIDEWALKS).toHaveLength(8);
+    expect(new Set(CROSSWALKS.map((crosswalk) => crosswalk.dir))).toEqual(new Set(['x', 'z']));
+    expect(CITY_BOUNDS.maxX - CITY_BOUNDS.minX).toBe(58);
     expect(CITY_BOUNDS.maxZ - CITY_BOUNDS.minZ).toBe(46);
     expect(ANOMALY_POINTS.map((a) => a.id).sort()).toEqual([
       'a-cinema-poster', 'b-crossing-glow', 'c-club-alley',
     ]);
+  });
+
+  it('四个街角由高层与数据化招牌压紧，不留下大型空地', () => {
+    const active = BUILDINGS.filter((building) => building.style !== 'silhouette');
+    expect(active.filter((building) => building.h >= 28)).toHaveLength(5);
+    expect(Math.max(...active.map((building) => building.h))).toBe(42);
+    expect(active.flatMap((building) => building.facadeSigns ?? [])).toHaveLength(24);
+    expect(active.some((building) => building.x < -15 && building.z < -7)).toBe(true);
+    expect(active.some((building) => building.x > -1 && building.z < -7)).toBe(true);
+    expect(active.some((building) => building.x < -15 && building.z > 8)).toBe(true);
+    expect(active.some((building) => building.x > -1 && building.z > 8)).toBe(true);
   });
 
   it('街上严格只开放电影院、电竞观战馆和团子轰趴馆', () => {
@@ -59,6 +75,7 @@ describe('月汐町一番街坐标契约', () => {
       expect(door?.data?.target).toBe(targets[venue.key]);
       expect(door?.pos[0]).toBe(venue.x);
       expect(door?.pos[2]).toBe(venue.z);
+      expect(venue.route.at(-1)).toEqual(venue.approach);
     }
   });
 
@@ -80,7 +97,7 @@ describe('月汐町一番街坐标契约', () => {
 
   it('近景剪影只做视觉背景，不生成碰撞', () => {
     const silhouettes = BUILDINGS.filter((b) => b.style === 'silhouette');
-    expect(silhouettes).toHaveLength(14);
+    expect(silhouettes).toHaveLength(18);
     for (const silhouette of silhouettes) {
       expect(
         silhouette.x < CITY_BOUNDS.minX
@@ -107,18 +124,10 @@ describe('一番街可走性', () => {
     }
   });
 
-  it.each(VENUES)('出生点能经斑马线走到$label门前', (venue) => {
-    const crossing = CROSSWALKS[0];
-    const spawnWalk = SIDEWALKS.find((walk) => Math.sign(walk.z) === Math.sign(city.spawn[2]));
-    const venueWalk = SIDEWALKS.find((walk) => Math.sign(walk.z) === Math.sign(venue.z));
-    expect(spawnWalk).toBeTruthy();
-    expect(venueWalk).toBeTruthy();
+  it.each(VENUES)('出生点能沿共享路线走到$label门前', (venue) => {
     const p = march(city, [
       [city.spawn[0], city.spawn[2]],
-      [crossing.x, spawnWalk!.z],
-      [crossing.x, venueWalk!.z],
-      [venue.x, venueWalk!.z],
-      venue.approach,
+      ...venue.route,
     ]);
     expect(near(p, venue.approach[0], venue.approach[1])).toBe(true);
   });

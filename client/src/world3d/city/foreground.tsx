@@ -11,7 +11,9 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from '@nexuspark/shared';
-import { ROADS, SIDEWALKS, BUILDINGS } from '@nexuspark/shared/src/cityplan';
+import {
+  ROADS, SIDEWALKS, BUILDINGS, cityBuildingLocalSize,
+} from '@nexuspark/shared/src/cityplan';
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
 import { autoDetectTier, TIER_BUDGET } from './quality';
@@ -216,13 +218,14 @@ export function enqueueForeground(queue: BuildQueue): THREE.Group {
     for (const b of BUILDINGS) {
       if (b.style !== 'shopfront') continue;
       const ry = storefrontRy(b);
+      const { frontage, depth } = cityBuildingLocalSize(b);
       const c = Math.cos(ry), s = Math.sin(ry);
       const signCount = density >= 0.7 ? 2 : 1;
       for (let signIndex = 0; signIndex < signCount; signIndex++) {
         const side = signIndex === 0 ? -0.28 : 0.28;
-        const lx = b.w * side + (rnd() - 0.5) * b.w * 0.15;
+        const lx = frontage * side + (rnd() - 0.5) * frontage * 0.15;
         const ly = 3.1 + signIndex * 1.15 + rnd() * 0.45;
-        const lz = b.d / 2 + 0.5;
+        const lz = depth / 2 + 0.5;
         const x = b.x + lx * c + lz * s;
         const z = b.z - lx * s + lz * c;
         const vi = (signIndex + Math.floor(rnd() * HANG_SIGNS.length)) % HANG_SIGNS.length;

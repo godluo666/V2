@@ -861,6 +861,95 @@ export function CSignal({ position, ry = 0 }: { position: P3; ry?: number }) {
   );
 }
 
+// ═══ c_banner 跨街社团旗(原创文字与漫画墨切)════════════════════════════════
+
+const bannerTextureCache = new Map<string, THREE.CanvasTexture>();
+function streetBannerTexture(text: string, color: string, accent: string): THREE.CanvasTexture {
+  const key = `${text}|${color}|${accent}`;
+  const cached = bannerTextureCache.get(key);
+  if (cached) return cached;
+  const [canvas, ctx] = makeCanvas(1024);
+  canvas.height = 256;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = ENV.outline;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(245, 0);
+  ctx.lineTo(150, 256);
+  ctx.lineTo(0, 256);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.moveTo(820, 0);
+  ctx.lineTo(1024, 0);
+  ctx.lineTo(1024, 256);
+  ctx.lineTo(735, 256);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#fff7e8';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(14, 14, 996, 228);
+  ctx.fillStyle = '#fff7e8';
+  ctx.font = '900 82px "Noto Sans SC", "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 535, 126);
+  const texture = canvasTexture(canvas, false);
+  bannerTextureCache.set(key, texture);
+  return texture;
+}
+
+export function CStreetBanner({
+  position,
+  ry = 0,
+  text = '月汐町 · ICHIBAN STREET',
+  color = ACCENT.cinemaSign,
+  accent = ACCENT.lampSodium,
+  width = 8.4,
+}: {
+  position: P3;
+  ry?: number;
+  text?: string;
+  color?: string;
+  accent?: string;
+  width?: number;
+}) {
+  const group = useMemo(() => {
+    const g = new THREE.Group();
+    const bag = new MergeBag();
+    const postX = width / 2 + 0.15;
+    for (const side of [-1, 1]) {
+      bag.add(unitCylinder(), {
+        x: side * postX, y: 2.7, z: 0,
+        sx: 0.16, sy: 5.4, sz: 0.16, color: ENV.metal,
+      });
+      bag.box(side * postX, 5.2, 0, 0.55, 0.1, 0.1, shade(ENV.metal, -0.03));
+    }
+    bag.box(0, 5.05, 0, width + 0.4, 0.08, 0.08, shade(ENV.metal, -0.02));
+    const frame = new THREE.Mesh(bag.build() ?? new THREE.BufferGeometry(), vertexToonMat(4));
+    frame.castShadow = true;
+    addOutline(frame);
+    g.add(frame);
+
+    const texture = streetBannerTexture(text, color, accent);
+    const material = toonMat(0xffffff, {
+      map: texture,
+      emissiveMap: texture,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.28,
+      side: THREE.DoubleSide,
+      fog: false,
+    });
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(width, 1.25), material);
+    banner.position.set(0, 4.55, 0.04);
+    g.add(banner);
+    return g;
+  }, [text, color, accent, width]);
+  return <primitive object={group} position={position} rotation={[0, ry, 0]} />;
+}
+
 // ═══ c_phone 公用电话亭 ═════════════════════════════════════════════════════
 
 function phoneSignTexture(): THREE.CanvasTexture {

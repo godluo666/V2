@@ -122,7 +122,13 @@ class B {
 }
 
 /** Safe fallback used by archived rooms that no longer have a public façade. */
-const STREET_SPAWN: [number, number, number, number] = [-1.8, 0, 5.4, Math.PI / 2];
+const STREET_SPAWN: [number, number, number, number] = [-13.25, 0, 6.2, -Math.PI / 4];
+
+function streetReturnFor(key: (typeof VENUES)[number]['key']): [number, number, number, number] {
+  const venue = VENUES.find((candidate) => candidate.key === key);
+  if (!venue) return STREET_SPAWN;
+  return [venue.approach[0], 0, venue.approach[1], venue.ry + Math.PI];
+}
 
 // ═══════════════════════ 月汐町·一番街(户外) ════════════════════════════════
 function buildCity(): SpaceLayout {
@@ -140,46 +146,73 @@ function buildCity(): SpaceLayout {
     b.inter(`d-${v.key}`, 'door', v.x, 0, v.z, v.ry, `进入${v.label}`, { target: v.key });
   }
 
-  // 漫画都市街角设施：只贴步道外缘布置，三处入口前保持 3m 净空。
-  b.inter('city-board', 'board', 8.2, 0, 6.9, Math.PI, '月汐町社团公告栏', {});
-  b.box(8.2, 6.9, 1.6, 0.45);
-  b.inter('v-vend1', 'vending', -27.3, 0, 6.75, Math.PI, '草莓汽水机', { items: ['soda', 'pizza'] });
-  b.box(-27.3, 6.75, 0.8, 0.9);
-  b.inter('v-vend2', 'vending', 27.1, 0, -6.75, 0, '海盐汽水机', { items: ['soda', 'pizza'] });
-  b.box(27.1, -6.75, 0.8, 0.9);
+  // 四向路口设施：靠边成组，让中央仅承担通行，转身即见店面与高楼。
+  b.inter('city-board', 'board', 12.2, 0, 7.35, Math.PI, '月汐町社团公告栏', {});
+  b.box(12.2, 7.35, 1.6, 0.45);
+  b.inter('v-vend1', 'vending', -23.4, 0, 7.15, Math.PI, '草莓汽水机', { items: ['soda', 'pizza'] });
+  b.box(-23.4, 7.15, 0.8, 0.9);
+  b.inter('v-vend2', 'vending', 26.8, 0, -5.2, 0, '海盐汽水机', { items: ['soda', 'pizza'] });
+  b.box(26.8, -5.2, 0.8, 0.9);
 
-  b.bench('sb0', -9, 6.35, Math.PI);
-  b.bench('sb1', 10, -6.35, 0);
-  b.bench('sb2', 25, 6.35, Math.PI);
+  b.bench('sb0', -13.6, 10, Math.PI / 2);
+  b.bench('sb1', 10.2, -5.15, 0);
+  b.bench('sb2', 20.8, 6.75, Math.PI);
 
   const lamps: Array<[number, number]> = [
-    [-27.5, -6.2], [-18, 6.2], [-8, -6.2],
-    [12, -6.2], [21, 6.2], [28, -6.2],
+    [-14.2, -5.15], [-2.1, -5.15], [-14.2, 5.7], [-1.8, 5.7],
+    [8.2, -5.15], [20.2, -5.15], [10.2, 6.75], [27.2, 6.75],
+    [-13.9, -12], [-2.1, -16.5],
   ];
   for (const [lx, lz] of lamps) b.lamp(lx, lz);
 
-  // 住宅生活细节：自行车、花槽、电话、海报、电线杆和空调形成近景层次。
-  for (const [x, z] of [[-24, -6.65], [-4, 6.65], [14, 6.65], [24, -6.65]] as const) {
+  // 路口信号灯与原创街旗加强垂直层次，但不创建新入口。
+  for (const [x, z, ry] of [
+    [-14.3, -4.9, 0], [-1.8, -4.9, Math.PI],
+    [-14.3, 5.6, 0], [-1.8, 5.6, Math.PI],
+  ] as const) {
+    b.prop('c_signal', x, 0, z, ry); b.circle(x, z, 0.22);
+  }
+  b.prop('c_banner', -8, 0, -8.5, 0, {
+    text: '月汐町 · ICHIBAN STREET',
+    color: '#ff3f6c',
+    accent: '#ffd34f',
+    width: 8.4,
+  });
+  b.circle(-12.35, -8.5, 0.2);
+  b.circle(-3.65, -8.5, 0.2);
+
+  // 住宅生活细节：自行车、花槽、电话、海报和电线形成近景层次。
+  for (const [x, z] of [[-23.5, -5.45], [-3.7, 7.3], [15, 7.2], [24.2, -5.4]] as const) {
     b.prop('c_planter', x, 0, z);
     b.box(x, z, 0.9, 0.9);
   }
-  b.prop('c_phone', -13.2, 0, 6.7, Math.PI); b.box(-13.2, 6.7, 0.9, 0.9);
-  b.prop('c_locker', 13.1, 0, -6.75, 0); b.box(13.1, -6.75, 1.4, 0.6);
+  b.prop('c_phone', 16.3, 0, 7.15, Math.PI); b.box(16.3, 7.15, 0.9, 0.9);
+  b.prop('c_locker', 5.2, 0, -5.45, 0); b.box(5.2, -5.45, 1.4, 0.6);
   for (const [x, z, ry] of [
-    [-26, -6.55, 0.2], [-12, 6.55, 2.8], [6, -6.55, 0.35], [25, 6.55, 2.7],
+    [-20.5, -5.25, 0.2], [-17.3, 7.05, 2.8],
+    [14.5, -5.25, 0.35], [24.5, 7.05, 2.7],
+    [-13.1, -17.2, 1.4], [-2.8, -11.2, -1.4],
   ] as const) {
     b.prop('c_bike', x, 0, z, ry); b.circle(x, z, 0.35);
   }
   for (const [x, z, ry] of [
-    [-9.8, -7.15, 0], [10.6, 7.15, Math.PI], [28.4, -7.15, 0],
+    [7.3, -6.05, 0], [9.5, 8.05, Math.PI],
+    [27.3, -6.05, 0], [-15.05, -19.2, Math.PI / 2],
   ] as const) {
     b.prop('c_poster', x, 1.45, z, ry);
   }
-  b.prop('c_hydrant', -2.2, 0, -6.6); b.circle(-2.2, -6.6, 0.25);
-  b.prop('c_manhole', -15, 0, 0.8);
-  b.prop('c_manhole', 16, 0, -0.7);
-  for (const [x, z] of [[-29, 6.85], [-15, -6.85], [15, -6.85], [29, 6.85]] as const) {
-    b.prop('c_wires', x, 0, z, 0, { len: 14, sag: 0.8, strands: 3 });
+  b.prop('c_hydrant', -2.2, 0, 7); b.circle(-2.2, 7, 0.25);
+  b.prop('c_manhole', -18, 0, 1.7);
+  b.prop('c_manhole', 13, 0, 0.2);
+  b.prop('c_manhole', -8.5, 0, -12.5);
+  for (const [x, z, ry, len] of [
+    [-24.5, -5.7, Math.PI / 2, 13],
+    [4.3, -5.8, 0, 14],
+    [25.5, 7.5, Math.PI / 2, 12],
+    [-13.9, -20, 0, 12],
+    [-2.1, -18.5, 0, 11],
+  ] as const) {
+    b.prop('c_wires', x, 0, z, ry, { len, sag: 0.8, strands: 3 });
     b.circle(x, z, 0.18);
   }
 
@@ -187,18 +220,18 @@ function buildCity(): SpaceLayout {
     {
       id: -1, name: 'Yuki', dialogueId: 'greeter', speed: 1.1, pause: 6,
       avatar: npcAvatar('#f2a5b5', '#5a3b8c', '#cbb8d9', '#5a3b8c', 1, '#5a3b8c', 1),
-      waypoints: [[-4, -5.7], [4, -5.7], [8, 5.7], [-2, 5.7]],
+      waypoints: [[-12.5, 5.9], [-4, 5.9], [-2.8, -3.8], [-8, -4.2]],
     },
     {
       id: -2, name: 'Kaito', dialogueId: 'walker', speed: 1.4, pause: 3,
       avatar: npcAvatar('#f5b8c4', '#3f7d44', '#b7cf8f', '#4a4a55', 0, '#333333', 0),
-      waypoints: [[-25, 5.7], [-14, 5.7], [-6, 5.7], [-17, 5.7]],
+      waypoints: [[-13.2, -7], [-13.2, -16.8], [-3, -16.8], [-3, -8]],
     },
     {
       id: -5, name: 'Rin', dialogueId: 'walker', speed: 1.2, pause: 4,
       avatar: npcAvatar('#f2a5b5', '#2f3b5c', '#9fb3d9', '#33383f', 0, '#333333', 2),
-      // Keep the club's north-side entrance clear; Rin animates the opposite pavement.
-      waypoints: [[10, 5.7], [18, 5.7], [27, 5.7], [20, 5.7]],
+      // Keep all three venue approaches clear; Rin animates the long south-east pavement.
+      waypoints: [[6, 6.5], [14, 6.5], [25, 6.5], [18, 6.5]],
     },
   ];
 
@@ -291,7 +324,7 @@ function buildCinema(): SpaceLayout {
   const bounds: Bounds = { minX: -15, maxX: 15, minZ: -12, maxZ: 12 };
 
   b.inter('cine-exit', 'door', 0, 0, 11.7, 0, '返回一番街', {
-    target: SPACE.PLAZA, spawn: [-19, 0, -5.55, Math.PI],
+    target: SPACE.PLAZA, spawn: streetReturnFor('cinema'),
   });
   // 巨幕:互动锚点在银幕下沿中线;视觉尺寸(24×10)在客户端 registry 里定义
   b.inter('cine-screen', 'screen', 0, 5.8, -11.4, 0, '影院银幕');
@@ -467,7 +500,7 @@ function buildNetcafe(): SpaceLayout {
   const bounds: Bounds = { minX: -10, maxX: 10, minZ: -7.5, maxZ: 7.5 };
 
   b.inter('nc-exit', 'door', 0, 0, 7.2, 0, '返回一番街', {
-    target: SPACE.PLAZA, spawn: [0, 0, 5.55, 0],
+    target: SPACE.PLAZA, spawn: streetReturnFor('netcafe'),
   });
   b.inter('nc-lights', 'switch', 1.7, 1.2, 7.35, 0, '电灯开关', { switchId: 'nc-lights' });
 
@@ -511,7 +544,7 @@ function buildGameroom(): SpaceLayout {
   const bounds: Bounds = { minX: -12, maxX: 12, minZ: -9, maxZ: 9 };
 
   b.inter('gr-exit', 'door', 0, 0, 8.7, 0, '返回一番街', {
-    target: SPACE.PLAZA, spawn: [19, 0, -5.55, Math.PI],
+    target: SPACE.PLAZA, spawn: streetReturnFor('gameroom'),
   });
   b.inter('gr-lights', 'switch', 1.7, 1.2, 8.85, 0, '活动室灯光', { switchId: 'gr-lights' });
 

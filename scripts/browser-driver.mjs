@@ -91,31 +91,21 @@ export async function walkRoute(page, points) {
 }
 
 /**
- * Follow the shared city plan to a venue façade via the marked crossing.
- * Moving a building, pavement, or crossing therefore cannot silently leave
- * three journey scripts with stale coordinates.
+ * Follow the collision-valid route stored with the shared venue façade.
+ * The compact crossroads has multiple pavement orientations, so inferring a route
+ * from coordinate signs would recreate layout logic in the test harness.
  */
 export async function walkToVenueDoor(page, venueKey) {
   const points = await page.evaluate((key) => {
     const nx = window.__nx;
     const venue = nx.cityMap.venues.find((candidate) => candidate.key === key);
-    const crossing = nx.cityMap.crosswalks[0];
-    if (!venue || !crossing) throw new Error(`Unknown street venue: ${key}`);
-
-    const currentZ = nx.hot.local.z;
-    const pavementFor = (z) => nx.cityMap.sidewalks
-      .filter((walk) => Math.sign(walk.z) === Math.sign(z))
-      .sort((a, b) => Math.abs(a.z - z) - Math.abs(b.z - z))[0];
-    const currentWalk = pavementFor(currentZ);
-    const venueWalk = pavementFor(venue.z);
-    if (!currentWalk || !venueWalk) throw new Error(`Missing pavement for venue: ${key}`);
-
-    return [
-      [crossing.x, currentWalk.z],
-      [crossing.x, venueWalk.z],
-      [venue.x, venueWalk.z],
-      [venue.approach[0], venue.approach[1], 8_000, 0.6],
-    ];
+    if (!venue) throw new Error(`Unknown street venue: ${key}`);
+    if (!Array.isArray(venue.route) || venue.route.length === 0) {
+      throw new Error(`Missing shared route for venue: ${key}`);
+    }
+    return venue.route.map(([x, z], index) => (
+      index === venue.route.length - 1 ? [x, z, 8_000, 0.6] : [x, z]
+    ));
   }, venueKey);
   return walkRoute(page, points);
 }

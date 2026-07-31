@@ -17,7 +17,9 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from '@nexuspark/shared';
-import { BUILDINGS, ROADS, VENUES } from '@nexuspark/shared/src/cityplan';
+import {
+  BUILDINGS, ROADS, VENUES, cityBuildingLocalSize,
+} from '@nexuspark/shared/src/cityplan';
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
 import { addOutline } from './outline';
@@ -90,6 +92,7 @@ interface SignSpec {
   text: string; color: string;
   x: number; y: number; z: number; ry: number;
   w: number; h: number; vertical: boolean;
+  projecting?: boolean;
 }
 
 const signTexCache = new Map<string, THREE.CanvasTexture>();
@@ -143,8 +146,34 @@ function makeSignMesh(s: SignSpec): THREE.Mesh {
   });
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h, 0.16), mat);
   mesh.position.set(s.x, s.y, s.z);
-  mesh.rotation.y = s.ry;
+  mesh.rotation.y = s.ry + (s.projecting ? Math.PI / 2 : 0);
   return mesh;
+}
+
+/** Project shared façade-sign data onto any building style. */
+function appendFacadeSigns(
+  b: Building,
+  signs: SignSpec[],
+  ry: number,
+  frontage: number,
+  depth: number,
+): void {
+  for (const sign of b.facadeSigns ?? []) {
+    const lx = Math.max(-0.46, Math.min(0.46, sign.anchor)) * frontage;
+    const [sx, sz] = l2w(b, ry, lx, depth / 2 + (sign.projecting ? 0.5 : 0.3));
+    signs.push({
+      text: sign.text,
+      color: sign.color,
+      x: sx,
+      y: Math.min(b.h - sign.h / 2 - 0.3, sign.y),
+      z: sz,
+      ry,
+      w: sign.w,
+      h: sign.h,
+      vertical: sign.vertical ?? false,
+      projecting: sign.projecting,
+    });
+  }
 }
 
 // ── 高楼亮窗点阵贴图(共享一张,per-face UV 偏移;禁止整面亮)────────────────
@@ -194,7 +223,8 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   const wall = jitterColor(WALL_BASES[Math.floor(rnd() * WALL_BASES.length)], rnd);
   const wallDark = wall.clone().offsetHSL(0, 0, -0.05);
   const glass = shade(ENV.skyTopDusk, 0.025, 0, 0.02);
-  const { w, d, h } = b;
+  const { frontage: w, depth: d } = cityBuildingLocalSize(b);
+  const { h } = b;
   const groundH = 3.2;
 
   // 上层主体(带前后进退,破"方盒感")
@@ -279,6 +309,8 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
       w: 0.6, h: Math.min(3.1, 0.62 * (b.sign.text.length + 1)), vertical: true,
     });
   }
+  // 数据驱动的多层招牌：贴墙大牌与垂直刀牌共用 cityplan，不在组件里散落坐标。
+  appendFacadeSigns(b, out.signs, ry, w, d);
   // venue 横招牌(门头)
   if (b.venue) {
     const v = VENUES.find((vv) => vv.key === b.venue);
@@ -299,7 +331,8 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
   const wall = jitterColor(backstreet ? ENV.wallB : WALL_BASES[Math.floor(rnd() * 2) + 1], rnd);
   const wallDark = wall.clone().offsetHSL(0, 0, -0.05);
   const glass = shade(ENV.skyTopDusk, 0.025, 0, 0.02);
-  const { w, d, h } = b;
+  const { frontage: w, depth: d } = cityBuildingLocalSize(b);
+  const { h } = b;
   put(out.walls, b, ry, 0, h / 2, 0, w, h, d, wall);
   // 屋顶:女儿墙 + 楼梯间小盒 + 晾衣杆位
   const ph = 0.5;
@@ -344,12 +377,20 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
       out.walls.add(unitCylinder(), { x: px, y: h / 2, z: pz, sx: 0.12, sy: h, sz: 0.12, color: wallDark });
     }
   }
+  appendFacadeSigns(b, out.signs, ry, w, d);
 }
 
-function buildTower(b: Building, walls: MergeBag, glow: THREE.BufferGeometry[], rnd: () => number): void {
+function buildTower(
+  b: Building,
+  walls: MergeBag,
+  glow: THREE.BufferGeometry[],
+  signs: SignSpec[],
+  rnd: () => number,
+): void {
   const ry = facingRy(b);
   const wall = jitterColor(WALL_BASES[Math.floor(rnd() * 2)], rnd);
-  const { w, d, h } = b;
+  const { frontage: w, depth: d } = cityBuildingLocalSize(b);
+  const { h } = b;
   // 分段体块错落(2-3 段收分)
   const secs = h > 52 ? 3 : 2;
   const fr = secs === 3 ? [0.5, 0.34, 0.16] : [0.62, 0.38];
@@ -407,6 +448,7 @@ function buildTower(b: Building, walls: MergeBag, glow: THREE.BufferGeometry[], 
       glow.push(g);
     }
   }
+  appendFacadeSigns(b, signs, ry, w, d);
 }
 
 // ── 组装(BuildQueue 分帧)──────────────────────────────────────────────────
@@ -442,7 +484,7 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
           case 'shopfront': buildShopfront(b, bags, rnd); break;
           case 'apartment': buildApartment(b, bags, rnd, false); break;
           case 'backstreet': buildApartment(b, bags, rnd, true); break;
-          case 'tower': buildTower(b, towerWalls, towerGlow, rnd); break;
+          case 'tower': buildTower(b, towerWalls, towerGlow, allSigns, rnd); break;
           default: break;
         }
         allSigns.push(...bags.signs.splice(0));

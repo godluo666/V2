@@ -29,7 +29,7 @@ import {
 } from '../prefabs/clubInteriors';
 import {
   CLamp, CVend, CBench, CFence, CBike, CTrash, CPoster, CAc, CWires, CSignal,
-  CPhone, CLocker, CManhole, CHydrant, CPlanter, CPier,
+  CPhone, CLocker, CManhole, CHydrant, CPlanter, CPier, CStreetBanner,
 } from '../city/props2';
 
 export function renderProp(p: Prop, key: string | number): ReactNode {
@@ -111,6 +111,17 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
         strands={(p.data?.strands as number) ?? 2} />
     );
     case 'c_signal': return <CSignal key={key} position={pos} ry={p.ry} />;
+    case 'c_banner': return (
+      <CStreetBanner
+        key={key}
+        position={pos}
+        ry={p.ry}
+        text={(p.data?.text as string) ?? '月汐町 · ICHIBAN STREET'}
+        color={(p.data?.color as string) ?? '#ff3f6c'}
+        accent={(p.data?.accent as string) ?? '#ffd34f'}
+        width={(p.data?.width as number) ?? 8.4}
+      />
+    );
     case 'c_phone': return <CPhone key={key} position={pos} ry={p.ry} />;
     case 'c_locker': return <CLocker key={key} position={pos} ry={p.ry} />;
     case 'c_manhole': return <CManhole key={key} position={pos} />;

@@ -232,7 +232,7 @@ export function asphaltTexture(): THREE.CanvasTexture {
 }
 
 let _sidewalkTex: THREE.CanvasTexture | null = null;
-/** 人行道砖:冷灰砖格 + 砖缝 ENV.sidewalkSeam + 逐砖明度抖动(1 tile ≈ 4m)。 */
+/** 人行道砖:暖灰错缝铺装 + 少量玫红/金色导向砖，呼应晴日漫画街头。 */
 export function sidewalkTexture(): THREE.CanvasTexture {
   if (_sidewalkTex) return _sidewalkTex;
   const rnd = seededRandom(20260702);
@@ -242,9 +242,15 @@ export function sidewalkTexture(): THREE.CanvasTexture {
   const cell = 64; // 8×8 砖 → 0.5m 砖
   for (let by = 0; by < 8; by++) {
     for (let bx = 0; bx < 8; bx++) {
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle = cssShade(ENV.sidewalk, (rnd() * 2 - 1) * 0.028);
-      ctx.fillRect(bx * cell + 2, by * cell + 2, cell - 4, cell - 4);
+      const offset = by % 2 === 0 ? 0 : cell / 2;
+      const x = ((bx * cell + offset) % 512);
+      const accent = (bx + by * 5) % 19 === 0;
+      ctx.globalAlpha = accent ? 0.2 : 0.42;
+      ctx.fillStyle = accent
+        ? (by % 3 === 0 ? ACCENT.cinemaSign : ACCENT.lampSodium)
+        : cssShade(ENV.sidewalk, (rnd() * 2 - 1) * 0.034, (rnd() - 0.5) * 0.006);
+      ctx.fillRect(x + 2, by * cell + 2, cell - 4, cell - 4);
+      if (x + cell > 512) ctx.fillRect(2, by * cell + 2, x + cell - 514, cell - 4);
     }
   }
   // 砖缝

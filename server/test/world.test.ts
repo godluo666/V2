@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { testRig, lastOf } from './helpers';
 import { handlers } from '../src/game/handlers';
 import {
-  packState, Anim, SPACE, roomSpaceKey, LAYOUTS, VENUES,
+  packState, Anim, SPACE, roomSpaceKey, LAYOUTS, VENUES, BUILDINGS,
 } from '@nexuspark/shared';
 
 type PositionedSession = { x: number; z: number };
@@ -54,8 +54,10 @@ describe('world membership and movement', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    const targetX = 0;
-    const targetZ = -13.1;
+    const target = BUILDINGS.find((building) => building.sign?.text === '月汐 LIVE');
+    if (!target) throw new Error('missing corner media building');
+    const targetX = target.x;
+    const targetZ = target.z;
     for (let i = 0; i < 80; i++) {
       a.session.lastInputAt = Date.now() - 120;
       const dx = targetX - a.session.x, dz = targetZ - a.session.z;
@@ -64,7 +66,8 @@ describe('world membership and movement', () => {
         p: [a.session.x + (dx / d) * 0.32, 0, a.session.z + (dz / d) * 0.32], ry: 0, st: 0, seq: i + 1,
       });
     }
-    const inside = Math.abs(a.session.x - targetX) < 7.25 && Math.abs(a.session.z - targetZ) < 5.1;
+    const inside = Math.abs(a.session.x - targetX) < target.w / 2
+      && Math.abs(a.session.z - targetZ) < target.d / 2;
     expect(inside).toBe(false);
   });
 
