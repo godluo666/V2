@@ -4,6 +4,7 @@
  * 按 cityplan.BUILDINGS 的 style 渲染:
  * - shopfront:一层骑楼店面(卷帘门/玻璃窗/门棚/竖招牌 canvas 霓虹,venue 留门洞)
  *   + 二层住家窗(少量暖窗自发光)+ 女儿墙;
+ * - mediaTower:路口椭圆媒体塔、低位巨幕与错层冠部，建立非对称城市地标;
  * - tower:路口高楼,分段体块错落 + 屋顶水塔/天线剪影 + 零星亮窗点阵(禁止整面亮);
  * - apartment / backstreet:阳台 / 外走廊 / 空调位;
  * - silhouette:纯色块二阶 toon,不描边(§4.2 背景三层)。
@@ -148,6 +149,77 @@ function makeSignMesh(s: SignSpec): THREE.Mesh {
   mesh.position.set(s.x, s.y, s.z);
   mesh.rotation.y = s.ry + (s.projecting ? Math.PI / 2 : 0);
   return mesh;
+}
+
+let _mediaTowerTex: THREE.CanvasTexture | null = null;
+function mediaTowerTexture(): THREE.CanvasTexture {
+  if (_mediaTowerTex) return _mediaTowerTex;
+  const [canvas, ctx] = makeCanvas(1024);
+  canvas.height = 576;
+  ctx.fillStyle = '#f4eddd';
+  ctx.fillRect(0, 0, 1024, 576);
+
+  // 原创错位印刷海报：借用黑/白/红的抽象原则，不复刻任何游戏素材。
+  ctx.fillStyle = '#151820';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(468, 0);
+  ctx.lineTo(300, 576);
+  ctx.lineTo(0, 576);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ee3657';
+  ctx.beginPath();
+  ctx.moveTo(390, -40);
+  ctx.lineTo(1024, 70);
+  ctx.lineTo(1024, 438);
+  ctx.lineTo(254, 548);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ffd84f';
+  ctx.beginPath();
+  ctx.moveTo(790, 0);
+  ctx.lineTo(1024, 0);
+  ctx.lineTo(1024, 220);
+  ctx.lineTo(872, 182);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#38d3d0';
+  ctx.fillRect(0, 498, 1024, 42);
+
+  ctx.save();
+  ctx.translate(534, 280);
+  ctx.rotate(-0.055);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 116px "Arial Black", "Segoe UI", sans-serif';
+  ctx.lineWidth = 18;
+  ctx.strokeStyle = '#151820';
+  ctx.strokeText('MOON//VISION', 7, 8);
+  ctx.fillStyle = '#fff9ea';
+  ctx.fillText('MOON//VISION', 0, 0);
+  ctx.restore();
+
+  ctx.fillStyle = '#fff9ea';
+  ctx.font = '900 42px "Arial Black", "Segoe UI", sans-serif';
+  ctx.fillText('LIVE CITY FEED', 46, 72);
+  ctx.fillStyle = '#151820';
+  ctx.font = '900 54px "Arial Black", "Segoe UI", sans-serif';
+  ctx.fillText('07', 896, 500);
+  ctx.font = '700 26px "Segoe UI", sans-serif';
+  ctx.fillText('SHIOHAMA CROSS / 35.68 N', 502, 560);
+
+  // 右下漫画网点只参与主屏构图，不作为全局重复背景。
+  ctx.fillStyle = 'rgba(21,24,32,.55)';
+  for (let y = 374; y < 492; y += 18) {
+    for (let x = 720 + ((y / 18) % 2) * 9; x < 970; x += 18) {
+      ctx.beginPath();
+      ctx.arc(x, y, 4.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  _mediaTowerTex = canvasTexture(canvas, false);
+  return _mediaTowerTex;
 }
 
 /** Project shared façade-sign data onto any building style. */
@@ -326,6 +398,90 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   }
 }
 
+/** 路口原创媒体塔：低位巨幕与椭圆体块把视觉重心压到可行走街面。 */
+function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): void {
+  const ry = facingRy(b);
+  const { frontage: w, depth: d } = cityBuildingLocalSize(b);
+  const local = new THREE.Group();
+  local.position.set(b.x, 0, b.z);
+  local.rotation.y = ry;
+
+  const podiumMat = toonMat(ENV.wallPale);
+  const inkMat = toonMat(shade(ENV.outline, 0.025));
+  const bodyMat = toonMat(shade(ENV.bgSilhouetteA, -0.025));
+  const glassMat = toonMat('#233a4b', {
+    emissive: '#163847',
+    emissiveIntensity: 0.22,
+  });
+
+  const podium = new THREE.Mesh(new THREE.BoxGeometry(w, 4.8, d), podiumMat);
+  podium.position.y = 2.4;
+  podium.castShadow = true;
+  podium.receiveShadow = true;
+  addOutline(podium);
+  local.add(podium);
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 16), bodyMat);
+  body.position.set(-w * 0.04, 4.8 + (b.h - 4.8) / 2, -d * 0.03);
+  body.scale.set(w * 0.94, b.h - 4.8, d * 0.94);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  addOutline(body);
+  local.add(body);
+
+  // 沿椭圆前缘的深色竖向肋条，让高楼不是一整块光滑圆柱。
+  for (let i = -3; i <= 3; i++) {
+    const x = i * (w * 0.105);
+    const z = d / 2 + 0.08 - Math.abs(i) * 0.045;
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.13, b.h - 18, 0.16), inkMat);
+    fin.position.set(x, 25.5, z);
+    local.add(fin);
+  }
+
+  // 首层连续橱窗与入口，把巨幕地标落到真实商业街尺度。
+  for (let i = -2; i <= 2; i++) {
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(w * 0.16, 2.55, 0.12), glassMat);
+    pane.position.set(i * w * 0.18, 1.55, d / 2 + 0.08);
+    local.add(pane);
+  }
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(w * 0.92, 0.16, 1.05), inkMat);
+  canopy.position.set(0, 4.7, d / 2 + 0.38);
+  canopy.rotation.x = -0.12;
+  local.add(canopy);
+
+  const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(w * 0.94, 9.3, 0.34), inkMat);
+  screenFrame.position.set(0, 10.3, d / 2 + 0.15);
+  local.add(screenFrame);
+  const tex = mediaTowerTexture();
+  const screenMat = toonMat(0xffffff, {
+    map: tex,
+    emissiveMap: tex,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.48,
+    fog: false,
+  });
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.9, 8.86), screenMat);
+  screen.position.set(0, 10.3, d / 2 + 0.34);
+  local.add(screen);
+
+  // 顶冠错层、天线与色带，形成参考图中的强烈不对称轮廓。
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 16), inkMat);
+  crown.position.set(-w * 0.1, b.h + 1.1, -d * 0.04);
+  crown.scale.set(w * 0.78, 2.2, d * 0.78);
+  local.add(crown);
+  const crownBand = new THREE.Mesh(new THREE.BoxGeometry(w * 0.92, 0.55, 0.26), toonMat(ACCENT.cinemaSign));
+  crownBand.position.set(0, b.h - 3.2, d / 2 + 0.18);
+  local.add(crownBand);
+  for (const [x, height] of [[-w * 0.2, 6.2], [w * 0.18, 4.5]] as const) {
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, height, 6), inkMat);
+    antenna.position.set(x, b.h + 2.2 + height / 2, 0);
+    local.add(antenna);
+  }
+
+  group.add(local);
+  appendFacadeSigns(b, signs, ry, w, d);
+}
+
 function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: boolean): void {
   const ry = facingRy(b);
   const wall = jitterColor(backstreet ? ENV.wallB : WALL_BASES[Math.floor(rnd() * 2) + 1], rnd);
@@ -465,6 +621,9 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
   const towerWalls = new MergeBag();
   const towerGlow: THREE.BufferGeometry[] = [];
   const allSigns: SignSpec[] = [];
+  const landmarkGroup = new THREE.Group();
+  landmarkGroup.name = 'city-media-landmark';
+  group.add(landmarkGroup);
 
   const playable = BUILDINGS
     .map((b, i) => ({ b, i, dd: (b.x - spawn[0]) ** 2 + (b.z - spawn[1]) ** 2 }))
@@ -482,6 +641,7 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
         const bags = isNear ? near : far;
         switch (b.style) {
           case 'shopfront': buildShopfront(b, bags, rnd); break;
+          case 'mediaTower': buildMediaTower(b, landmarkGroup, allSigns); break;
           case 'apartment': buildApartment(b, bags, rnd, false); break;
           case 'backstreet': buildApartment(b, bags, rnd, true); break;
           case 'tower': buildTower(b, towerWalls, towerGlow, allSigns, rnd); break;

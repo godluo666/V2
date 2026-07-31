@@ -173,14 +173,16 @@ function buildCity(): SpaceLayout {
   ] as const) {
     b.prop('c_signal', x, 0, z, ry); b.circle(x, z, 0.22);
   }
-  b.prop('c_banner', -8, 0, -8.5, 0, {
-    text: '月汐町 · ICHIBAN STREET',
-    color: '#ff3f6c',
-    accent: '#ffd34f',
-    width: 8.4,
-  });
-  b.circle(-12.35, -8.5, 0.2);
-  b.circle(-3.65, -8.5, 0.2);
+  const arcadeBanners = [
+    [-8.5, '月汐町 · ICHIBAN STREET', '#ff3f6c', '#ffd34f'],
+    [-13.2, 'SHOPPING LOOP // 07', '#171a22', '#42d7c7'],
+    [-17.6, 'CLUB · CINEMA · ARENA', '#ffd34f', '#ff3f6c'],
+  ] as const;
+  for (const [z, text, color, accent] of arcadeBanners) {
+    b.prop('c_banner', -8, 0, z, 0, { text, color, accent, width: 8.4 });
+    b.circle(-12.35, z, 0.2);
+    b.circle(-3.65, z, 0.2);
+  }
 
   // 住宅生活细节：自行车、花槽、电话、海报和电线形成近景层次。
   for (const [x, z] of [[-23.5, -5.45], [-3.7, 7.3], [15, 7.2], [24.2, -5.4]] as const) {

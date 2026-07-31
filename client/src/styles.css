@@ -91,6 +91,60 @@ h3.title { margin: 0 0 4px 0; }
 .hud-top .sep { opacity: 0.3; }
 .hud-topright { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; align-items: center; }
 .hud-credits { padding: 8px 12px; font-size: 13px; }
+
+/* 一番街 HUD：去掉后台式玻璃圆角，改成不对称街头印刷标签。 */
+.hud-street .hud-top {
+  z-index: 12;
+  top: 10px;
+  left: 12px;
+  padding: 9px 24px 9px 15px;
+  color: #171920;
+  background: #f6f1e2;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  box-shadow: 6px 6px 0 rgba(21, 23, 30, .9);
+  clip-path: polygon(0 9%, 96% 0, 100% 76%, 88% 100%, 4% 89%);
+  font-weight: 850;
+  transform: rotate(-.7deg);
+}
+.hud-street .hud-top::before {
+  content: "";
+  width: 7px;
+  align-self: stretch;
+  margin: -9px 1px -9px -15px;
+  background: #ee3657;
+}
+.hud-street .hud-topright {
+  z-index: 12;
+}
+.hud-street .hud-topright .panel,
+.hud-street .hud-topright .btn,
+.hud-street .dock .btn {
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  background: #171920;
+  color: #f6f1e2;
+  box-shadow: 4px 4px 0 rgba(246, 241, 226, .76);
+  clip-path: polygon(8% 0, 100% 7%, 91% 100%, 0 84%);
+}
+.hud-street .hud-topright .btn:focus-visible,
+.hud-street .dock .btn:focus-visible {
+  outline: 3px solid #ffd84f;
+  outline-offset: 3px;
+}
+.hud-street .dock {
+  z-index: 12;
+  gap: 7px;
+}
+.hud-street .dock .btn:nth-child(3n + 1) { transform: rotate(-2deg); }
+.hud-street .dock .btn:nth-child(3n + 2) { transform: translateY(-3px) rotate(1deg); }
+.hud-street .dock .btn.on {
+  color: #171920;
+  background: #42d7c7;
+  box-shadow: 4px 4px 0 #ee3657;
+}
 .conn-banner {
   position: absolute; top: 0; left: 0; right: 0; text-align: center; padding: 6px;
   background: rgba(180, 60, 40, 0.92); color: white; font-size: 13px; z-index: 50;

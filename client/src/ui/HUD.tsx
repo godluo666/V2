@@ -11,6 +11,7 @@ import ChatPanel from './ChatPanel';
 import WhiteboardPanel from './WhiteboardPanel';
 import FullscreenViewer from './FullscreenViewer';
 import TouchControls from './TouchControls';
+import StreetPosterHUD from './StreetPosterHUD';
 import {
   MediaPanel, JukeboxPanel, BoardPanel, TttPanel, LightsOutPanel,
   VendingPanel, KioskPanel, ElevatorPanel, BooksPanel, InventoryPanel,
@@ -223,7 +224,7 @@ export default function HUD() {
   const isOwnRoom = isRoomSpace(spaceKey) && room?.ownerId === self?.userId;
 
   return (
-    <div className="hud">
+    <div className={`hud ${spaceKey === 'plaza' ? 'hud-street' : ''}`}>
       {(!connected || reconnecting) && (
         <div className="conn-banner">⚡ 连接断开,正在重连…</div>
       )}
@@ -266,6 +267,7 @@ export default function HUD() {
       <RoomEditorBar />
       <FullscreenViewer />
       <TouchControls />
+      <StreetPosterHUD />
 
       {emotesOpen && (
         <div className="emotes">

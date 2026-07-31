@@ -18,29 +18,29 @@ export const ENV = {
   /** 傍晚的桃金色残照。 */
   skyAfterglow: '#f0b99c',
   /** 远景楼第 1 层(最近)。 */
-  bgSilhouetteA: '#657f99',
+  bgSilhouetteA: '#35465b',
   /** 远景楼第 2 层。 */
-  bgSilhouetteB: '#829bb0',
+  bgSilhouetteB: '#536a80',
   /** 远景楼第 3 层(融入空气透视)。 */
-  bgSilhouetteC: '#b8cbd4',
+  bgSilhouetteC: '#8fa6b7',
   /** 晴日中性沥青，避免大片黑灰。 */
-  roadAsphalt: '#343842',
+  roadAsphalt: '#191c24',
   /** 暖浅灰人行道砖。 */
   sidewalk: '#e4ddd0',
   /** 人行道砖缝。 */
   sidewalkSeam: '#b9b1a4',
   /** 建筑主墙面 A:浅蓝白灰泥。 */
-  wallA: '#e5edf1',
+  wallA: '#d9d9d2',
   /** 建筑主墙面 B:暖粉灰旧公寓。 */
-  wallB: '#d8b9b3',
+  wallB: '#71656f',
   /** 建筑主墙面 C:低饱和鼠尾草青。 */
-  wallC: '#a7c8c3',
+  wallC: '#49666a',
   /** 沿街小店暖白墙。 */
-  wallPale: '#f2e6d5',
+  wallPale: '#eee1c8',
   /** 金属(栏杆/灯杆/空调外机)。 */
-  metal: '#4c5662',
+  metal: '#252a33',
   /** 全场统一描边色:柔和深蓝灰。 */
-  outline: '#202631',
+  outline: '#11131a',
   /** 分层雾近端。 */
   fogNear: '#b8e0ef',
   /** 分层雾远端。 */

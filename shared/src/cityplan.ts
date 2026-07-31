@@ -24,7 +24,7 @@ export interface CityFacadeSign {
 export interface CityBuilding extends CityRect {
   h: number;
   ry?: number;
-  style: 'shopfront' | 'tower' | 'apartment' | 'backstreet' | 'silhouette';
+  style: 'shopfront' | 'mediaTower' | 'tower' | 'apartment' | 'backstreet' | 'silhouette';
   sign?: { text: string; color: string };
   facadeSigns?: CityFacadeSign[];
   venue?: CityVenue['key'];
@@ -85,7 +85,7 @@ const b = (
  */
 const ACTIVE_BUILDINGS: CityBuilding[] = [
   // 北街西侧：团子轰趴馆沿纵向立面成为进入街谷后的第一视觉锚点。
-  b(-22.05, -14.55, 13.9, 14.9, 22, 'shopfront', {
+  b(-22.05, -14.55, 13.9, 14.9, 34, 'shopfront', {
     ry: Math.PI / 2,
     venue: 'gameroom', sign: { text: '团子 CLUB', color: '#ff704d' },
     facadeSigns: [
@@ -97,13 +97,13 @@ const ACTIVE_BUILDINGS: CityBuilding[] = [
   }),
 
   // 北街东侧：窄高媒体楼 + 转角小店，形成低视角招牌峡谷。
-  b(1.8, -16, 5.4, 12, 42, 'shopfront', {
+  b(1.8, -16, 5.4, 12, 48, 'mediaTower', {
     ry: -Math.PI / 2,
     sign: { text: '月汐 LIVE', color: '#ff3f6c' },
     facadeSigns: [
-      { text: 'MOON//7', color: '#ff3f6c', anchor: -0.18, y: 15.8, w: 5.1, h: 2.8 },
-      { text: 'MOON VISION', color: '#ff3f6c', anchor: 0, y: 31, w: 10.4, h: 4.2 },
-      { text: 'DAY//NIGHT', color: '#42d7c7', anchor: 0.16, y: 24.8, w: 7.4, h: 1.2 },
+      { text: 'MOON//7', color: '#ff3f6c', anchor: -0.22, y: 17.5, w: 5.1, h: 2.8 },
+      { text: 'MOON VISION', color: '#ff3f6c', anchor: 0, y: 34, w: 10.4, h: 4.2 },
+      { text: 'DAY//NIGHT', color: '#42d7c7', anchor: 0.16, y: 27.2, w: 7.4, h: 1.2 },
       { text: 'LIVE', color: '#ffd34f', anchor: 0.34, y: 10.5, w: 0.95, h: 4.2, vertical: true, projecting: true },
       { text: 'MUSIC', color: '#3db7ff', anchor: -0.36, y: 6.7, w: 0.9, h: 3.8, vertical: true },
     ],
