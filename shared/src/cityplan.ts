@@ -180,11 +180,14 @@ function createSilhouettes(count: number): CityBuilding[] {
   return silhouettes;
 }
 
-const VISTA_BUILDING = b(-8, -40, 24, 12, 52, 'silhouette', {
+// Close the north street only one metre beyond the playable boundary.  Keeping
+// this as a visual-only silhouette preserves walkability while avoiding a long,
+// empty road tunnel in the entry composition.
+const VISTA_BUILDING = b(-8, -30, 24, 12, 52, 'silhouette', {
   ry: 0,
   facadeSigns: [
-    { text: 'MOON//VISION', color: '#ff3f6c', anchor: 0, y: 20, w: 17, h: 6.2 },
-    { text: 'CITY PULSE · 07', color: '#42d7c7', anchor: 0, y: 11.8, w: 12.5, h: 1.35 },
+    { text: 'MOON//VISION', color: '#ff3f6c', anchor: 0, y: 6.5, w: 20, h: 9.6 },
+    { text: 'CITY PULSE · 07', color: '#42d7c7', anchor: 0, y: 13, w: 15.5, h: 1.5 },
   ],
 });
 
