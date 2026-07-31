@@ -18,23 +18,23 @@ export const ENV = {
   /** 傍晚的桃金色残照。 */
   skyAfterglow: '#f0b99c',
   /** 远景楼第 1 层(最近)。 */
-  bgSilhouetteA: '#35465b',
+  bgSilhouetteA: '#314258',
   /** 远景楼第 2 层。 */
-  bgSilhouetteB: '#536a80',
+  bgSilhouetteB: '#536f89',
   /** 远景楼第 3 层(融入空气透视)。 */
   bgSilhouetteC: '#8fa6b7',
   /** 晴日中性沥青，避免大片黑灰。 */
-  roadAsphalt: '#191c24',
+  roadAsphalt: '#292c36',
   /** 暖浅灰人行道砖。 */
   sidewalk: '#e4ddd0',
   /** 人行道砖缝。 */
   sidewalkSeam: '#b9b1a4',
   /** 建筑主墙面 A:浅蓝白灰泥。 */
-  wallA: '#d9d9d2',
+  wallA: '#dedbd2',
   /** 建筑主墙面 B:暖粉灰旧公寓。 */
-  wallB: '#71656f',
+  wallB: '#8a6573',
   /** 建筑主墙面 C:低饱和鼠尾草青。 */
-  wallC: '#49666a',
+  wallC: '#4d777a',
   /** 沿街小店暖白墙。 */
   wallPale: '#eee1c8',
   /** 金属(栏杆/灯杆/空调外机)。 */

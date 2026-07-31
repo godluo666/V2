@@ -96,26 +96,22 @@ const ACTIVE_BUILDINGS: CityBuilding[] = [
     ],
   }),
 
-  // 北街东侧：窄高媒体楼 + 转角小店，形成低视角招牌峡谷。
-  b(1.8, -14.55, 5.4, 14.9, 48, 'mediaTower', {
+  // 北街东侧：放大的转角媒体楼直接占据路口天际线。它与电影院连续咬合，
+  // 首屏就能看见低位巨幕，而不是藏在一栋小店后面。
+  b(5.35, -14.55, 12.1, 14.9, 48, 'mediaTower', {
     ry: 0,
     sign: { text: '月汐 LIVE', color: '#ff3f6c' },
     facadeSigns: [
-      { text: 'MOON//7', color: '#ff3f6c', anchor: -0.22, y: 17.5, w: 5.1, h: 2.8 },
-      { text: 'MOON VISION', color: '#ff3f6c', anchor: 0, y: 34, w: 10.4, h: 4.2 },
-      { text: 'DAY//NIGHT', color: '#42d7c7', anchor: 0.16, y: 27.2, w: 7.4, h: 1.2 },
-      { text: 'LIVE', color: '#ffd34f', anchor: 0.34, y: 10.5, w: 0.95, h: 4.2, vertical: true, projecting: true },
-      { text: 'MUSIC', color: '#3db7ff', anchor: -0.36, y: 6.7, w: 0.9, h: 3.8, vertical: true },
+      { text: 'MOON//7', color: '#ff3f6c', anchor: -0.29, y: 19.2, w: 5.4, h: 2.4 },
+      { text: 'MOON VISION', color: '#ff3f6c', anchor: 0.02, y: 35.5, w: 10.8, h: 3.7 },
+      { text: 'DAY//NIGHT', color: '#42d7c7', anchor: 0.18, y: 28.6, w: 7.8, h: 1.15 },
+      { text: 'LIVE', color: '#ffd34f', anchor: 0.43, y: 12.2, w: 1.05, h: 4.5, vertical: true, projecting: true },
+      { text: 'MUSIC', color: '#3db7ff', anchor: -0.43, y: 8.4, w: 1.0, h: 4.2, vertical: true, projecting: true },
+      { text: 'CITY FEED // 35.68N', color: '#ffd34f', anchor: 0.05, y: 14.2, w: 8.8, h: 0.9 },
+      { text: 'STREET WAVE', color: '#42d7c7', anchor: -0.18, y: 23.4, w: 6.2, h: 0.95 },
     ],
   }),
-  b(8, -12, 7, 9.8, 24, 'apartment', {
-    sign: { text: '月汐荘', color: '#ffd34f' },
-    facadeSigns: [
-      { text: '月汐荘', color: '#ffd34f', anchor: -0.08, y: 15.8, w: 4.8, h: 1.2 },
-      { text: '24H', color: '#42d7c7', anchor: 0.36, y: 9.4, w: 0.9, h: 3.2, vertical: true, projecting: true },
-    ],
-  }),
-  b(19.75, -14.5, 16.5, 14.8, 30, 'shopfront', {
+  b(21.15, -14.5, 14.7, 14.8, 32, 'shopfront', {
     venue: 'cinema', sign: { text: '星汐 CINEMA', color: '#ff3f6c' },
     facadeSigns: [
       { text: 'NOW SHOWING', color: '#ffd34f', anchor: 0, y: 7.1, w: 7.6, h: 1.0 },
@@ -193,9 +189,9 @@ export const BUILDINGS: CityBuilding[] = [
 /** 唯一三个可进入场馆；入口分布在北、西、南三侧的近距离街墙。 */
 export const VENUES: CityVenue[] = [
   {
-    key: 'cinema', x: 19.75, z: -6.92, ry: 0, label: '星汐电影院',
-    approach: [19.75, -6.5],
-    route: [[-8, 5.2], [-3, 1], [-3.2, -6.55], [19.75, -6.55], [19.75, -6.5]],
+    key: 'cinema', x: 21.15, z: -6.92, ry: 0, label: '星汐电影院',
+    approach: [21.15, -6.5],
+    route: [[-8, 5.2], [-3, 1], [-3.2, -6.55], [21.15, -6.55], [21.15, -6.5]],
   },
   {
     key: 'netcafe', x: -1.08, z: 15.05, ry: -Math.PI / 2, label: '镜界电竞观战馆',

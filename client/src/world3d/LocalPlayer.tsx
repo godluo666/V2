@@ -9,7 +9,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import {
   WALK_SPEED, RUN_SPEED, JUMP_VELOCITY, GRAVITY, PLAYER_RADIUS,
   resolveCollisions, clampToBounds, floorHeightAt, LAYOUTS, isRoomSpace,
-  ROOM_BOUNDS, Anim, EMOTES, INTERACT_RANGE, dist2d,
+  ROOM_BOUNDS, SPACE, Anim, EMOTES, INTERACT_RANGE, dist2d,
   GRAB_RANGE, HOLD_MIN, HOLD_MAX, LIFT_MAX, GRABBER_SLOW, INPUT_RATE,
 } from '@nexuspark/shared';
 import { hot } from '../state/hot';
@@ -330,7 +330,10 @@ export default function LocalPlayer() {
 
     // ── Camera rig(third/first 双模式,0.25s 平滑过渡)──
     const cam = hot.camera;
-    const headY = l.y + 0.8; // 团子矮墩墩,取景点跟着放低
+    const streetView = spaceKey === SPACE.PLAZA;
+    // 玩家仍是原来的团子尺寸；户外把摄影目标抬到二层店招高度，让角色落在
+    // 画面下三分之一，同时保留略向上的都市峡谷视角。
+    const headY = l.y + (streetView ? 1.72 : 0.8);
     let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
     let cz = l.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
     let cy = headY + Math.sin(cam.pitch) * cam.dist;
@@ -368,7 +371,7 @@ export default function LocalPlayer() {
     camera.position.z += (pz - camera.position.z) * kPos;
     camera.lookAt(
       l.x * (1 - fb) + (l.x + lfx) * fb,
-      (headY - 0.22) * (1 - fb) + (eyeY.current + lfy) * fb,
+      (headY - (streetView ? 0.08 : 0.22)) * (1 - fb) + (eyeY.current + lfy) * fb,
       l.z * (1 - fb) + (l.z + lfz) * fb
     );
 

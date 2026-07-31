@@ -45,9 +45,9 @@
 
 .street-edition {
   left: 18px;
-  top: 78px;
-  width: 62px;
-  height: 218px;
+  top: 70px;
+  width: 52px;
+  height: 178px;
   color: #f6f1e2;
   background: #15171e;
   border-left: 7px solid #ee3657;
@@ -60,7 +60,7 @@
   display: block;
   padding: 12px 0 2px 9px;
   color: #ffd84f;
-  font: 900 28px/1 "Arial Black", sans-serif;
+  font: 900 23px/1 "Arial Black", sans-serif;
 }
 
 .street-edition b,
@@ -86,9 +86,9 @@
 
 .street-objective {
   top: 58px;
-  right: 78px;
-  width: min(390px, 38vw);
-  padding: 13px 42px 13px 28px;
+  right: 64px;
+  width: min(320px, 32vw);
+  padding: 10px 34px 10px 24px;
   background: #f6f1e2;
   color: #15171e;
   clip-path: polygon(5% 0, 100% 7%, 95% 76%, 72% 100%, 0 89%);
@@ -117,7 +117,7 @@
 .street-objective strong {
   display: block;
   margin: 4px 0 2px;
-  font: 900 20px/1.12 "Arial Black", "Microsoft YaHei", sans-serif;
+  font: 900 17px/1.12 "Arial Black", "Microsoft YaHei", sans-serif;
   letter-spacing: -.04em;
 }
 
@@ -127,14 +127,14 @@
 }
 
 .street-route-map {
-  right: -3vw;
-  bottom: -15vh;
-  width: min(470px, 38vw);
-  height: min(470px, 46vw);
+  right: -2vw;
+  bottom: -13vh;
+  width: min(360px, 30vw);
+  height: min(360px, 36vw);
   z-index: -1;
   overflow: visible;
   color: #15171e;
-  opacity: .38;
+  opacity: .32;
   transform: translate(calc(var(--poster-x) * .42), calc(var(--poster-y) * .42)) rotate(-8deg);
   filter: drop-shadow(0 0 1px rgba(246, 241, 226, .5));
 }
@@ -203,8 +203,8 @@
   grid-template-columns: auto 1fr auto;
   gap: 8px;
   align-items: center;
-  min-width: 164px;
-  padding: 9px 13px 9px 9px;
+  min-width: 132px;
+  padding: 7px 11px 7px 8px;
   border: 0;
   border-radius: 0;
   color: #f6f1e2;
@@ -243,7 +243,7 @@
 
 .street-venue-index {
   color: #ffd84f;
-  font: 900 18px/1 "Arial Black", sans-serif;
+  font: 900 15px/1 "Arial Black", sans-serif;
 }
 
 .street-venue.is-active .street-venue-index {
@@ -251,7 +251,7 @@
 }
 
 .street-venue-label {
-  font: 900 13px/1.1 "Arial Black", "Microsoft YaHei", sans-serif;
+  font: 900 11px/1.1 "Arial Black", "Microsoft YaHei", sans-serif;
   white-space: nowrap;
 }
 
@@ -261,39 +261,40 @@
 }
 
 .street-venue-cinema {
-  right: 4vw;
-  top: 29vh;
+  right: 2vw;
+  top: 34vh;
   clip-path: polygon(0 13%, 92% 0, 100% 72%, 82% 100%, 4% 88%);
   transform: rotate(-2deg);
 }
 
 .street-venue-gameroom {
-  left: 8vw;
-  top: 42vh;
+  left: 6vw;
+  top: 47vh;
   clip-path: polygon(8% 0, 100% 9%, 92% 100%, 0 84%);
   transform: rotate(2deg);
 }
 
 .street-venue-netcafe {
-  right: 9vw;
-  bottom: 27vh;
+  right: 5vw;
+  bottom: 24vh;
   clip-path: polygon(0 15%, 88% 0, 100% 88%, 7% 100%);
   transform: rotate(1deg);
 }
 
 .street-route-detail {
-  left: 50%;
-  bottom: 48px;
+  left: auto;
+  right: 76px;
+  bottom: 54px;
   display: grid;
   grid-template-columns: auto minmax(190px, 1fr) auto;
   align-items: center;
   gap: 14px;
-  width: min(590px, 58vw);
-  padding: 12px 28px 12px 20px;
+  width: min(390px, 38vw);
+  padding: 9px 22px 9px 13px;
   color: #171920;
   background: #f6f1e2;
   clip-path: polygon(2% 4%, 94% 0, 100% 78%, 83% 100%, 0 88%);
-  transform: translate(calc(-50% + var(--poster-x) * -.15), calc(var(--poster-y) * -.12)) rotate(-.8deg);
+  transform: translate(calc(var(--poster-x) * -.15), calc(var(--poster-y) * -.12)) rotate(-.8deg);
   filter: drop-shadow(8px 8px 0 rgba(21, 23, 30, .9));
   animation: street-detail-rip 280ms 90ms cubic-bezier(.2, .85, .28, 1.15) both;
 }
@@ -313,10 +314,10 @@
   align-self: stretch;
   display: grid;
   place-items: center;
-  min-width: 52px;
+  min-width: 42px;
   color: #f6f1e2;
   background: #171920;
-  font: 900 25px/1 "Arial Black", sans-serif;
+  font: 900 19px/1 "Arial Black", sans-serif;
   clip-path: polygon(8% 0, 100% 7%, 88% 100%, 0 84%);
 }
 
@@ -327,7 +328,7 @@
 
 .street-route-detail strong {
   margin: 3px 0;
-  font: 900 20px/1.1 "Arial Black", "Microsoft YaHei", sans-serif;
+  font: 900 16px/1.1 "Arial Black", "Microsoft YaHei", sans-serif;
 }
 
 .street-route-detail small {
@@ -338,14 +339,14 @@
 .street-detail-distance {
   position: relative;
   z-index: 1;
-  min-width: 118px;
+  min-width: 78px;
   padding-left: 12px;
   text-align: right;
 }
 
 .street-detail-distance b {
   color: #ee3657;
-  font: 900 30px/1 "Arial Black", sans-serif;
+  font: 900 24px/1 "Arial Black", sans-serif;
 }
 
 .street-detail-distance > span {
@@ -396,7 +397,7 @@
     top: 58px;
     left: 8px;
     width: 46px;
-    height: 154px;
+    height: 132px;
   }
 
   .street-edition span { font-size: 20px; padding-left: 7px; }
@@ -417,21 +418,22 @@
 
   .street-venue {
     min-width: 0;
-    width: 138px;
+    width: 122px;
     padding: 8px 9px;
     gap: 5px;
   }
 
   .street-venue-label { font-size: 11px; }
   .street-venue-arrow { font-size: 15px; }
-  .street-venue-cinema { right: -6px; top: 29vh; }
-  .street-venue-gameroom { left: -6px; top: 38vh; }
-  .street-venue-netcafe { right: -8px; bottom: 34vh; }
+  .street-venue-cinema { right: -6px; top: 31vh; }
+  .street-venue-gameroom { left: -6px; top: 43vh; }
+  .street-venue-netcafe { right: -8px; bottom: 31vh; }
 
   .street-route-detail {
-    left: 50%;
+    left: auto;
+    right: 12px;
     bottom: 78px;
-    width: min(420px, 88vw);
+    width: min(320px, 82vw);
     grid-template-columns: 38px minmax(0, 1fr) auto;
     gap: 8px;
     padding: 9px 18px 9px 10px;

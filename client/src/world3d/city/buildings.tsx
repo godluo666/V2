@@ -398,7 +398,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   }
 }
 
-/** 路口原创媒体塔：低位巨幕与椭圆体块把视觉重心压到可行走街面。 */
+/** 路口原创媒体塔：巨幕、窗带和转角体块共同构成可进入商业街的一部分。 */
 function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): void {
   const ry = facingRy(b);
   const { frontage: w, depth: d } = cityBuildingLocalSize(b);
@@ -406,12 +406,16 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   local.position.set(b.x, 0, b.z);
   local.rotation.y = ry;
 
-  const podiumMat = toonMat(ENV.wallPale);
+  const podiumMat = toonMat('#e5ddcc');
   const inkMat = toonMat(shade(ENV.outline, 0.025));
   const bodyMat = toonMat(shade(ENV.bgSilhouetteA, -0.025));
-  const glassMat = toonMat('#233a4b', {
-    emissive: '#163847',
-    emissiveIntensity: 0.22,
+  const glassMat = toonMat('#22475a', {
+    emissive: '#1a6370',
+    emissiveIntensity: 0.3,
+  });
+  const warmGlassMat = toonMat('#e5a557', {
+    emissive: '#ffb858',
+    emissiveIntensity: 0.38,
   });
 
   const podium = new THREE.Mesh(new THREE.BoxGeometry(w, 4.8, d), podiumMat);
@@ -430,28 +434,33 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   local.add(body);
 
   // 沿椭圆前缘的深色竖向肋条，让高楼不是一整块光滑圆柱。
-  for (let i = -3; i <= 3; i++) {
-    const x = i * (w * 0.105);
+  for (let i = -5; i <= 5; i++) {
+    const x = i * (w * 0.076);
     const z = d / 2 + 0.08 - Math.abs(i) * 0.045;
-    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.13, b.h - 18, 0.16), inkMat);
-    fin.position.set(x, 25.5, z);
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.12, b.h - 17, 0.16), inkMat);
+    fin.position.set(x, 26, z);
     local.add(fin);
   }
 
-  // 首层连续橱窗与入口，把巨幕地标落到真实商业街尺度。
-  for (let i = -2; i <= 2; i++) {
-    const pane = new THREE.Mesh(new THREE.BoxGeometry(w * 0.16, 2.55, 0.12), glassMat);
-    pane.position.set(i * w * 0.18, 1.55, d / 2 + 0.08);
+  // 首层连续橱窗、暖门厅与檐口，把地标落到真实商业街尺度。
+  for (let i = -4; i <= 4; i++) {
+    const pane = new THREE.Mesh(
+      new THREE.BoxGeometry(w * 0.09, 2.55, 0.12),
+      i === 1 ? warmGlassMat : glassMat,
+    );
+    pane.position.set(i * w * 0.105, 1.55, d / 2 + 0.08);
     local.add(pane);
   }
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(w * 0.92, 0.16, 1.05), inkMat);
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(w * 0.96, 0.18, 1.18), inkMat);
   canopy.position.set(0, 4.7, d / 2 + 0.38);
   canopy.rotation.x = -0.12;
   local.add(canopy);
 
-  const displayW = Math.max(w * 0.94, 8.2);
-  const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(displayW + 0.28, 5.55, 0.34), inkMat);
-  screenFrame.position.set(0, 7.15, d / 2 + 0.15);
+  // 主屏从首层檐口直接起跳，默认镜头内占据右上视觉焦点。
+  const displayW = w * 0.94;
+  const displayH = 7.05;
+  const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(displayW + 0.34, displayH + 0.34, 0.38), inkMat);
+  screenFrame.position.set(0, 8.35, d / 2 + 0.15);
   local.add(screenFrame);
   const tex = mediaTowerTexture();
   const screenMat = toonMat(0xffffff, {
@@ -461,11 +470,31 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
     emissiveIntensity: 0.48,
     fog: false,
   });
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(displayW, 5.12), screenMat);
-  screen.position.set(0, 7.15, d / 2 + 0.34);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(displayW, displayH), screenMat);
+  screen.position.set(0, 8.35, d / 2 + 0.36);
   local.add(screen);
 
-  // 顶冠错层、天线与色带，形成参考图中的强烈不对称轮廓。
+  // 三层办公室窗带参与中段构图，避免巨幕上方退化成一块黑盒。
+  for (let row = 0; row < 3; row++) {
+    const y = 17.5 + row * 5.8;
+    const band = new THREE.Mesh(
+      new THREE.BoxGeometry(w * (row === 1 ? 0.78 : 0.88), 0.3, 0.25),
+      row === 1 ? toonMat(ACCENT.cinemaSign) : inkMat,
+    );
+    band.position.set((row - 1) * w * 0.035, y - 1.15, d / 2 + 0.16);
+    local.add(band);
+    for (let col = -4; col <= 4; col++) {
+      if ((row + col + 9) % 4 === 0) continue;
+      const pane = new THREE.Mesh(
+        new THREE.BoxGeometry(w * 0.075, 1.45, 0.12),
+        (row + col) % 3 === 0 ? warmGlassMat : glassMat,
+      );
+      pane.position.set(col * w * 0.092 + (row - 1) * 0.18, y, d / 2 + 0.17);
+      local.add(pane);
+    }
+  }
+
+  // 顶冠错层、天线与色带，形成强烈但原创的不对称轮廓。
   const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 16), inkMat);
   crown.position.set(-w * 0.1, b.h + 1.1, -d * 0.04);
   crown.scale.set(w * 0.78, 2.2, d * 0.78);
