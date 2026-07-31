@@ -572,6 +572,7 @@ function buildSilhouettes(group: THREE.Group): void {
   const layers = [new MergeBag(), new MergeBag(), new MergeBag()];
   const layerColors = [ENV.bgSilhouetteA, ENV.bgSilhouetteB, ENV.bgSilhouetteC];
   const glow = new MergeBag();
+  const vistaSigns: SignSpec[] = [];
   const rnd = seededRandom(940_001);
   for (const b of silos) {
     const r = Math.hypot(b.x, b.z);
@@ -607,6 +608,11 @@ function buildSilhouettes(group: THREE.Group): void {
         });
       }
     }
+    if (b.facadeSigns?.length) {
+      const ry = facingRy(b);
+      const { frontage, depth } = cityBuildingLocalSize(b);
+      appendFacadeSigns(b, vistaSigns, ry, frontage, depth);
+    }
   }
   layers.forEach((bag) => {
     const geo = bag.build();
@@ -624,7 +630,8 @@ function buildSilhouettes(group: THREE.Group): void {
     m.fog = true;
     group.add(new THREE.Mesh(glowGeo, m));
   }
-  // 合计:3 层剪影 + 1 亮窗 = 4 mesh ≤ 6(§10)
+  for (const sign of vistaSigns) group.add(makeSignMesh(sign));
+  // 合计:3 层剪影 + 1 亮窗 + 最多 2 个消失点招牌 = 6 mesh(§10)
 }
 
 /** 建筑总组件:enqueue 一次,组模块级缓存。 */

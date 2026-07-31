@@ -110,6 +110,16 @@ export async function walkToVenueDoor(page, venueKey) {
   return walkRoute(page, points);
 }
 
+/** Reverse a venue's shared spawn route after returning through its street door. */
+export async function walkFromVenueDoorToSpawn(page, venueKey) {
+  const points = await page.evaluate((key) => {
+    const venue = window.__nx.cityMap.venues.find((candidate) => candidate.key === key);
+    if (!venue?.route?.length) throw new Error(`Missing shared route for venue: ${key}`);
+    return [...venue.route].reverse();
+  }, venueKey);
+  return walkRoute(page, points);
+}
+
 /** Reach and enter a street venue using only coordinates from `cityplan.ts`. */
 export async function enterStreetVenue(page, venueKey) {
   await walkToVenueDoor(page, venueKey);

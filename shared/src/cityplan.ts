@@ -166,7 +166,9 @@ function createSilhouettes(count: number): CityBuilding[] {
   const silhouettes: CityBuilding[] = [];
   for (let i = 0; i < count; i++) {
     const edge = i % 4;
-    const along = -52 + rnd() * 104;
+    let along = -52 + rnd() * 104;
+    // Reserve the north vanishing point for one intentional media façade.
+    if (edge === 2 && Math.abs(along + 8) < 18) along += along < -8 ? -22 : 22;
     const depth = 34 + rnd() * 22;
     const x = edge === 0 ? -depth : edge === 1 ? depth : along;
     const z = edge === 2 ? -depth : edge === 3 ? depth : along;
@@ -178,9 +180,18 @@ function createSilhouettes(count: number): CityBuilding[] {
   return silhouettes;
 }
 
+const VISTA_BUILDING = b(-8, -40, 24, 12, 52, 'silhouette', {
+  ry: 0,
+  facadeSigns: [
+    { text: 'MOON//VISION', color: '#ff3f6c', anchor: 0, y: 20, w: 17, h: 6.2 },
+    { text: 'CITY PULSE · 07', color: '#42d7c7', anchor: 0, y: 11.8, w: 12.5, h: 1.35 },
+  ],
+});
+
 export const BUILDINGS: CityBuilding[] = [
   ...ACTIVE_BUILDINGS,
-  ...createSilhouettes(18),
+  VISTA_BUILDING,
+  ...createSilhouettes(17),
 ];
 
 /** 唯一三个可进入场馆；入口分布在北、西、南三侧的近距离街墙。 */

@@ -6,7 +6,7 @@
 import { chromium } from 'playwright';
 import {
   JOURNEY_CHROMIUM_ARGS, enterStreetVenue, exitToStreet,
-  interactWhenPrompt, prepareWorldInput, sitOnHighestSeat, walkTo,
+  interactWhenPrompt, prepareWorldInput, sitOnHighestSeat, walkFromVenueDoorToSpawn, walkTo,
 } from './browser-driver.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
@@ -169,21 +169,28 @@ await captureEvidence(p1, 'party-hall-desktop.png', 'party hall desktop');
 if (!await exitToStreet(p1)) {
   console.log('  street-exit interaction failed', JSON.stringify(await state(p1)));
 }
+check('party-hall return follows the shared route back to spawn', await walkFromVenueDoorToSpawn(p1, 'gameroom'));
 p2Browser = await launchBrowser();
 p2 = await newPlayer(p2Browser, `sm2r_${RUN}`);
 check('both players returned to the compact street', (await state(p1)).space === 'plaza' && (await state(p2)).space === 'plaza');
 
 for (const page of [p1, p2]) await enterCinema(page);
-check('both players entered the cinema', (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema');
+const bothInCinema = (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema';
+check('both players entered the cinema', bothInCinema);
 
-const highestSeat = await sitOnHighestSeat(p1, 'cinema');
-const topSeat = await state(p1);
-check(
-  `highest-row cinema seat is grounded at y=${highestSeat.y.toFixed(2)} (actual ${topSeat.y.toFixed(2)})`,
-  topSeat.seatId === highestSeat.id && Math.abs(topSeat.y - highestSeat.y) < 0.03,
-);
 await p2Browser.close();
-await captureEvidence(p1, 'cinema-highest-row-desktop.png', 'cinema highest row');
+if (bothInCinema) {
+  const highestSeat = await sitOnHighestSeat(p1, 'cinema');
+  const topSeat = await state(p1);
+  check(
+    `highest-row cinema seat is grounded at y=${highestSeat.y.toFixed(2)} (actual ${topSeat.y.toFixed(2)})`,
+    topSeat.seatId === highestSeat.id && Math.abs(topSeat.y - highestSeat.y) < 0.03,
+  );
+  await captureEvidence(p1, 'cinema-highest-row-desktop.png', 'cinema highest row');
+} else {
+  check('highest-row cinema seat is grounded', false);
+  check('cinema highest row cloud screenshot captured', false);
+}
 
 console.log(`CONSOLE ERRORS: ${errors.length}`);
 for (const error of errors.slice(0, 8)) console.log(' ', error.slice(0, 180));
