@@ -123,7 +123,7 @@ class B {
 
 /** Safe fallback used by archived rooms that no longer have a public façade. */
 /** South crosswalk reveal: camera starts down the short street and frames the sign canyon. */
-const STREET_SPAWN: [number, number, number, number] = [-8, 0, 5.2, Math.PI];
+const STREET_SPAWN: [number, number, number, number] = [-8, 0, 5.2, Math.PI - 0.32];
 
 function streetReturnFor(key: (typeof VENUES)[number]['key']): [number, number, number, number] {
   const venue = VENUES.find((candidate) => candidate.key === key);

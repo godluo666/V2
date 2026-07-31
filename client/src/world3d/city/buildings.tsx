@@ -450,8 +450,8 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   local.add(canopy);
 
   const displayW = Math.max(w * 0.94, 8.2);
-  const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(displayW + 0.28, 9.3, 0.34), inkMat);
-  screenFrame.position.set(0, 10.3, d / 2 + 0.15);
+  const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(displayW + 0.28, 6.7, 0.34), inkMat);
+  screenFrame.position.set(0, 8.15, d / 2 + 0.15);
   local.add(screenFrame);
   const tex = mediaTowerTexture();
   const screenMat = toonMat(0xffffff, {
@@ -461,8 +461,8 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
     emissiveIntensity: 0.48,
     fog: false,
   });
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(displayW, 8.86), screenMat);
-  screen.position.set(0, 10.3, d / 2 + 0.34);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(displayW, 6.28), screenMat);
+  screen.position.set(0, 8.15, d / 2 + 0.34);
   local.add(screen);
 
   // 顶冠错层、天线与色带，形成参考图中的强烈不对称轮廓。

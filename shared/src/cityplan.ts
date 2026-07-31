@@ -179,7 +179,7 @@ function createSilhouettes(count: number): CityBuilding[] {
 const VISTA_BUILDING = b(-8, -30, 24, 12, 52, 'silhouette', {
   ry: 0,
   facadeSigns: [
-    { text: 'MOON//VISION', color: '#ff3f6c', anchor: 0, y: 6.5, w: 20, h: 9.6 },
+    { text: 'NORTH GATE // 07', color: '#ffd34f', anchor: 0, y: 6.5, w: 20, h: 9.6 },
     { text: 'CITY PULSE · 07', color: '#42d7c7', anchor: 0, y: 13, w: 15.5, h: 1.5 },
   ],
 });
