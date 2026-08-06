@@ -20,6 +20,7 @@ import { Streets, shade } from './streets';
 import { Buildings } from './buildings';
 import { Foreground } from './foreground';
 import StreetCrowd from './StreetCrowd';
+import CyberpunkLayer from './CyberpunkLayer';
 
 // 共享构建队列(模块级:重进户外不重复构建,streets/buildings/foreground 幂等)
 let cityQueue: BuildQueue | null = null;
@@ -76,6 +77,7 @@ export default function City() {
       <Streets queue={queue} />
       <Buildings queue={queue} spawn={spawn} />
       <Foreground queue={queue} />
+      <CyberpunkLayer />
       <StreetCrowd />
 
       {/* 布局道具与交互物(c_* 分支见 spaces/registry) */}
