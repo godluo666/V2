@@ -8,7 +8,7 @@ import { LAYOUTS } from '@nexuspark/shared';
 import type { SpaceLayout } from '@nexuspark/shared';
 import { useWorld, useSettings } from '../../state/stores';
 import { renderProp, renderInteractable } from './registry';
-import { NetcafeExtras } from '../prefabs/venueInteriors';
+import { ArenaExtras, CinemaExtras, NetcafeExtras } from '../prefabs/venueInteriors';
 import { ClubExtras } from '../prefabs/clubInteriors';
 import { WindowFrame } from '../prefabs/interiors';
 import { plankTexture, tileTexture, marbleTexture, carpetTexture, gridGlowTexture } from './textures';
@@ -334,7 +334,9 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
       )}
 
       {/* 场馆专属挂件(P5):网吧墙面灯带 / 雀庄障子窗 + 役种挂轴 */}
+      {spaceKey === 'cinema' && <CinemaExtras lightsOn={lightsOn} />}
       {spaceKey === 'netcafe' && <NetcafeExtras lightsOn={lightsOn} />}
+      {spaceKey === 'netcafe' && <ArenaExtras lightsOn={lightsOn} />}
       {spaceKey === 'gameroom' && <ClubExtras lightsOn={lightsOn} />}
 
       {layout.props.map((p, i) => renderProp(p, i))}

@@ -40,6 +40,15 @@ const stickBlueMat = toonMat('#3a5a8c');
 const teaBucketMat = toonMat('#7a4a3a');
 const tasselMat = toonMat('#8a3a2a');
 const grSignMat = toonMat(ACCENT.mahjongLantern, { emissive: ACCENT.mahjongLantern, emissiveIntensity: 0.8 });
+const cinemaInkMat = toonMat('#17131d');
+const cinemaVelvetMat = toonMat('#3b172b');
+const cinemaRedMat = toonMat('#ff3f6c', { emissive: '#ff3f6c', emissiveIntensity: 0.75 });
+const cinemaGoldMat = toonMat('#f5bb62', { emissive: '#f58c55', emissiveIntensity: 0.55 });
+const arenaDeckMat = toonMat('#151928');
+const arenaTierMat = toonMat('#24283b');
+const arenaPurpleMat = toonMat('#7a5fff', { emissive: '#7a5fff', emissiveIntensity: 0.8 });
+const arenaCyanMat = toonMat('#40e8ff', { emissive: '#40e8ff', emissiveIntensity: 0.85 });
+const arenaPinkMat = toonMat('#ff5fd8', { emissive: '#ff5fd8', emissiveIntensity: 0.8 });
 
 /* ─── canvas 贴图缓存 ────────────────────────────────────────────────────── */
 const texCache = new Map<string, THREE.CanvasTexture>();
@@ -322,6 +331,109 @@ export function NetcafeExtras({ lightsOn }: { lightsOn: boolean }) {
           <boxGeometry args={[8.7, 0.03, 0.03]} />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+/** 巨幕厅空间骨架：屏幕之外的声学墙、红色走道和顶棚星点，让影院像一座真正的放映厅。 */
+export function CinemaExtras({ lightsOn }: { lightsOn: boolean }) {
+  const glow = lightsOn ? cinemaRedMat : cinemaInkMat;
+  return (
+    <group>
+      {/* 银幕舞台框与两侧吸音塔 */}
+      <mesh position={[0, 0.35, -11.1]} material={cinemaVelvetMat}>
+        <boxGeometry args={[25.8, 0.7, 0.35]} />
+      </mesh>
+      {[-12.25, 12.25].map((x) => (
+        <group key={x} position={[x, 4.8, -11.0]}>
+          <mesh material={cinemaInkMat}><boxGeometry args={[0.46, 9.5, 0.5]} /></mesh>
+          <mesh position={[x < 0 ? 0.28 : -0.28, 0, 0.12]} material={glow}><boxGeometry args={[0.08, 8.8, 0.08]} /></mesh>
+        </group>
+      ))}
+      {/* 侧墙不规则声学板，打破空白长墙 */}
+      {[-1, 1].flatMap((side) => [ -8.3, -5.0, -1.7, 1.8, 5.2, 8.5 ].map((z) => (
+        <mesh key={`${side}-${z}`} position={[side * 14.72, 3.45 + ((Math.abs(z) * 3) % 2) * 0.22, z]} rotation={[0, side * Math.PI / 2, 0]} material={cinemaInkMat}>
+          <boxGeometry args={[2.45, 3.1, 0.18]} />
+        </mesh>
+      )))}
+      {/* 双主过道红灯带，和每排台阶的暖色边缘形成连续导视 */}
+      {[-4.5, 4.5].map((x) => (
+        <mesh key={x} position={[x, 0.035, 3.0]} material={glow}>
+          <boxGeometry args={[0.08, 0.035, 16.5]} />
+        </mesh>
+      ))}
+      {[-8.7, 8.7].map((x) => (
+        <mesh key={x} position={[x, 0.045, 0]} material={cinemaGoldMat}>
+          <boxGeometry args={[0.04, 0.04, 18.4]} />
+        </mesh>
+      ))}
+      {/* 顶棚星点与隐藏式侧灯，放映时仍保留一点空间轮廓 */}
+      {Array.from({ length: 18 }, (_, i) => {
+        const x = -12 + (i % 6) * 4.8;
+        const z = -9.5 + Math.floor(i / 6) * 8.6;
+        return <mesh key={i} position={[x, 11.45, z]} material={lightsOn ? cinemaGoldMat : cinemaInkMat}>
+          <sphereGeometry args={[0.07 + (i % 3) * 0.025, 8, 6]} />
+        </mesh>;
+      })}
+      {lightsOn && <>
+        <pointLight position={[-11, 4.2, -8.5]} color="#ff3f6c" intensity={4.5} distance={14} decay={2} />
+        <pointLight position={[11, 4.2, -8.5]} color="#5d8fff" intensity={4.0} distance={14} decay={2} />
+        <pointLight position={[0, 8.4, 1.5]} color="#f3a06a" intensity={3.5} distance={16} decay={2} />
+      </>}
+    </group>
+  );
+}
+
+/** 电竞观战馆：保留 8 个可坐机位，同时用侧向看台、中央赛台和悬浮信息屏做成小型赛事场馆。 */
+export function ArenaExtras({ lightsOn }: { lightsOn: boolean }) {
+  const cyan = lightsOn ? arenaCyanMat : arenaDeckMat;
+  const pink = lightsOn ? arenaPinkMat : arenaDeckMat;
+  return (
+    <group>
+      {/* 侧向阶梯看台：每级略抬高，形成参考图里的碗状包围感 */}
+      {[-1, 1].flatMap((side) => Array.from({ length: 4 }, (_, row) => {
+        const x = side * (8.35 - row * 0.42);
+        const y = 0.22 + row * 0.46;
+        return (
+          <group key={`${side}-${row}`} position={[x, y, 0.15]}>
+            <mesh material={arenaTierMat} castShadow><boxGeometry args={[2.55, 0.38, 12.2]} /></mesh>
+            <mesh position={[side * 0.72, 0.22, 0]} material={row % 2 ? cyan : pink}>
+              <boxGeometry args={[0.045, 0.045, 11.5]} />
+            </mesh>
+            {Array.from({ length: 7 }, (_, seat) => (
+              <mesh key={seat} position={[side * 0.25, 0.42, -4.8 + seat * 1.6]} material={seat % 3 === 0 ? arenaPinkMat : arenaDeckMat}>
+                <boxGeometry args={[1.35, 0.16, 0.62]} />
+              </mesh>
+            ))}
+          </group>
+        );
+      }))}
+      {/* 中央赛台与发光环 */}
+      <mesh position={[0, 0.26, -4.45]} material={arenaDeckMat} castShadow><boxGeometry args={[9.2, 0.52, 2.7]} /></mesh>
+      <mesh position={[0, 0.55, -4.45]} material={cyan}><boxGeometry args={[8.2, 0.05, 1.9]} /></mesh>
+      <mesh position={[0, 0.59, -4.45]} rotation={[-Math.PI / 2, 0, 0]} material={pink}><torusGeometry args={[2.2, 0.045, 8, 32]} /></mesh>
+      {/* 四角灯架与悬浮比分屏 */}
+      {[-4.5, 4.5].flatMap((x) => [-5.15, -3.75].map((z) => (
+        <mesh key={`${x}-${z}`} position={[x, 2.35, z]} material={arenaDeckMat}>
+          <boxGeometry args={[0.18, 4.1, 0.18]} />
+        </mesh>
+      )))}
+      <mesh position={[0, 4.25, -4.45]} material={arenaDeckMat}><boxGeometry args={[7.8, 0.65, 2.25]} /></mesh>
+      <mesh position={[0, 4.25, -5.6]} material={cyan}><boxGeometry args={[5.4, 0.08, 0.04]} /></mesh>
+      <mesh position={[0, 4.25, -3.3]} material={pink}><boxGeometry args={[5.4, 0.08, 0.04]} /></mesh>
+      {/* 斜向聚光束只作为轻量图形，不遮挡玩家和交互 */}
+      {lightsOn && <>
+        <mesh position={[-6.5, 3.4, -4.6]} rotation={[0, 0, -0.38]}>
+          <coneGeometry args={[1.2, 6.2, 12, 1, true]} />
+          <meshBasicMaterial color="#6d74ff" transparent opacity={0.12} depthWrite={false} />
+        </mesh>
+        <mesh position={[6.5, 3.4, -4.6]} rotation={[0, 0, 0.38]}>
+          <coneGeometry args={[1.2, 6.2, 12, 1, true]} />
+          <meshBasicMaterial color="#ff5fd8" transparent opacity={0.12} depthWrite={false} />
+        </mesh>
+        <pointLight position={[-6.1, 3.2, -4.6]} color="#646dff" intensity={5.5} distance={11} decay={2} />
+        <pointLight position={[6.1, 3.2, -4.6]} color="#ff5fd8" intensity={5.5} distance={11} decay={2} />
+      </>}
     </group>
   );
 }

@@ -149,11 +149,11 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'whiteboard': return (
       <WhiteboardSurface key={key} position={it.pos} rotation={it.ry} boardId={String(it.data?.boardId ?? it.id)} />
     );
-    // 影院超大银幕:几乎铺满整面前墙;网吧联赛大屏 6×3.4;其余挂屏常规尺寸
+    // 影院超大银幕:几乎铺满整面前墙;电竞馆改为横跨北墙的赛事主屏;其余挂屏常规尺寸
     case 'screen': return it.id === 'cine-screen'
       ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={24} height={10} />
       : it.id === 'nc-wall'
-        ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={6} height={3.4} />
+        ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={15.6} height={6.6} />
         : <MediaScreen key={key} position={it.pos} rotation={it.ry} width={8.6} height={4.6} />;
     case 'jukebox': return <Jukebox key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} />;
     case 'ttt': return <TttMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;

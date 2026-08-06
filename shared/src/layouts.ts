@@ -508,7 +508,8 @@ function buildNetcafe(): SpaceLayout {
   b.inter('nc-lights', 'switch', 1.7, 1.2, 7.35, 0, '电灯开关', { switchId: 'nc-lights' });
 
   // 墙上 7.2m 联赛大屏(北墙;共享画面/媒体都可投上来)
-  b.inter('nc-wall', 'screen', 0, 2.6, -7.35, 0, '联赛大屏');
+  // 观战馆主屏横跨北墙，中心上移后底边不再压到地面，给中央赛台留出完整视线。
+  b.inter('nc-wall', 'screen', 0, 3.4, -7.35, 0, '联赛大屏');
 
   // 两排各 4 位:横向 4.2m 节奏，纵向留 4m 中央通道和完整后部休息带。
   const cols = [-6.3, -2.1, 2.1, 6.3];
