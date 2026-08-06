@@ -20,22 +20,31 @@ export { mediaTargetPosition } from './players';
 /** CSS pixel width of the single screen overlay (MediaLayer 使用同一常量). */
 export const PX = 720;
 
-function idleTexture(): THREE.CanvasTexture {
+function idleTexture(cinema = false): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 288;
   const ctx = c.getContext('2d')!;
   const grad = ctx.createLinearGradient(0, 0, 512, 288);
-  grad.addColorStop(0, '#101828');
-  grad.addColorStop(1, '#1a1030');
+  grad.addColorStop(0, cinema ? '#24111e' : '#101828');
+  grad.addColorStop(1, cinema ? '#0b1628' : '#1a1030');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 512, 288);
-  ctx.fillStyle = '#5b8cff';
-  ctx.font = '700 34px "Segoe UI", sans-serif';
+  if (cinema) {
+    ctx.fillStyle = '#ff3f6c';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(190, 0); ctx.lineTo(92, 288); ctx.lineTo(0, 288); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#40e8ff';
+    ctx.fillRect(0, 270, 512, 5);
+    ctx.strokeStyle = 'rgba(255,235,207,0.8)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(18, 18, 476, 252);
+  }
+  ctx.fillStyle = cinema ? '#fff0dd' : '#5b8cff';
+  ctx.font = cinema ? '800 42px "Segoe UI", sans-serif' : '700 34px "Segoe UI", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('团子影像', 256, 130);
-  ctx.fillStyle = '#9aa7bd';
+  ctx.fillText(cinema ? 'AURORA SCREEN' : '团子影像', 256, 130);
+  ctx.fillStyle = cinema ? '#ffd84f' : '#9aa7bd';
   ctx.font = '18px "Segoe UI", sans-serif';
-  ctx.fillText('走近按 E,把网页或视频放上屏幕', 256, 172);
+  ctx.fillText(cinema ? '巨幕厅 · 等待下一场放映' : '走近按 E,把网页或视频放上屏幕', 256, 172);
   return new THREE.CanvasTexture(c);
 }
 
@@ -66,7 +75,7 @@ export default function MediaScreen({ position, rotation, width, height, frame =
   const media = useWorld((s) => s.media);
   const fsOpen = useFullscreenMedia((s) => s.open);
   const active = !!media && (!!media.url || media.kind === 'share');
-  const idle = useMemo(() => idleTexture(), []);
+  const idle = useMemo(() => idleTexture(width >= 12), [width]);
   const glowRef = useRef<THREE.PointLight>(null);
   const anchorRef = useRef<THREE.Group>(null);
   const id = useMemo(() => `scr_${position.join(',')}_${width}`, [position, width]);

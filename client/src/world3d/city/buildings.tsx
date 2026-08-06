@@ -361,9 +361,23 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
       } else {
         put(out.walls, b, ry, wx, wy, d / 2 + 0.01, 1.05, 1.25, 0.05, glass);
       }
+      // 窗洞四周的压边框：把贴墙色块改成真正嵌入立面的窗框。
+      put(out.walls, b, ry, wx, wy + 0.66, d / 2 + 0.08, 1.18, 0.07, 0.12, wallDark);
+      put(out.walls, b, ry, wx - 0.58, wy, d / 2 + 0.08, 0.07, 1.28, 0.12, wallDark);
+      put(out.walls, b, ry, wx + 0.58, wy, d / 2 + 0.08, 0.07, 1.28, 0.12, wallDark);
       // 窗台
       put(out.walls, b, ry, wx, wy - 0.72, d / 2 + 0.06, 1.2, 0.08, 0.16, wall.clone().offsetHSL(0, 0, 0.03));
     }
+  }
+  // 楼层压条与不等距竖向构造缝，给大面积上层墙面增加真实结构阴影。
+  for (let f = 0; f <= floors; f++) {
+    const fy = groundH + f * ((h - groundH) / floors);
+    put(out.walls, b, ry, 0, fy, d / 2 + 0.07, w + 0.2, 0.11, 0.16, wallDark);
+    put(out.walls, b, ry, -w / 2 - 0.07, fy, 0, 0.16, 0.11, d + 0.2, wallDark);
+    put(out.walls, b, ry, w / 2 + 0.07, fy, 0, 0.16, 0.11, d + 0.2, wallDark);
+  }
+  for (const lx of [-w * 0.34, w * 0.18, w * 0.43]) {
+    put(out.walls, b, ry, lx, (groundH + h) / 2, d / 2 + 0.09, 0.08, h - groundH - 0.32, 0.1, wallDark);
   }
   // 女儿墙
   const pw = 0.22, ph = 0.55;
@@ -446,6 +460,17 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   podium.receiveShadow = true;
   addOutline(podium);
   local.add(podium);
+  // 首层石材板缝与转角压条，避免巨幕塔底座退化成一整块无纹理方盒。
+  for (let i = -4; i <= 4; i++) {
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.035, 4.5, 0.03), inkMat);
+    seam.position.set(i * w * 0.105, 2.35, d / 2 + 0.03);
+    local.add(seam);
+  }
+  for (const side of [-1, 1] as const) {
+    const corner = new THREE.Mesh(new THREE.BoxGeometry(0.14, 4.6, d + 0.12), inkMat);
+    corner.position.set(side * (w / 2 - 0.08), 2.35, 0);
+    local.add(corner);
+  }
 
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 16), bodyMat);
   body.position.set(-w * 0.04, 4.8 + (b.h - 4.8) / 2, -d * 0.03);
@@ -552,6 +577,16 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
   const { frontage: w, depth: d } = cityBuildingLocalSize(b);
   const { h } = b;
   put(out.walls, b, ry, 0, h / 2, 0, w, h, d, wall);
+  // 住宅楼的楼板边缘和首层檐口先建立真实的层级，再叠加阳台、窗和设备。
+  const apartmentBandCount = Math.max(3, Math.round(h / 3.0));
+  for (let f = 1; f < apartmentBandCount; f++) {
+    const fy = (f * h) / apartmentBandCount;
+    put(out.walls, b, ry, 0, fy, d / 2 + 0.07, w + 0.18, 0.14, 0.18, wallDark);
+    put(out.walls, b, ry, 0, fy, -d / 2 - 0.07, w + 0.18, 0.14, 0.18, wallDark);
+  }
+  for (const lx of [-w * 0.36, -w * 0.05, w * 0.31]) {
+    put(out.walls, b, ry, lx, h * 0.53, d / 2 + 0.08, 0.09, h * 0.92, 0.12, wallDark);
+  }
   // 屋顶:女儿墙 + 楼梯间小盒 + 晾衣杆位
   const ph = 0.5;
   put(out.walls, b, ry, 0, h + ph / 2, 0, w, ph, 0.2, wallDark);

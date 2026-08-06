@@ -344,6 +344,14 @@ export function CinemaExtras({ lightsOn }: { lightsOn: boolean }) {
       <mesh position={[0, 0.35, -11.1]} material={cinemaVelvetMat}>
         <boxGeometry args={[25.8, 0.7, 0.35]} />
       </mesh>
+      {/* 巨幕四边的灯箱压条：待机时也能明确读出屏幕边界与舞台尺度。 */}
+      <mesh position={[0, 10.92, -10.98]} material={cinemaGoldMat}><boxGeometry args={[24.8, 0.12, 0.18]} /></mesh>
+      <mesh position={[0, 0.68, -10.98]} material={cinemaRedMat}><boxGeometry args={[24.8, 0.16, 0.18]} /></mesh>
+      {[-12.42, 12.42].map((x) => (
+        <mesh key={`screen-edge-${x}`} position={[x, 5.8, -10.98]} material={cinemaRedMat}>
+          <boxGeometry args={[0.12, 10.2, 0.18]} />
+        </mesh>
+      ))}
       {[-12.25, 12.25].map((x) => (
         <group key={x} position={[x, 4.8, -11.0]}>
           <mesh material={cinemaInkMat}><boxGeometry args={[0.46, 9.5, 0.5]} /></mesh>
