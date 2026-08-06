@@ -381,6 +381,28 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
       w: 0.6, h: Math.min(3.1, 0.62 * (b.sign.text.length + 1)), vertical: true,
     });
   }
+  // 转角立面不再是纯色盲墙：沿两侧切出窄窗带、消防梯和少量冷暖错位窗，
+  // 让街口视线在斜向透视里持续获得“高楼夹缝”的细节。
+  const sideFloors = Math.max(2, Math.floor((h - groundH) / 2.65));
+  const sideRows = Math.min(5, Math.max(2, Math.floor(d / 2.8)));
+  for (let f = 0; f < sideFloors; f++) {
+    const wy = groundH + 1.35 + f * ((h - groundH - 1.4) / sideFloors);
+    for (const sx of [-1, 1]) {
+      for (let j = 0; j < sideRows; j++) {
+        if ((f + j + (sx > 0 ? 1 : 0)) % 4 === 0) continue;
+        const wz = -(d - 1.4) / 2 + (j + 0.5) * ((d - 1.4) / sideRows);
+        const lit = (f * 3 + j + (sx > 0 ? 2 : 0)) % 5 === 0;
+        putPlane(lit ? out.warm : out.walls, b, ry, sx * (w / 2 + 0.035), wy, wz,
+          0.9, 1.1, lit ? shade(ACCENT.windowWarm, -0.06) : glass, sx > 0 ? Math.PI / 2 : -Math.PI / 2);
+      }
+    }
+  }
+  // 影院与电竞馆门头增加横向灯箱和斜切遮檐，入口从远处即可辨认。
+  if (b.venue) {
+    const venueColor = b.venue === 'cinema' ? ACCENT.cinemaSign : ACCENT.netcafeSign;
+    put(out.walls, b, ry, 0, groundH + 0.25, d / 2 + 0.42, w * 0.82, 0.12, 0.12, venueColor);
+    put(out.walls, b, ry, -w * 0.34, groundH + 0.62, d / 2 + 0.5, 0.16, 1.1, 0.16, venueColor, { rx: -0.18 });
+  }
   // 数据驱动的多层招牌：贴墙大牌与垂直刀牌共用 cityplan，不在组件里散落坐标。
   appendFacadeSigns(b, out.signs, ry, w, d);
   // venue 横招牌(门头)
@@ -473,6 +495,16 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(displayW, displayH), screenMat);
   screen.position.set(0, 8.35, d / 2 + 0.36);
   local.add(screen);
+  // 转角包屏：在斜向路口镜头里也能看到连续的广告动势，不让主屏只像一面贴墙海报。
+  for (const side of [-1, 1] as const) {
+    const sideScreen = new THREE.Mesh(new THREE.PlaneGeometry(d * 0.72, 4.9), screenMat);
+    sideScreen.position.set(side * (w / 2 + 0.12), 8.65, 0.2);
+    sideScreen.rotation.y = side * Math.PI / 2;
+    local.add(sideScreen);
+    const sideFrame = new THREE.Mesh(new THREE.BoxGeometry(0.28, 5.2, d * 0.76), inkMat);
+    sideFrame.position.set(side * (w / 2 + 0.02), 8.65, 0.2);
+    local.add(sideFrame);
+  }
 
   // 三层办公室窗带参与中段构图，避免巨幕上方退化成一块黑盒。
   for (let row = 0; row < 3; row++) {

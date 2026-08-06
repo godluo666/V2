@@ -33,6 +33,7 @@ const CROWD: CrowdPoint[] = [
 
 const CLOTHES = ['#26394c', '#d64b5f', '#d4ad43', '#3d7779', '#6d526f', '#e6ded0'];
 const SKIN = ['#e5b08e', '#c98e72', '#f0c2a0'];
+const HAIR = ['#171920', '#332329', '#5b3928', '#24343b'];
 
 export default function StreetCrowd() {
   const mesh = useMemo(() => {
@@ -40,14 +41,19 @@ export default function StreetCrowd() {
     const rnd = seededRandom(20260731);
     const torso = new THREE.CylinderGeometry(0.22, 0.32, 0.72, 6);
     const head = new THREE.SphereGeometry(0.19, 8, 6);
+    const hair = new THREE.SphereGeometry(0.205, 8, 6);
     const leg = new THREE.CylinderGeometry(0.07, 0.085, 0.58, 5);
+    const arm = new THREE.CylinderGeometry(0.055, 0.065, 0.52, 5);
+    const shoe = new THREE.BoxGeometry(0.15, 0.08, 0.3);
     const bagGeo = new THREE.BoxGeometry(0.28, 0.38, 0.12);
+    const phoneGeo = new THREE.BoxGeometry(0.055, 0.11, 0.025);
     const shadow = new THREE.CylinderGeometry(0.32, 0.32, 0.012, 12);
 
     for (const point of CROWD) {
       const s = point.scale ?? 1;
       const clothes = CLOTHES[Math.floor(rnd() * CLOTHES.length)];
       const skin = SKIN[Math.floor(rnd() * SKIN.length)];
+      const hairColor = HAIR[Math.floor(rnd() * HAIR.length)];
       const c = Math.cos(point.ry);
       const sn = Math.sin(point.ry);
       const sideX = c * 0.1;
@@ -64,6 +70,11 @@ export default function StreetCrowd() {
         x: point.x, y: 1.5 * s, z: point.z,
         sx: s, sy: s, sz: s, color: skin,
       });
+      // 头发轮廓、手臂和鞋面把远景人群从“圆柱占位”提升为街头剪影。
+      bag.add(hair, {
+        x: point.x, y: 1.62 * s, z: point.z - Math.cos(point.ry) * 0.035 * s,
+        sx: s, sy: s * 0.66, sz: s, color: hairColor,
+      });
       for (const side of [-1, 1]) {
         bag.add(leg, {
           x: point.x + sideX * side * s,
@@ -71,6 +82,32 @@ export default function StreetCrowd() {
           z: point.z + sideZ * side * s,
           rz: side * 0.035,
           sx: s, sy: s, sz: s, color: ENV.outline,
+        });
+        bag.add(arm, {
+          x: point.x + sideX * side * 2.25 * s,
+          y: 0.94 * s,
+          z: point.z + sideZ * side * 2.25 * s,
+          ry: point.ry,
+          rz: side * 0.18,
+          sx: s, sy: s, sz: s, color: skin,
+        });
+        bag.add(shoe, {
+          x: point.x + sideX * side * 0.8 * s + Math.sin(point.ry) * 0.025,
+          y: 0.075 * s,
+          z: point.z + sideZ * side * 0.8 * s + Math.cos(point.ry) * 0.06,
+          ry: point.ry,
+          sx: s, sy: s, sz: s, color: ENV.outline,
+        });
+      }
+      // 少量行人低头看手机，增加商业街的生活动势。
+      if (rnd() > 0.64) {
+        bag.add(phoneGeo, {
+          x: point.x + Math.sin(point.ry) * 0.24 * s,
+          y: 1.03 * s,
+          z: point.z + Math.cos(point.ry) * 0.24 * s,
+          ry: point.ry,
+          rx: 0.35,
+          sx: s, sy: s, sz: s, color: '#63d6db',
         });
       }
       if (rnd() > 0.48) {
@@ -85,8 +122,12 @@ export default function StreetCrowd() {
 
     torso.dispose();
     head.dispose();
+    hair.dispose();
     leg.dispose();
+    arm.dispose();
+    shoe.dispose();
     bagGeo.dispose();
+    phoneGeo.dispose();
     shadow.dispose();
 
     const result = new THREE.Mesh(bag.build() ?? new THREE.BufferGeometry(), vertexToonMat(4));
