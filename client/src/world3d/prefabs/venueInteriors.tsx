@@ -18,34 +18,42 @@ import { useWorld, useVoice, useSession } from '../../state/stores';
 import { voice } from '../../voice/voice';
 import { ENV, ACCENT } from '../city/palette';
 import { toonMat } from '../city/toon';
+import { surfaceMaterial, type SurfaceKind } from '../city/materials';
 
 type P3 = [number, number, number];
 
+function surface(kind: SurfaceKind, color: string): THREE.MeshStandardMaterial {
+  const m = surfaceMaterial(kind);
+  m.color.set(color);
+  return m;
+}
+
 /* ─── 共享材质(模块级,8 台机位共用) ───────────────────────────────────── */
-const deskMat = toonMat('#2b2f3a');                    // 电竞桌面:深蓝灰(ENV 系)
-const deskFrameMat = toonMat(ENV.metal);               // 桌架/显示器支架
-const bezelMat = toonMat('#14171d');                   // 屏幕边框深色
+const deskMat = surface('metal', '#2b2f3a');           // 电竞桌面:深蓝灰(ENV 系)
+const deskFrameMat = surface('brushedMetal', ENV.metal); // 桌架/显示器支架
+const bezelMat = surface('darkGlass', '#14171d');      // 屏幕边框深色
 const ncGlowMat = toonMat(ACCENT.netcafeSign, { emissive: ACCENT.netcafeSign, emissiveIntensity: 0.9 });
 const ncGlowDimMat = toonMat(ACCENT.netcafeSign, { emissive: ACCENT.netcafeSign, emissiveIntensity: 0.35 });
-const towerMat = toonMat('#1f232e');
-const woodWarmMat = toonMat('#4a3b30');                // 雀庄暖木
-const woodDarkMat = toonMat('#33291f');
-const paperWarmMat = toonMat('#e8ddc8', { emissive: ACCENT.windowWarm, emissiveIntensity: 0.22 });
+const towerMat = surface('metal', '#1f232e');
+const woodWarmMat = surface('wood', '#4a3b30');        // 雀庄暖木
+const woodDarkMat = surface('wood', '#33291f');
+const paperWarmMat = surface('plasticLightbox', '#e8ddc8');
+paperWarmMat.emissive.set(ACCENT.windowWarm); paperWarmMat.emissiveIntensity = 0.08;
 const lanternMat = toonMat(ACCENT.mahjongLantern, { emissive: ACCENT.mahjongLantern, emissiveIntensity: 1.1 });
 const lanternCapMat = toonMat('#2a211a');
-const ceramicMat = toonMat('#d8d2c4');
+const ceramicMat = surface('plasticLightbox', '#d8d2c4');
 const ncGlowOffMat = toonMat(ACCENT.netcafeSign, { emissive: ACCENT.netcafeSign, emissiveIntensity: 0.05 });
 const canRedMat = toonMat(ACCENT.vendingRed);
 const stickBlueMat = toonMat('#3a5a8c');
 const teaBucketMat = toonMat('#7a4a3a');
 const tasselMat = toonMat('#8a3a2a');
 const grSignMat = toonMat(ACCENT.mahjongLantern, { emissive: ACCENT.mahjongLantern, emissiveIntensity: 0.8 });
-const cinemaInkMat = toonMat('#17131d');
-const cinemaVelvetMat = toonMat('#3b172b');
+const cinemaInkMat = surface('acousticFabric', '#17131d');
+const cinemaVelvetMat = surface('seatFabric', '#3b172b');
 const cinemaRedMat = toonMat('#ff3f6c', { emissive: '#ff3f6c', emissiveIntensity: 0.75 });
 const cinemaGoldMat = toonMat('#f5bb62', { emissive: '#f58c55', emissiveIntensity: 0.55 });
-const arenaDeckMat = toonMat('#151928');
-const arenaTierMat = toonMat('#24283b');
+const arenaDeckMat = surface('metal', '#151928');
+const arenaTierMat = surface('acousticFabric', '#24283b');
 const arenaPurpleMat = toonMat('#7a5fff', { emissive: '#7a5fff', emissiveIntensity: 0.8 });
 const arenaCyanMat = toonMat('#40e8ff', { emissive: '#40e8ff', emissiveIntensity: 0.85 });
 const arenaPinkMat = toonMat('#ff5fd8', { emissive: '#ff5fd8', emissiveIntensity: 0.8 });
@@ -404,31 +412,105 @@ export function ArenaExtras({ lightsOn }: { lightsOn: boolean }) {
         const y = 0.22 + row * 0.46;
         return (
           <group key={`${side}-${row}`} position={[x, y, 0.15]}>
-            <mesh material={arenaTierMat} castShadow><boxGeometry args={[2.55, 0.38, 12.2]} /></mesh>
+            <mesh material={arenaTierMat} castShadow receiveShadow>
+              <boxGeometry args={[2.55, 0.38, 12.2]} />
+            </mesh>
+            <mesh position={[0, 0.22, -6.04]} material={arenaDeckMat} castShadow>
+              <boxGeometry args={[2.55, 0.16, 0.16]} />
+            </mesh>
             <mesh position={[side * 0.72, 0.22, 0]} material={row % 2 ? cyan : pink}>
               <boxGeometry args={[0.045, 0.045, 11.5]} />
             </mesh>
             {Array.from({ length: 7 }, (_, seat) => (
-              <mesh key={seat} position={[side * 0.25, 0.42, -4.8 + seat * 1.6]} material={seat % 3 === 0 ? arenaPinkMat : arenaDeckMat}>
-                <boxGeometry args={[1.35, 0.16, 0.62]} />
-              </mesh>
+              <group key={seat} position={[side * 0.25, 0.42, -4.8 + seat * 1.6]}>
+                <mesh material={seat % 3 === 0 ? arenaPinkMat : arenaDeckMat} castShadow>
+                  <boxGeometry args={[1.35, 0.16, 0.62]} />
+                </mesh>
+                <mesh position={[0, 0.3, -0.24]} material={arenaTierMat} castShadow>
+                  <boxGeometry args={[1.35, 0.52, 0.12]} />
+                </mesh>
+                <mesh position={[0, 0.15, 0.22]} material={arenaDeckMat}>
+                  <boxGeometry args={[0.95, 0.08, 0.08]} />
+                </mesh>
+                {[-0.5, 0.5].map((arm) => (
+                  <mesh key={arm} position={[arm, 0.3, 0]} material={arenaDeckMat}>
+                    <boxGeometry args={[0.06, 0.32, 0.52]} />
+                  </mesh>
+                ))}
+              </group>
             ))}
           </group>
         );
       }))}
       {/* 中央赛台与发光环 */}
-      <mesh position={[0, 0.26, -4.45]} material={arenaDeckMat} castShadow><boxGeometry args={[9.2, 0.52, 2.7]} /></mesh>
-      <mesh position={[0, 0.55, -4.45]} material={cyan}><boxGeometry args={[8.2, 0.05, 1.9]} /></mesh>
-      <mesh position={[0, 0.59, -4.45]} rotation={[-Math.PI / 2, 0, 0]} material={pink}><torusGeometry args={[2.2, 0.045, 8, 32]} /></mesh>
+      <mesh position={[0, 0.26, -4.45]} material={arenaDeckMat} castShadow receiveShadow>
+        <boxGeometry args={[9.2, 0.52, 2.7]} />
+      </mesh>
+      <mesh position={[0, 0.57, -4.45]} material={arenaTierMat} castShadow>
+        <boxGeometry args={[8.45, 0.16, 2.12]} />
+      </mesh>
+      <mesh position={[0, 0.69, -4.45]} material={cyan} castShadow>
+        <boxGeometry args={[7.8, 0.06, 1.72]} />
+      </mesh>
+      <mesh position={[0, 0.75, -4.45]} rotation={[-Math.PI / 2, 0, 0]} material={pink}>
+        <torusGeometry args={[2.2, 0.045, 8, 32]} />
+      </mesh>
+      {[-3.35, 3.35].map((x) => (
+        <group key={x} position={[x, 0.75, -4.45]}>
+          <mesh position={[0, 0.18, 0]} material={arenaDeckMat} castShadow><boxGeometry args={[0.78, 0.36, 1.08]} /></mesh>
+          <mesh position={[0, 0.4, 0]} material={arenaTierMat}><boxGeometry args={[0.58, 0.08, 0.82]} /></mesh>
+        </group>
+      ))}
       {/* 四角灯架与悬浮比分屏 */}
       {[-4.5, 4.5].flatMap((x) => [-5.15, -3.75].map((z) => (
-        <mesh key={`${x}-${z}`} position={[x, 2.35, z]} material={arenaDeckMat}>
+        <mesh key={`${x}-${z}`} position={[x, 2.35, z]} material={arenaDeckMat} castShadow>
           <boxGeometry args={[0.18, 4.1, 0.18]} />
         </mesh>
       )))}
-      <mesh position={[0, 4.25, -4.45]} material={arenaDeckMat}><boxGeometry args={[7.8, 0.65, 2.25]} /></mesh>
-      <mesh position={[0, 4.25, -5.6]} material={cyan}><boxGeometry args={[5.4, 0.08, 0.04]} /></mesh>
-      <mesh position={[0, 4.25, -3.3]} material={pink}><boxGeometry args={[5.4, 0.08, 0.04]} /></mesh>
+      <mesh position={[0, 4.4, -4.45]} material={arenaDeckMat} castShadow>
+        <boxGeometry args={[9.35, 0.22, 2.55]} />
+      </mesh>
+      <mesh position={[0, 4.25, -4.72]} material={arenaDeckMat} castShadow receiveShadow>
+        <boxGeometry args={[8.1, 4.4, 0.34]} />
+      </mesh>
+      <mesh position={[0, 4.25, -4.5]} material={arenaTierMat}>
+        <boxGeometry args={[7.45, 3.78, 0.1]} />
+      </mesh>
+      <mesh position={[0, 4.25, -4.28]} material={cyan}>
+        <boxGeometry args={[7.55, 0.08, 0.08]} />
+      </mesh>
+      <mesh position={[0, 4.25, -4.92]} material={pink}>
+        <boxGeometry args={[7.55, 0.08, 0.08]} />
+      </mesh>
+      {[-3.8, 3.8].map((x) => (
+        <group key={x} position={[x, 4.25, -4.45]}>
+          <mesh material={arenaDeckMat}><boxGeometry args={[0.2, 4.2, 0.46]} /></mesh>
+          <mesh position={[x < 0 ? 0.14 : -0.14, 0, 0.14]} material={cyan}><boxGeometry args={[0.05, 3.8, 0.05]} /></mesh>
+        </group>
+      ))}
+      <mesh position={[0, 4.4, -5.15]} material={arenaDeckMat} castShadow>
+        <boxGeometry args={[9.2, 0.18, 0.18]} />
+      </mesh>
+      <mesh position={[0, 4.4, -3.75]} material={arenaDeckMat} castShadow>
+        <boxGeometry args={[9.2, 0.18, 0.18]} />
+      </mesh>
+      {[-3, 0, 3].map((x) => (
+        <mesh key={x} position={[x, 4.4, -4.45]} material={arenaDeckMat}>
+          <boxGeometry args={[0.12, 0.22, 1.55]} />
+        </mesh>
+      ))}
+      {[-1, 1].flatMap((side) => [-6.1, 6.1].map((z) => (
+        <group key={`${side}-${z}`}>
+          <mesh position={[side * 6.95, 1.35, z]} rotation={[Math.PI / 2, 0, 0]} material={arenaDeckMat}>
+            <cylinderGeometry args={[0.045, 0.045, 11.3, 8]} />
+          </mesh>
+          {[-4.5, -1.5, 1.5, 4.5].map((post) => (
+            <mesh key={post} position={[side * 6.95, 0.85, post]} material={arenaDeckMat}>
+              <cylinderGeometry args={[0.055, 0.055, 1.0, 8]} />
+            </mesh>
+          ))}
+        </group>
+      ))}
       {/* 斜向聚光束只作为轻量图形，不遮挡玩家和交互 */}
       {lightsOn && <>
         <mesh position={[-6.5, 3.4, -4.6]} rotation={[0, 0, -0.38]}>
