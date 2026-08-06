@@ -28,6 +28,7 @@ import { SPAWN_PRIORITY_RADIUS } from './quality';
 import type { BuildQueue } from './progressive';
 import { MergeBag, unitBox, unitCylinder, vertexToonMat, makeCanvas, canvasTexture, shade, cssShade, jitterColor } from './streets';
 import { shutterTexture } from './props2';
+import { surfaceMaterial } from './materials';
 
 type Building = (typeof BUILDINGS)[number];
 
@@ -300,7 +301,10 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   const groundH = 3.2;
 
   // 上层主体(带前后进退,破"方盒感")
-  put(out.walls, b, ry, 0, (groundH + h) / 2, -0.15, w, h - groundH, d - 0.3, wall);
+  // 上层不再是一整块长方体：三段错层体块用不同退进量形成真实施工缝。
+  put(out.walls, b, ry, -w * 0.31, (groundH + h) / 2, -0.22, w * 0.38, h - groundH, d - 0.65, wall);
+  put(out.walls, b, ry, 0, (groundH + h) / 2, 0.05, w * 0.28, h - groundH - 0.22, d - 0.42, wall.clone().offsetHSL(0, 0, 0.018));
+  put(out.walls, b, ry, w * 0.31, (groundH + h) / 2 + 0.14, -0.08, w * 0.38, h - groundH - 0.48, d - 0.82, wall.clone().offsetHSL(0, 0, -0.018));
   const reliefs = 1 + Math.floor(rnd() * 2);
   for (let i = 0; i < reliefs; i++) {
     const rw = w * (0.2 + rnd() * 0.22);
@@ -311,6 +315,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   put(out.walls, b, ry, 0, groundH / 2, d / 2 - 0.5, w, groundH, 0.3, wallDark);
   put(out.walls, b, ry, 0, groundH - 0.22, d / 2 - 0.05, w, 0.45, 0.6, wall.clone().offsetHSL(0, 0, -0.02));
   put(out.walls, b, ry, 0, 0.1, d / 2 - 0.3, w, 0.2, 0.9, shade(ENV.sidewalk, -0.03)); // 门前台基
+  put(out.walls, b, ry, 0, 0.11, -d / 2 + 0.03, w + 0.18, 0.22, 0.26, wallDark);
 
   // 店面开间
   const nBays = Math.max(1, Math.round((w - 1) / 3.2));
@@ -379,6 +384,16 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   for (const lx of [-w * 0.34, w * 0.18, w * 0.43]) {
     put(out.walls, b, ry, lx, (groundH + h) / 2, d / 2 + 0.09, 0.08, h - groundH - 0.32, 0.1, wallDark);
   }
+  // 场馆/住宅外墙的空调机组与冷媒管，使用实体盒体和圆柱风扇而非贴图符号。
+  for (let i = 0; i < Math.min(4, sideFloors); i++) {
+    const wy = groundH + 1.05 + i * 2.75;
+    const sx = i % 2 ? 1 : -1;
+    const lx = sx * (w / 2 + 0.22);
+    const lz = d * 0.22 - (i % 3) * 1.8;
+    put(out.walls, b, ry, lx, wy, lz, 0.5, 0.42, 0.38, ENV.metal);
+    const [cx, cz] = l2w(b, ry, lx + sx * 0.27, lz);
+    out.walls.add(unitCylinder(), { x: cx, y: wy, z: cz, sx: 0.13, sy: 0.13, sz: 0.05, color: shade(ENV.metal, 0.06) });
+  }
   // 女儿墙
   const pw = 0.22, ph = 0.55;
   put(out.walls, b, ry, 0, h + ph / 2, d / 2 - pw / 2 - 0.02, w, ph, pw, wallDark);
@@ -406,8 +421,8 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
         if ((f + j + (sx > 0 ? 1 : 0)) % 4 === 0) continue;
         const wz = -(d - 1.4) / 2 + (j + 0.5) * ((d - 1.4) / sideRows);
         const lit = (f * 3 + j + (sx > 0 ? 2 : 0)) % 5 === 0;
-        putPlane(lit ? out.warm : out.walls, b, ry, sx * (w / 2 + 0.035), wy, wz,
-          0.9, 1.1, lit ? shade(ACCENT.windowWarm, -0.06) : glass, sx > 0 ? Math.PI / 2 : -Math.PI / 2);
+        put(lit ? out.warm : out.walls, b, ry, sx * (w / 2 + 0.04), wy, wz,
+          0.12, 1.1, 0.9, lit ? shade(ACCENT.windowWarm, -0.06) : glass);
       }
     }
   }
@@ -442,17 +457,13 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   local.position.set(b.x, 0, b.z);
   local.rotation.y = ry;
 
-  const podiumMat = toonMat('#e5ddcc');
-  const inkMat = toonMat(shade(ENV.outline, 0.025));
-  const bodyMat = toonMat(shade(ENV.bgSilhouetteA, -0.025));
-  const glassMat = toonMat('#22475a', {
-    emissive: '#1a6370',
-    emissiveIntensity: 0.3,
-  });
-  const warmGlassMat = toonMat('#e5a557', {
-    emissive: '#ffb858',
-    emissiveIntensity: 0.38,
-  });
+  const podiumMat = surfaceMaterial('oldConcrete');
+  const inkMat = surfaceMaterial('metal');
+  const bodyMat = surfaceMaterial('paintedConcrete');
+  const glassMat = surfaceMaterial('darkGlass');
+  glassMat.emissive.set('#1a6370'); glassMat.emissiveIntensity = 0.22;
+  const warmGlassMat = surfaceMaterial('glass');
+  warmGlassMat.color.set('#e5a557'); warmGlassMat.emissive.set('#ffb858'); warmGlassMat.emissiveIntensity = 0.2;
 
   const podium = new THREE.Mesh(new THREE.BoxGeometry(w, 4.8, d), podiumMat);
   podium.position.y = 2.4;
@@ -576,7 +587,10 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
   const glass = shade(ENV.skyTopDusk, 0.025, 0, 0.02);
   const { frontage: w, depth: d } = cityBuildingLocalSize(b);
   const { h } = b;
-  put(out.walls, b, ry, 0, h / 2, 0, w, h, d, wall);
+  // 住宅主体由两段错位核心组成，阳台和压条在缝隙处产生真实投影。
+  put(out.walls, b, ry, -w * 0.22, h / 2, -0.12, w * 0.58, h, d - 0.45, wall);
+  put(out.walls, b, ry, w * 0.27, h / 2 + 0.1, 0.16, w * 0.44, h - 0.2, d - 0.78, wall.clone().offsetHSL(0, 0, 0.018));
+  put(out.walls, b, ry, 0, 0.12, 0, w + 0.26, 0.24, d + 0.24, wallDark);
   // 住宅楼的楼板边缘和首层檐口先建立真实的层级，再叠加阳台、窗和设备。
   const apartmentBandCount = Math.max(3, Math.round(h / 3.0));
   for (let f = 1; f < apartmentBandCount; f++) {
@@ -761,17 +775,19 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
       }
       const shGeo = bags.shutters.build();
       if (shGeo) {
-        const m = toonMat(0xffffff, { map: shutterTexture() });
-        m.vertexColors = true;
-        group.add(new THREE.Mesh(shGeo, m));
+        const m = surfaceMaterial('brushedMetal', true);
+        m.map = shutterTexture();
+        const shutterMesh = new THREE.Mesh(shGeo, m);
+        shutterMesh.castShadow = true; shutterMesh.receiveShadow = true;
+        group.add(shutterMesh);
       }
       const warmGeo = bags.warm.build();
       if (warmGeo) {
-        const m = toonMat(0xffffff, {
-          emissive: ACCENT.windowWarm, emissiveIntensity: 0.62,
-        });
-        m.vertexColors = true;
-        group.add(new THREE.Mesh(warmGeo, m));
+        const m = surfaceMaterial('glass', true);
+        m.emissive.set(ACCENT.windowWarm); m.emissiveIntensity = 0.42;
+        const warmMesh = new THREE.Mesh(warmGeo, m);
+        warmMesh.castShadow = true; warmMesh.receiveShadow = true;
+        group.add(warmMesh);
       }
     }, priority);
   };

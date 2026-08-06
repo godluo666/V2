@@ -18,6 +18,7 @@ import { seededRandom } from '@nexuspark/shared';
 import { ROADS, CROSSING, CROSSWALKS, SIDEWALKS } from '@nexuspark/shared/src/cityplan';
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
+import { surfaceMaterial } from './materials';
 import type { BuildQueue } from './progressive';
 import { manholeResources, drainResources } from './props2';
 
@@ -105,13 +106,15 @@ export function unitCylinder(): THREE.CylinderGeometry {
 }
 
 // 顶点色 toon 材质(合并网格共用;白色仅作顶点色中性乘数,非场景色)
-const vcMatCache = new Map<string, THREE.MeshToonMaterial>();
-export function vertexToonMat(steps: 2 | 4 = 4): THREE.MeshToonMaterial {
+const vcMatCache = new Map<string, THREE.MeshStandardMaterial>();
+export function vertexToonMat(steps: 2 | 4 = 4): THREE.MeshStandardMaterial {
   const key = `vc${steps}`;
   let m = vcMatCache.get(key);
   if (!m) {
-    m = toonMat(0xffffff, { steps });
-    m.vertexColors = true;
+    // 统一城市实体材质：保留顶点色构图，但加入粗糙度/金属度、微表面凹凸和
+    // 平面法线变化。这样合并网格不再像一整块纯色塑料。
+    m = surfaceMaterial('paintedConcrete', true);
+    m.roughness = steps === 2 ? 0.9 : 0.82;
     vcMatCache.set(key, m);
   }
   return m;
@@ -398,7 +401,9 @@ export function enqueueStreets(queue: BuildQueue): THREE.Group {
     const merged = mergeGeometries(parts);
     parts.forEach((p) => p.dispose());
     if (!merged) return;
-    const mesh = new THREE.Mesh(merged, toonMat(0xffffff, { map: asphaltTexture() }));
+    const roadMat = surfaceMaterial('wetAsphalt');
+    roadMat.map = asphaltTexture();
+    const mesh = new THREE.Mesh(merged, roadMat);
     mesh.receiveShadow = true;
     group.add(mesh);
   }, 90);
@@ -420,7 +425,9 @@ export function enqueueStreets(queue: BuildQueue): THREE.Group {
     const merged = mergeGeometries(parts);
     parts.forEach((p) => p.dispose());
     if (merged) {
-      const mesh = new THREE.Mesh(merged, toonMat(0xffffff, { map: sidewalkTexture() }));
+      const sidewalkMat = surfaceMaterial('sidewalk');
+      sidewalkMat.map = sidewalkTexture();
+      const mesh = new THREE.Mesh(merged, sidewalkMat);
       mesh.receiveShadow = true;
       group.add(mesh);
     }

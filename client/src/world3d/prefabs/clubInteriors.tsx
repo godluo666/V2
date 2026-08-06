@@ -1,18 +1,19 @@
 /** Cozy, asset-free furniture for the Dango party hall activity room. */
 import * as THREE from 'three';
 import { toonMat } from '../city/toon';
+import { surfaceMaterial } from '../city/materials';
 
 type P3 = [number, number, number];
 
-const cream = toonMat('#f5dfc8');
-const red = toonMat('#cf5d58');
+const cream = surfaceMaterial('paintedConcrete'); cream.color.set('#f5dfc8');
+const red = surfaceMaterial('seatFabric'); red.color.set('#cf5d58');
 const gold = toonMat('#f4c66b');
 const green = toonMat('#6b9a72');
 const blue = toonMat('#5f87b8');
 const pink = toonMat('#e69aaa');
-const rug = toonMat('#d97966');
-const wood = toonMat('#765138');
-const darkWood = toonMat('#432f28');
+const rug = surfaceMaterial('acousticFabric'); rug.color.set('#d97966');
+const wood = surfaceMaterial('wood'); wood.color.set('#765138');
+const darkWood = surfaceMaterial('wood'); darkWood.color.set('#432f28');
 const glowGold = toonMat('#f4c66b', { emissive: '#ef9f4d', emissiveIntensity: 0.55 });
 const sage = toonMat('#9fc9bb');
 const ink = toonMat('#273340');

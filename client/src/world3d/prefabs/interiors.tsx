@@ -3,6 +3,7 @@
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { surfaceMaterial } from '../city/materials';
 
 const mat = (color: string, rough = 0.75, metal = 0) =>
   new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
@@ -84,10 +85,10 @@ function useMenuTexture(): THREE.CanvasTexture {
 }
 
 export function CinemaSeat({ position, rotation }: { position: [number, number, number]; rotation: number }) {
-  const fabric = useMemo(() => mat('#7d2438', 0.9), []);
-  const frame = useMemo(() => mat('#2b2129', 0.6), []);
+  const fabric = useMemo(() => surfaceMaterial('seatFabric'), []);
+  const frame = useMemo(() => surfaceMaterial('metal'), []);
   const trim = useMemo(() => mat('#c35a62', 0.8), []);
-  const cup = useMemo(() => mat('#d8a352', 0.4, 0.6), []);
+  const cup = useMemo(() => surfaceMaterial('brushedMetal'), []);
   return (
     <group position={position} rotation={[0, rotation, 0]}>
       <mesh position={[0, 0.4, 0]} castShadow material={fabric}><boxGeometry args={[0.52, 0.12, 0.45]} /></mesh>
@@ -116,10 +117,12 @@ export function CinemaRiser({
   d: number;
   h: number;
 }) {
-  const carpet = useMemo(() => mat('#351e2b', 0.96), []);
-  const edge = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#ef9a62', emissive: '#ef7653', emissiveIntensity: 0.42, roughness: 0.65,
-  }), []);
+  const carpet = useMemo(() => surfaceMaterial('cinemaCarpet'), []);
+  const edge = useMemo(() => {
+    const m = surfaceMaterial('brushedMetal');
+    m.color.set('#ef9a62'); m.emissive.set('#ef7653'); m.emissiveIntensity = 0.42;
+    return m;
+  }, []);
   if (h <= 0) return null;
   return (
     <group position={position} rotation={[0, rotation, 0]}>

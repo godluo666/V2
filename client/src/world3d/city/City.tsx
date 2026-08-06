@@ -10,11 +10,12 @@
  */
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { ContactShadows } from '@react-three/drei';
 import { LAYOUTS, SPACE } from '@nexuspark/shared';
 import { CITY_BOUNDS } from '@nexuspark/shared/src/cityplan';
 import { renderProp, renderInteractable, BeachBall } from '../spaces/registry';
 import { ENV } from './palette';
-import { toonMat } from './toon';
+import { surfaceMaterial } from './materials';
 import { BuildQueue } from './progressive';
 import { Streets, shade } from './streets';
 import { Buildings } from './buildings';
@@ -41,10 +42,13 @@ function groundGeometry(): THREE.BufferGeometry {
   return _groundGeo;
 }
 
-let _groundMat: THREE.MeshToonMaterial | null = null;
-function groundMat(): THREE.MeshToonMaterial {
-  if (!_groundMat) _groundMat = toonMat(shade(ENV.roadAsphalt, -0.018));
-  return _groundMat;
+let _groundMaterial: THREE.MeshStandardMaterial | null = null;
+function groundMat(): THREE.MeshStandardMaterial {
+  if (!_groundMaterial) {
+    _groundMaterial = surfaceMaterial('wetAsphalt');
+    _groundMaterial.color.set(shade(ENV.roadAsphalt, -0.018));
+  }
+  return _groundMaterial;
 }
 
 export default function City() {
@@ -72,6 +76,8 @@ export default function City() {
     <group>
       {/* 地面底板 */}
       <mesh geometry={groundGeometry()} material={groundMat()} position={[0, -0.02, 0]} receiveShadow />
+      {/* 低强度接触阴影只负责建筑/路缘落地，不替代真实方向光阴影。 */}
+      <ContactShadows position={[0, 0.015, 0]} opacity={0.24} scale={72} blur={1.8} far={18} resolution={256} color="#11131a" />
 
       {/* 路网 / 建筑 / 前景(BuildQueue 分帧) */}
       <Streets queue={queue} />
