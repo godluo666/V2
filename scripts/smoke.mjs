@@ -192,6 +192,18 @@ if (bothInCinema) {
   check('cinema highest row cloud screenshot captured', false);
 }
 
+// Keep an explicit cloud evidence frame for the large esports arena as well;
+// this is intentionally after the cinema journey so it reuses the same player
+// session and does not alter any shared venue or seat logic.
+if (await exitToStreet(p1)) {
+  const enteredArena = await enterStreetVenue(p1, 'netcafe');
+  if (enteredArena && (await state(p1)).space === 'netcafe') {
+    await captureEvidence(p1, 'arena-desktop.png', 'esports arena desktop');
+  } else {
+    console.log('  esports arena evidence skipped', JSON.stringify(await state(p1)));
+  }
+}
+
 console.log(`CONSOLE ERRORS: ${errors.length}`);
 for (const error of errors.slice(0, 8)) console.log(' ', error.slice(0, 180));
 console.log(failures === 0 ? '✓ compact-street multiplayer smoke passed' : `✗ ${failures} checks failed`);
