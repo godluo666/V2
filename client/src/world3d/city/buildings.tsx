@@ -299,6 +299,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   const { frontage: w, depth: d } = cityBuildingLocalSize(b);
   const { h } = b;
   const groundH = 3.2;
+  const sideFloors = Math.max(2, Math.floor((h - groundH) / 2.65));
 
   // 上层主体(带前后进退,破"方盒感")
   // 上层不再是一整块长方体：三段错层体块用不同退进量形成真实施工缝。
@@ -412,7 +413,6 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   }
   // 转角立面不再是纯色盲墙：沿两侧切出窄窗带、消防梯和少量冷暖错位窗，
   // 让街口视线在斜向透视里持续获得“高楼夹缝”的细节。
-  const sideFloors = Math.max(2, Math.floor((h - groundH) / 2.65));
   const sideRows = Math.min(5, Math.max(2, Math.floor(d / 2.8)));
   for (let f = 0; f < sideFloors; f++) {
     const wy = groundH + 1.35 + f * ((h - groundH - 1.4) / sideFloors);

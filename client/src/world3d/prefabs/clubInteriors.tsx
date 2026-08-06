@@ -10,6 +10,7 @@ const red = surfaceMaterial('seatFabric'); red.color.set('#cf5d58');
 const gold = toonMat('#f4c66b');
 const green = toonMat('#6b9a72');
 const blue = toonMat('#5f87b8');
+const cyan = toonMat('#40e8ff', { emissive: '#40e8ff', emissiveIntensity: 0.55 });
 const pink = toonMat('#e69aaa');
 const rug = surfaceMaterial('acousticFabric'); rug.color.set('#d97966');
 const wood = surfaceMaterial('wood'); wood.color.set('#765138');
