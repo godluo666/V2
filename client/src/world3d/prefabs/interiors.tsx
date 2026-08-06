@@ -86,15 +86,22 @@ function useMenuTexture(): THREE.CanvasTexture {
 export function CinemaSeat({ position, rotation }: { position: [number, number, number]; rotation: number }) {
   const fabric = useMemo(() => mat('#7d2438', 0.9), []);
   const frame = useMemo(() => mat('#2b2129', 0.6), []);
+  const trim = useMemo(() => mat('#c35a62', 0.8), []);
+  const cup = useMemo(() => mat('#d8a352', 0.4, 0.6), []);
   return (
     <group position={position} rotation={[0, rotation, 0]}>
       <mesh position={[0, 0.4, 0]} castShadow material={fabric}><boxGeometry args={[0.52, 0.12, 0.45]} /></mesh>
       <mesh position={[0, 0.68, -0.24]} rotation={[-0.12, 0, 0]} castShadow material={fabric}><boxGeometry args={[0.52, 0.65, 0.12]} /></mesh>
+      <mesh position={[0, 0.68, -0.305]} material={trim}><boxGeometry args={[0.34, 0.035, 0.025]} /></mesh>
       {[-0.29, 0.29].map((x, i) => (
-        <mesh key={i} position={[x, 0.5, 0]} material={frame}><boxGeometry args={[0.06, 0.5, 0.45]} /></mesh>
+        <group key={i}>
+          <mesh position={[x, 0.5, 0]} material={frame}><boxGeometry args={[0.06, 0.5, 0.45]} /></mesh>
+          <mesh position={[x, 0.69, 0.08]} material={cup}><cylinderGeometry args={[0.055, 0.045, 0.045, 10]} /></mesh>
+        </group>
       ))}
       {/* The seat origin is the actual floor/deck contact plane. */}
       <mesh position={[0, 0.19, 0]} material={frame}><boxGeometry args={[0.5, 0.38, 0.4]} /></mesh>
+      <mesh position={[0, 0.04, 0]} material={frame}><boxGeometry args={[0.34, 0.08, 0.28]} /></mesh>
     </group>
   );
 }

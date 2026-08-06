@@ -14,6 +14,10 @@ const rug = toonMat('#d97966');
 const wood = toonMat('#765138');
 const darkWood = toonMat('#432f28');
 const glowGold = toonMat('#f4c66b', { emissive: '#ef9f4d', emissiveIntensity: 0.55 });
+const sage = toonMat('#9fc9bb');
+const ink = toonMat('#273340');
+const lavender = toonMat('#a58fc8', { emissive: '#8f75c8', emissiveIntensity: 0.25 });
+const paper = toonMat('#f4ecd9');
 
 export function ClubRug({ position, ry, w, d }: {
   position: P3; ry: number; w: number; d: number;
@@ -56,6 +60,11 @@ export function ClubSofa({ position, ry }: { position: P3; ry: number }) {
           <boxGeometry args={[0.14, 0.55, 0.94]} />
         </mesh>
       ))}
+      {[-1.15, 1.15].map((x, i) => (
+        <mesh key={`pillow-${x}`} position={[x, 0.83, -0.24]} rotation={[0.1, 0, i ? -0.08 : 0.08]} material={i ? sage : lavender}>
+          <boxGeometry args={[0.55, 0.38, 0.12]} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -74,6 +83,19 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
         </mesh>
       ))}
       <mesh position={[0, 1.55, -0.84]} material={cream}><circleGeometry args={[0.62, 32]} /></mesh>
+      {/* 社团活动室小型舞台：音箱、灯架和可更换海报，不是单一平面红墙。 */}
+      {[-3.05, 3.05].map((x) => (
+        <group key={x} position={[x, 0.72, 0.35]}>
+          <mesh material={ink} castShadow><boxGeometry args={[0.72, 1.15, 0.52]} /></mesh>
+          <mesh position={[0, 0.16, 0.28]} material={glowGold}><boxGeometry args={[0.34, 0.06, 0.02]} /></mesh>
+          <mesh position={[0, -0.16, 0.28]} material={pink}><circleGeometry args={[0.12, 14]} /></mesh>
+        </group>
+      ))}
+      {[-2.4, -1.2, 0, 1.2, 2.4].map((x, i) => (
+        <mesh key={`stage-led-${x}`} position={[x, 0.43, 0.98]} material={i % 2 ? pink : glowGold}>
+          <boxGeometry args={[0.34, 0.04, 0.04]} />
+        </mesh>
+      ))}
       <pointLight position={[0, 2.4, 0.2]} color="#ffd590" intensity={2.4} distance={6} />
     </group>
   );
@@ -85,6 +107,10 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
     <group position={position} rotation={[0, ry, 0]}>
       <mesh position={[0, 0.65, 0]} castShadow material={wood}><boxGeometry args={[1.3, 0.1, 1.3]} /></mesh>
       <mesh position={[0, 0.712, 0]} material={cream}><boxGeometry args={[1.18, 0.025, 1.18]} /></mesh>
+      {[-0.28, 0, 0.28].flatMap((v) => [
+        <mesh key={`h-${v}`} position={[0, 0.732, v]} material={darkWood}><boxGeometry args={[1.05, 0.012, 0.018]} /></mesh>,
+        <mesh key={`v-${v}`} position={[v, 0.733, 0]} material={darkWood}><boxGeometry args={[0.018, 0.012, 1.05]} /></mesh>,
+      ])}
       {[
         [-0.42, -0.42], [0.42, -0.42], [0.42, 0.42], [-0.42, 0.42],
       ].map(([x, z], i) => (
@@ -129,8 +155,43 @@ export function ClubExtras({ lightsOn }: { lightsOn: boolean }) {
   const strip = lightsOn ? glowGold : darkWood;
   return (
     <group>
+      {/* 天花木梁与串灯：把活动室的高度和温馨感做出来。 */}
+      {[-8, -4, 0, 4, 8].map((x) => (
+        <mesh key={`beam-${x}`} position={[x, 4.08, 0]} material={darkWood}><boxGeometry args={[0.18, 0.22, 17.2]} /></mesh>
+      ))}
+      {[-7.2, -3.6, 0, 3.6, 7.2].map((x, i) => (
+        <group key={`pendant-${x}`} position={[x, 3.74, -1.1 + (i % 2) * 2.4]}>
+          <mesh position={[0, 0.2, 0]} material={darkWood}><cylinderGeometry args={[0.018, 0.018, 0.35, 6]} /></mesh>
+          <mesh material={lightsOn ? glowGold : darkWood}><coneGeometry args={[0.18, 0.16, 12]} /></mesh>
+          {lightsOn && <pointLight color="#ffd590" intensity={1.25} distance={4.5} decay={2} />}
+        </group>
+      ))}
       <mesh position={[0, 3.85, -8.88]} material={strip}><boxGeometry args={[9.5, 0.08, 0.06]} /></mesh>
       <mesh position={[0, 3.55, -8.82]} material={pink}><boxGeometry args={[4.2, 0.58, 0.05]} /></mesh>
+      {/* 北墙社团公告板、磁贴、活动海报与开放收纳格。 */}
+      <mesh position={[0, 2.25, -8.76]} material={ink}><boxGeometry args={[7.0, 2.3, 0.12]} /></mesh>
+      <mesh position={[0, 2.25, -8.69]} material={paper}><boxGeometry args={[6.55, 1.86, 0.04]} /></mesh>
+      {[-2.3, -0.75, 0.8, 2.35].map((x, i) => (
+        <group key={`notice-${x}`} position={[x, 2.32 + (i % 2) * 0.18, -8.63]} rotation={[0, 0, (i - 1.5) * 0.025]}>
+          <mesh material={i % 2 ? sage : lavender}><boxGeometry args={[1.05, 0.82, 0.025]} /></mesh>
+          <mesh position={[0, 0.22, 0.02]} material={i % 2 ? pink : red}><boxGeometry args={[0.72, 0.07, 0.012]} /></mesh>
+        </group>
+      ))}
+      {[-2.9, -1.0, 0.9, 2.8].map((x) => (
+        <group key={`cubby-${x}`} position={[x, 1.0, -8.7]}>
+          <mesh material={wood}><boxGeometry args={[1.35, 1.35, 0.34]} /></mesh>
+          <mesh position={[0, 0.03, 0.19]} material={darkWood}><boxGeometry args={[1.08, 0.94, 0.035]} /></mesh>
+          <mesh position={[0, -0.2, 0.22]} material={Math.abs(x) % 2 ? gold : cyan}><boxGeometry args={[0.42, 0.05, 0.02]} /></mesh>
+        </group>
+      ))}
+      {/* 软垫角落与小绿植，避免社团室只剩桌椅的硬朗轮廓。 */}
+      {[-9.2, 9.2].map((x, i) => (
+        <group key={`corner-${x}`} position={[x, 0, i ? -5.4 : 5.3]}>
+          <mesh position={[0, 0.25, 0]} material={i ? lavender : sage}><boxGeometry args={[1.1, 0.5, 1.1]} /></mesh>
+          <mesh position={[0, 1.0, 0]} material={green}><sphereGeometry args={[0.38, 10, 8]} /></mesh>
+          <mesh position={[0, 0.58, 0]} material={wood}><cylinderGeometry args={[0.2, 0.24, 0.36, 10]} /></mesh>
+        </group>
+      ))}
       {[-9.5, 9.5].map((x) => (
         <group key={x} position={[x, 2.1, -8.78]}>
           <mesh material={cream}><boxGeometry args={[1.3, 1.5, 0.05]} /></mesh>
