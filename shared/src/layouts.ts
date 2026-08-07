@@ -10,7 +10,7 @@ import type { Bounds, Collider } from './math';
 import type { AvatarConfig } from './types';
 import { SPACE } from './constants';
 import {
-  BUILDINGS, CITY_BOUNDS, VENUES,
+  BUILDINGS, CITY_BOUNDS, VENUES, cityBuildingLocalSize,
 } from './cityplan';
 
 export type InteractKind =
@@ -139,7 +139,13 @@ function buildCity(): SpaceLayout {
   // 连续住宅街墙全部参与碰撞；远景剪影纯视觉。
   for (const bd of BUILDINGS) {
     if (bd.style === 'silhouette') continue;
-    b.box(bd.x, bd.z, bd.w, bd.d);
+    // Convert the renderer's local frontage/depth back to the world-aligned
+    // footprint used by the shared AABB collision solver.  A quarter turn
+    // exchanges the local axes; keeping that conversion explicit prevents a
+    // door from being trapped behind an invisible side wall.
+    const { frontage, depth } = cityBuildingLocalSize(bd);
+    const quarterTurn = Math.abs(Math.round((bd.ry ?? 0) / (Math.PI / 2))) % 2 === 1;
+    b.box(bd.x, bd.z, quarterTurn ? depth : frontage, quarterTurn ? frontage : depth);
   }
 
   // 首阶段严格只开放三个入口。

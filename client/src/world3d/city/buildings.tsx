@@ -330,6 +330,8 @@ function towerDotTexture(): THREE.CanvasTexture {
 interface Bags {
   walls: MergeBag;      // 主体块(顶点色)
   detail: MergeBag;     // 挤出立面与带孔窗框
+  glass: MergeBag;      // 独立玻璃表面，避免与混凝土共用材质
+  metal: MergeBag;      // 设备、窗台与金属构件
   shutters: MergeBag;   // 卷帘门(横纹贴图 × 顶点色)
   warm: MergeBag;       // 暖窗自发光
   signs: SignSpec[];
@@ -397,7 +399,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
       put(out.shutters, b, ry, bx, 1.28, d / 2 - 0.24, bayW - 0.42, 2.56, 0.07, jitterColor(ENV.wallC, rnd));
     } else {
       // 玻璃橱窗:暗色玻璃,少数里头亮着
-      put(out.walls, b, ry, bx, 1.42, d / 2 - 0.26, bayW - 0.42, 2.3, 0.08, glass);
+      put(out.glass, b, ry, bx, 1.42, d / 2 - 0.26, bayW - 0.42, 2.3, 0.08, glass);
       put(out.walls, b, ry, bx, 0.14, d / 2 - 0.24, bayW - 0.42, 0.28, 0.12, wallDark);
       if (rnd() < 0.3) putPlane(out.warm, b, ry, bx, 1.35, d / 2 - 0.34, bayW - 0.8, 1.7, shade(ACCENT.windowWarm, -0.08));
     }
@@ -418,7 +420,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
       if (rnd() < 0.2) {
         putPlane(out.warm, b, ry, wx, wy, d / 2 + 0.03, 1.05, 1.25, shade(ACCENT.windowWarm, (rnd() - 0.5) * 0.06));
       } else {
-        put(out.walls, b, ry, wx, wy, d / 2 + 0.01, 1.05, 1.25, 0.05, glass);
+        put(out.glass, b, ry, wx, wy, d / 2 + 0.01, 1.05, 1.25, 0.05, glass);
       }
       // 窗洞四周是一体挤出的带孔窗框，拥有内侧窗洞、压边和可观察厚度。
       put(out.detail, b, ry, wx, wy, d / 2 + 0.1, 1.22, 1.32, 0.14, wallDark, { profile: 'window' });
@@ -442,9 +444,9 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
     const sx = i % 2 ? 1 : -1;
     const lx = sx * (w / 2 + 0.22);
     const lz = d * 0.22 - (i % 3) * 1.8;
-    put(out.walls, b, ry, lx, wy, lz, 0.5, 0.42, 0.38, ENV.metal);
+    put(out.metal, b, ry, lx, wy, lz, 0.5, 0.42, 0.38, ENV.metal);
     const [cx, cz] = l2w(b, ry, lx + sx * 0.27, lz);
-    out.walls.add(unitCylinder(), { x: cx, y: wy, z: cz, sx: 0.13, sy: 0.13, sz: 0.05, color: shade(ENV.metal, 0.06) });
+    out.metal.add(unitCylinder(), { x: cx, y: wy, z: cz, sx: 0.13, sy: 0.13, sz: 0.05, color: shade(ENV.metal, 0.06) });
   }
   // 女儿墙
   const pw = 0.22, ph = 0.55;
@@ -472,7 +474,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
         if ((f + j + (sx > 0 ? 1 : 0)) % 4 === 0) continue;
         const wz = -(d - 1.4) / 2 + (j + 0.5) * ((d - 1.4) / sideRows);
         const lit = (f * 3 + j + (sx > 0 ? 2 : 0)) % 5 === 0;
-        put(lit ? out.warm : out.walls, b, ry, sx * (w / 2 + 0.04), wy, wz,
+        put(lit ? out.warm : out.glass, b, ry, sx * (w / 2 + 0.04), wy, wz,
           0.12, 1.1, 0.9, lit ? shade(ACCENT.windowWarm, -0.06) : glass);
       }
     }
@@ -667,8 +669,8 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
     if (backstreet) {
       // 外走廊:通长挑板 + 栏杆 + 各户门
       put(out.walls, b, ry, 0, fy + 0.05, d / 2 + 0.5, w - 0.4, 0.1, 1.0, wallDark);
-      put(out.walls, b, ry, 0, fy + 0.6, d / 2 + 0.96, w - 0.4, 0.05, 0.05, ENV.metal);
-      put(out.walls, b, ry, 0, fy + 0.35, d / 2 + 0.96, w - 0.4, 0.45, 0.02, shade(ENV.metal, -0.045));
+      put(out.metal, b, ry, 0, fy + 0.6, d / 2 + 0.96, w - 0.4, 0.05, 0.05, ENV.metal);
+      put(out.metal, b, ry, 0, fy + 0.35, d / 2 + 0.96, w - 0.4, 0.45, 0.02, shade(ENV.metal, -0.045));
       for (let u = 0; u < nUnit; u++) {
         const ux = -(w - 2) / 2 + (u + 0.5) * ((w - 2) / nUnit);
         put(out.walls, b, ry, ux, fy + 1.0, d / 2 + 0.02, 0.85, 1.9, 0.06, shade(ENV.wallC, -0.02 + (rnd() - 0.5) * 0.03));
@@ -684,10 +686,10 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
         if (rnd() < 0.2) {
           putPlane(out.warm, b, ry, ux, fy + 1.35, d / 2 + 0.03, 1.4, 1.15, shade(ACCENT.windowWarm, (rnd() - 0.5) * 0.06));
         } else {
-          put(out.walls, b, ry, ux, fy + 1.35, d / 2 + 0.01, 1.4, 1.15, 0.05, glass);
+          put(out.glass, b, ry, ux, fy + 1.35, d / 2 + 0.01, 1.4, 1.15, 0.05, glass);
         }
         // 空调位(§4.3)
-        if (rnd() < 0.4) put(out.walls, b, ry, ux + 0.75, fy + 0.35, d / 2 + 0.62, 0.5, 0.4, 0.24, jitterColor(ENV.metal, rnd));
+        if (rnd() < 0.4) put(out.metal, b, ry, ux + 0.75, fy + 0.35, d / 2 + 0.62, 0.5, 0.4, 0.24, jitterColor(ENV.metal, rnd));
       }
     }
   }
@@ -782,8 +784,14 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
   group.name = 'city-buildings';
   buildingsGroup = group;
 
-  const near: Bags = { walls: new MergeBag(), detail: new MergeBag(), shutters: new MergeBag(), warm: new MergeBag(), signs: [] };
-  const far: Bags = { walls: new MergeBag(), detail: new MergeBag(), shutters: new MergeBag(), warm: new MergeBag(), signs: [] };
+  const near: Bags = {
+    walls: new MergeBag(), detail: new MergeBag(), glass: new MergeBag(), metal: new MergeBag(),
+    shutters: new MergeBag(), warm: new MergeBag(), signs: [],
+  };
+  const far: Bags = {
+    walls: new MergeBag(), detail: new MergeBag(), glass: new MergeBag(), metal: new MergeBag(),
+    shutters: new MergeBag(), warm: new MergeBag(), signs: [],
+  };
   const towerWalls = new MergeBag();
   const towerDetails = new MergeBag();
   const towerGlow: THREE.BufferGeometry[] = [];
@@ -835,6 +843,25 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         addOutline(mesh);
+        group.add(mesh);
+      }
+      const glassGeo = bags.glass.build();
+      if (glassGeo) {
+        const glassMat = surfaceMaterial('darkGlass', true);
+        glassMat.color.set('#35596a');
+        glassMat.emissive.set('#0b2632');
+        glassMat.emissiveIntensity = 0.18;
+        const mesh = new THREE.Mesh(glassGeo, glassMat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+      }
+      const metalGeo = bags.metal.build();
+      if (metalGeo) {
+        const metalMat = surfaceMaterial('brushedMetal', true);
+        const mesh = new THREE.Mesh(metalGeo, metalMat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         group.add(mesh);
       }
       const shGeo = bags.shutters.build();

@@ -190,9 +190,9 @@ export const BUILDINGS: CityBuilding[] = [
 /** 唯一三个可进入场馆；入口分布在北、西、南三侧的近距离街墙。 */
 export const VENUES: CityVenue[] = [
   {
-    key: 'cinema', x: 21.15, z: -6.92, ry: 0, label: '星汐电影院',
-    approach: [21.15, -6.5],
-    route: [[-8, 5.2], [-3, 1], [-3.2, -6.55], [21.15, -6.55], [21.15, -6.5]],
+    key: 'cinema', x: 21.15, z: -6.45, ry: 0, label: '星汐电影院',
+    approach: [21.15, -5.95],
+    route: [[-8, 5.2], [-3, 1], [-3.2, -6.0], [21.15, -6.0], [21.15, -5.95]],
   },
   {
     key: 'netcafe', x: -1.08, z: 15.05, ry: -Math.PI / 2, label: '镜界电竞观战馆',
@@ -200,11 +200,10 @@ export const VENUES: CityVenue[] = [
     route: [[-8, 5.2], [-3, 5.2], [-2.65, 15.05], [-1.45, 15.05]],
   },
   {
-    key: 'gameroom', x: -14.92, z: -14.55, ry: Math.PI / 2, label: '团子轰趴馆',
-    // Stop on the widened sidewalk outside the rotated frontage.  The door
-    // remains at x=-14.92, but the approach point is deliberately kept clear
-    // of the building collider so keyboard/touch routes do not get pushed
-    // sideways at the final step.
+    key: 'gameroom', x: -14.42, z: -14.55, ry: Math.PI / 2, label: '团子轰趴馆',
+    // The door anchor sits just beyond the rotated frontage; the approach
+    // point remains on the widened sidewalk so the player is never pushed
+    // sideways by the venue's own facade collider.
     approach: [-13.8, -14.55],
     route: [[-8, 5.2], [-11.7, 5.2], [-11.7, -14.55], [-13.8, -14.55]],
   },
