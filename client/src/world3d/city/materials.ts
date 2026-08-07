@@ -19,10 +19,7 @@ function detailTexture(kind: SurfaceKind): THREE.CanvasTexture {
   ctx.fillStyle = '#858585'; ctx.fillRect(0, 0, DETAIL_SIZE, DETAIL_SIZE);
   for (let y = 0; y < DETAIL_SIZE; y += 3) {
     for (let x = 0; x < DETAIL_SIZE; x += 3) {
-      // Keep the albedo variation subtle: this texture is also used as the
-      // roughness/bump source, so a mid-grey map would turn every facade into
-      // a dark flat decal when assigned as `map`.
-      const v = 166 + Math.floor(rand() * 72);
+      const v = 104 + Math.floor(rand() * 76);
       ctx.fillStyle = `rgb(${v},${v},${v})`;
       ctx.fillRect(x, y, 2 + (rand() > 0.86 ? 1 : 0), 2 + (rand() > 0.9 ? 1 : 0));
     }
@@ -77,7 +74,6 @@ export function surfaceMaterial(kind: SurfaceKind, vertexColors = false): THREE.
   const c = CONFIG[kind];
   const m = new THREE.MeshStandardMaterial({
     color: vertexColors ? '#ffffff' : c.color,
-    map: detailTexture(kind),
     roughness: c.roughness,
     metalness: c.metalness,
     roughnessMap: detailTexture(kind),
