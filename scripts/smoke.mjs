@@ -23,7 +23,10 @@ async function captureEvidence(page, fileName, label) {
   try {
     await page.screenshot({
       path: `${OUT}/${fileName}`,
-      timeout: 30_000,
+      // SwiftShader can take longer than a normal desktop GPU for the first
+      // high-detail interior frame. Keep a finite ceiling without turning a
+      // valid scene into a false journey failure at the old 30s cutoff.
+      timeout: 90_000,
       animations: 'disabled',
     });
     check(`${label} cloud screenshot captured`, true);
@@ -144,7 +147,14 @@ for (const page of [p1, p2]) {
   await walkTo(page, 5.7, 2.8, 10_000);
   await page.evaluate(() => window.__nx.connection.send('game_join', { machineId: 'gr-xq' }));
 }
-await p1.waitForTimeout(500);
+// The cloud runner can deliver the second join over a few WebSocket ticks;
+// wait for the authoritative two-player state before asking the table to move.
+await p1.waitForFunction(
+  () => (window.__nx.world.getState().xq['gr-xq']?.players ?? []).filter(Boolean).length === 2,
+  undefined,
+  { timeout: 8_000, polling: 100 },
+).catch(() => {});
+await p1.waitForTimeout(700);
 await p1.evaluate(() => window.__nx.connection.send('xq_move', {
   tableId: 'gr-xq',
   from: 27,

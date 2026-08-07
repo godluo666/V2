@@ -130,12 +130,12 @@ export function Walls({ layout, cfg }: { layout: SpaceLayout; cfg: InteriorConfi
   const t = 0.25;
   const h = cfg.height;
   const wallMat = useMemo(() => {
-    const m = surfaceMaterial('paintedConcrete');
+    const m = surfaceMaterial('paintedConcrete', false, false);
     m.color.set(cfg.wallColor);
     return m;
   }, [cfg.wallColor]);
   const trimMat = useMemo(() => {
-    const m = surfaceMaterial(cfg.floor === 'grid' ? 'brushedMetal' : 'wood');
+    const m = surfaceMaterial(cfg.floor === 'grid' ? 'brushedMetal' : 'wood', false, false);
     m.color.set(cfg.trimColor);
     return m;
   }, [cfg.floor, cfg.trimColor]);

@@ -70,17 +70,25 @@ const CONFIG: Record<SurfaceKind, { color: string; roughness: number; metalness:
   seatFabric: { color: '#7d2438', roughness: 0.94, metalness: 0.01, bump: 0.1 },
 };
 
-export function surfaceMaterial(kind: SurfaceKind, vertexColors = false): THREE.MeshStandardMaterial {
+/**
+ * Build a physically layered material.  Large interior shells can opt out of
+ * the micro maps while keeping the same calibrated albedo/roughness/metalness;
+ * this avoids making a whole room's walls expensive pixel-for-pixel surfaces
+ * on SwiftShader while facade modules keep their bump and roughness detail.
+ */
+export function surfaceMaterial(kind: SurfaceKind, vertexColors = false, micro = true): THREE.MeshStandardMaterial {
   const c = CONFIG[kind];
   const m = new THREE.MeshStandardMaterial({
     color: vertexColors ? '#ffffff' : c.color,
     roughness: c.roughness,
     metalness: c.metalness,
-    roughnessMap: detailTexture(kind),
-    bumpMap: detailTexture(kind),
-    bumpScale: c.bump,
     vertexColors,
     flatShading: false,
   });
+  if (micro) {
+    m.roughnessMap = detailTexture(kind);
+    m.bumpMap = detailTexture(kind);
+    m.bumpScale = c.bump;
+  }
   return m;
 }

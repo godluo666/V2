@@ -190,9 +190,9 @@ export const BUILDINGS: CityBuilding[] = [
 /** 唯一三个可进入场馆；入口分布在北、西、南三侧的近距离街墙。 */
 export const VENUES: CityVenue[] = [
   {
-    key: 'cinema', x: 21.15, z: -6.92, ry: 0, label: '星汐电影院',
-    approach: [21.15, -6.5],
-    route: [[-8, 5.2], [-3, 1], [-3.2, -6.55], [21.15, -6.55], [21.15, -6.5]],
+    key: 'cinema', x: 21.15, z: -5.45, ry: 0, label: '星汐电影院',
+    approach: [21.15, -4.85],
+    route: [[-8, 5.2], [-3, 1], [-3.2, -5.1], [21.15, -5.1], [21.15, -4.85]],
   },
   {
     key: 'netcafe', x: -1.08, z: 15.05, ry: -Math.PI / 2, label: '镜界电竞观战馆',

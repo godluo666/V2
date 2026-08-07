@@ -57,7 +57,10 @@ await page.evaluate(() => {
   base.dispatchEvent(new PointerEvent('pointerdown', { clientX: cx, clientY: cy, pointerId: 7, bubbles: true }));
   base.dispatchEvent(new PointerEvent('pointermove', { clientX: cx, clientY: cy - 52, pointerId: 7, bubbles: true }));
 });
-await page.waitForTimeout(1600);
+// SwiftShader mobile emulation can deliver only a handful of animation
+// frames while the city builds; hold the joystick long enough to measure real
+// movement rather than a single frame's prediction.
+await page.waitForTimeout(3000);
 await page.evaluate(() => {
   const base = document.querySelectorAll('div[style*="border-radius: 50%"]')[0];
   base.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, bubbles: true }));
