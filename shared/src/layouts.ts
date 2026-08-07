@@ -610,7 +610,9 @@ function buildGameroom(): SpaceLayout {
 
   return {
     key: SPACE.GAMEROOM, label: '团子轰趴馆·社团活动室', indoor: true, bounds,
-    spawn: [0, 0, 7.5, Math.PI],
+    // Enter in the central activity zone so the first frame exposes the
+    // game tables, lounge seating and the warm club wall together.
+    spawn: [0, 0, 1.6, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: [],
   };

@@ -153,10 +153,92 @@ export function ClubTrophyWall({ position, ry }: { position: P3; ry: number }) {
   );
 }
 
+/**
+ * Built-in activity-room architecture.  These are deliberately shallow,
+ * thickened modules rather than decals: the timber rails cast onto the wall,
+ * the acoustic boards sit proud of the plaster, and every shelf has a back,
+ * lip and side cheek.  The result stays readable even with the neon layer
+ * disabled and gives the compact room a believable club-house construction.
+ */
+function ClubWallDetails() {
+  const panelMats = [sage, lavender, paper, pink];
+  return (
+    <group>
+      {([-1, 1] as const).flatMap((side) => (
+        [-8, -4, 4, 8].map((x, i) => (
+          <group key={`wall-panel-${side}-${x}`} position={[x, 0, side * 8.72]}>
+            <mesh position={[0, 2.15, 0]} castShadow material={darkWood}>
+              <boxGeometry args={[3.15, 2.35, 0.16]} />
+            </mesh>
+            <mesh position={[0, 2.15, side * 0.105]} material={panelMats[(i + (side > 0 ? 1 : 0)) % panelMats.length]}>
+              <boxGeometry args={[2.82, 1.98, 0.055]} />
+            </mesh>
+            <mesh position={[0, 3.2, side * 0.15]} material={glowGold}>
+              <boxGeometry args={[2.5, 0.045, 0.045]} />
+            </mesh>
+            <mesh position={[0, 1.08, side * 0.15]} material={wood}>
+              <boxGeometry args={[2.55, 0.08, 0.34]} />
+            </mesh>
+            {[-1, 1].map((edge) => (
+              <mesh key={edge} position={[edge * 1.45, 2.15, side * 0.14]} material={darkWood}>
+                <boxGeometry args={[0.08, 2.12, 0.22]} />
+              </mesh>
+            ))}
+          </group>
+        ))
+      ))}
+      {([-1, 1] as const).flatMap((side) => (
+        [-6.4, -2.1, 2.1, 6.4].map((z, i) => (
+          <group key={`side-shelf-${side}-${z}`} position={[side * 11.72, 0, z]} rotation={[0, side * Math.PI / 2, 0]}>
+            <mesh position={[0, 2.4, 0]} castShadow material={darkWood}>
+              <boxGeometry args={[2.35, 2.6, 0.18]} />
+            </mesh>
+            <mesh position={[0, 2.4, 0.12]} material={wood}>
+              <boxGeometry args={[1.98, 2.2, 0.08]} />
+            </mesh>
+            {[-0.78, 0, 0.78].map((x, j) => (
+              <group key={j} position={[x, 2.12 + (j % 2) * 0.42, 0.2]}>
+                <mesh material={j % 2 ? gold : cyan}><boxGeometry args={[0.35, 0.24, 0.12]} /></mesh>
+                <mesh position={[0, 0.2, 0]} material={j % 2 ? pink : sage}><cylinderGeometry args={[0.08, 0.08, 0.18, 10]} /></mesh>
+              </group>
+            ))}
+            <mesh position={[0, 1.18, 0.2]} material={wood}>
+              <boxGeometry args={[2.05, 0.1, 0.42]} />
+            </mesh>
+            <mesh position={[0, 1.02, 0.2]} material={darkWood}>
+              <boxGeometry args={[0.12, 0.32, 0.32]} />
+            </mesh>
+          </group>
+        ))
+      ))}
+      {/* Exposed lower wainscot, corner posts and a real cable tray. */}
+      {([-1, 1] as const).map((side) => (
+        <group key={`wainscot-${side}`}>
+          <mesh position={[0, 0.52, side * 8.6]} castShadow material={wood}>
+            <boxGeometry args={[23.2, 0.95, 0.24]} />
+          </mesh>
+          <mesh position={[0, 1.02, side * 8.76]} material={darkWood}>
+            <boxGeometry args={[23.2, 0.1, 0.16]} />
+          </mesh>
+          <mesh position={[0, 3.7, side * 8.58]} material={darkWood}>
+            <boxGeometry args={[23.2, 0.16, 0.22]} />
+          </mesh>
+        </group>
+      ))}
+      {([-10.9, 10.9] as const).map((x) => (
+        <mesh key={`corner-post-${x}`} position={[x, 2.15, 0]} castShadow material={darkWood}>
+          <boxGeometry args={[0.22, 4.3, 17.2]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export function ClubExtras({ lightsOn }: { lightsOn: boolean }) {
   const strip = lightsOn ? glowGold : darkWood;
   return (
     <group>
+      <ClubWallDetails />
       {/* 天花木梁与串灯：把活动室的高度和温馨感做出来。 */}
       {[-8, -4, 0, 4, 8].map((x) => (
         <mesh key={`beam-${x}`} position={[x, 4.08, 0]} material={darkWood}><boxGeometry args={[0.18, 0.22, 17.2]} /></mesh>

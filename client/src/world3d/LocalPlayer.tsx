@@ -21,7 +21,11 @@ import { buildTargets, buildColliders, performAction, labelFor, type Target } fr
 import { audio } from '../audio/engine';
 
 /** Interior ceiling heights for camera containment (rooms default to 3.0). */
-const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 12, arcade: 3.6, shop: 3.4, lobby: 4.2 };
+// Keep the large public venues framed as spaces rather than letting the camera
+// clip down into a low ceiling.  The arena has a 4.6m shell and a suspended
+// truss; clamping it to the old 3.4m room height made the first frame show wall
+// paint instead of the stage and stands.
+const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 12, arcade: 3.6, shop: 3.4, lobby: 4.2, netcafe: 4.4 };
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
