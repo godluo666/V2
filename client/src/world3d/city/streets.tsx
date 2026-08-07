@@ -59,10 +59,15 @@ export class MergeBag {
     // Normalize procedural profiles before batching. ExtrudeGeometry and the
     // legacy primitives can differ in index state or optional UV/normal
     // attributes; mergeGeometries rejects that combination and silently drops
-    // whole facade batches in the browser. Keep one canonical non-indexed
-    // attribute layout for every merged city part.
-    const g = src.index ? src.toNonIndexed() : src.clone();
+    // whole facade batches in the browser. Keep one canonical indexed layout
+    // without expanding every box/cylinder into a much larger non-indexed mesh.
+    const g = src.clone();
     const position = g.getAttribute('position') as THREE.BufferAttribute | undefined;
+    if (position && !g.index) {
+      const index = new Uint32Array(position.count);
+      for (let i = 0; i < position.count; i++) index[i] = i;
+      g.setIndex(new THREE.BufferAttribute(index, 1));
+    }
     if (position && !g.getAttribute('normal')) g.computeVertexNormals();
     if (position && !g.getAttribute('uv')) {
       g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(position.count * 2), 2));
