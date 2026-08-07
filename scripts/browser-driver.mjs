@@ -117,7 +117,12 @@ export async function walkFromVenueDoorToSpawn(page, venueKey) {
     if (!venue?.route?.length) throw new Error(`Missing shared route for venue: ${key}`);
     return [...venue.route].reverse();
   }, venueKey);
-  return walkRoute(page, points);
+  // SwiftShader can spend several seconds compiling the interior while the
+  // first outdoor frames resume. Preserve the same route, but give each leg a
+  // cloud-safe window instead of treating that render hitch as a blocked path.
+  return walkRoute(page, points.map(([x, z], index) => (
+    index === points.length - 1 ? [x, z, 24_000, 1] : [x, z, 24_000, 1]
+  )));
 }
 
 /** Reach and enter a street venue using only coordinates from `cityplan.ts`. */

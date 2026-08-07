@@ -62,6 +62,14 @@ export default function LocalPlayer() {
     seatTargets.current = new Map(t.filter((x) => x.kind === 'seat').map((x) => [x.id, x]));
     return t;
   }, [spaceKey, room]);
+
+  // A public-space switch replaces the target list asynchronously. Clear the
+  // previous room's target immediately so a low-FPS frame cannot leave a stale
+  // “坐下” prompt over a street entrance.
+  useEffect(() => {
+    currentTarget.current = null;
+    useUI.getState().setPrompt(null);
+  }, [spaceKey]);
   const colliders = useMemo(() => buildColliders(spaceKey, room), [spaceKey, room]);
 
   // ── 抓取输入:按住即抓、松手即放(长按 G,或鼠标左键按住准星内目标)────
@@ -446,7 +454,10 @@ export default function LocalPlayer() {
       const d = Math.hypot(dx, dz);
       if (d > INTERACT_RANGE) return;
       const facing = d > 0.001 ? (dx / d) * fx + (dz / d) * fz : 1;
-      const score = d * (1.35 - Math.max(-0.2, facing));
+      // Entrances are intentional navigation anchors. Prefer a nearby door
+      // over an ambient bench/chair when their interaction radii overlap.
+      const doorBias = t.kind === 'door' && t.data?.target ? 0.45 : 0;
+      const score = d * (1.35 - Math.max(-0.2, facing)) - doorBias;
       if (score < bestScore) { bestScore = score; best = t; }
     };
     for (const t of staticTargets) consider(t);

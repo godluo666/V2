@@ -190,11 +190,12 @@ export const BUILDINGS: CityBuilding[] = [
 /** 唯一三个可进入场馆；入口分布在北、西、南三侧的近距离街墙。 */
 export const VENUES: CityVenue[] = [
   {
-    // Keep the door away from the nearby south-side bench; otherwise the
-    // interaction scanner correctly prefers the seat over the cinema door.
-    key: 'cinema', x: 23.0, z: -5.45, ry: 0, label: '星汐电影院',
-    approach: [23.0, -4.85],
-    route: [[-8, 5.2], [-3, 1], [-3.2, -5.1], [23.0, -5.1], [23.0, -4.85]],
+    // Keep the entrance on the cinema's broad frontage, away from the vending
+    // machine/planter cluster at the far corner.  The short, unobstructed
+    // approach leaves the door as the only actionable target in the scan cone.
+    key: 'cinema', x: 16.0, z: -5.45, ry: 0, label: '星汐电影院',
+    approach: [16.0, -4.85],
+    route: [[-8, 5.2], [-3, 1], [-3.2, -5.1], [16.0, -5.1], [16.0, -4.85]],
   },
   {
     key: 'netcafe', x: -1.08, z: 15.05, ry: -Math.PI / 2, label: '镜界电竞观战馆',
