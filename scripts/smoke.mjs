@@ -205,7 +205,7 @@ if (bothInCinema) {
 // Keep an explicit cloud evidence frame for the large esports arena as well;
 // this is intentionally after the cinema journey so it reuses the same player
 // session and does not alter any shared venue or seat logic.
-if (await exitToStreet(p1)) {
+if (bothInCinema && await exitToStreet(p1)) {
   const enteredArena = await enterStreetVenue(p1, 'netcafe');
   if (enteredArena && (await state(p1)).space === 'netcafe') {
     await captureEvidence(p1, 'arena-desktop.png', 'esports arena desktop');

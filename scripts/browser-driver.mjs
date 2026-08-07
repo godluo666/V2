@@ -73,8 +73,10 @@ export async function walkTo(page, tx, tz, timeoutMs = 45000, stopAt = 1.0) {
     await page.waitForTimeout(130);
   }
 
-  // Let a final server snapshot and the interaction scan catch up.
-  await page.waitForTimeout(300);
+  // Let a final server snapshot and at least one low-FPS interaction scan catch
+  // up. SwiftShader can take several hundred milliseconds between frames after
+  // a long route, so checking immediately can miss a perfectly reachable door.
+  await page.waitForTimeout(900);
   finalD = await page.evaluate(([x, z]) => {
     const confirmed = window.__nx.hot.selfSnap ?? window.__nx.hot.local;
     return Math.hypot(x - confirmed.x, z - confirmed.z);
@@ -112,6 +114,9 @@ export async function walkToVenueDoor(page, venueKey) {
 
 /** Reverse a venue's shared spawn route after returning through its street door. */
 export async function walkFromVenueDoorToSpawn(page, venueKey) {
+  // The switch-space fade resolves before the first outdoor frame is rendered.
+  // Give the new layout/target list one stable frame before reversing its route.
+  await page.waitForTimeout(900);
   const points = await page.evaluate((key) => {
     const venue = window.__nx.cityMap.venues.find((candidate) => candidate.key === key);
     if (!venue?.route?.length) throw new Error(`Missing shared route for venue: ${key}`);
