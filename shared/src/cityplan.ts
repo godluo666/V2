@@ -201,8 +201,12 @@ export const VENUES: CityVenue[] = [
   },
   {
     key: 'gameroom', x: -14.92, z: -14.55, ry: Math.PI / 2, label: '团子轰趴馆',
-    approach: [-14.55, -14.55],
-    route: [[-8, 5.2], [-11.7, 5.2], [-11.7, -14.55], [-14.55, -14.55]],
+    // Stop on the widened sidewalk outside the rotated frontage.  The door
+    // remains at x=-14.92, but the approach point is deliberately kept clear
+    // of the building collider so keyboard/touch routes do not get pushed
+    // sideways at the final step.
+    approach: [-13.8, -14.55],
+    route: [[-8, 5.2], [-11.7, 5.2], [-11.7, -14.55], [-13.8, -14.55]],
   },
 ];
 
