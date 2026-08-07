@@ -510,7 +510,7 @@ export function ArenaExtras({ lightsOn }: { lightsOn: boolean }) {
             </mesh>
           ))}
         </group>
-      ))}
+      )))}
       {/* 斜向聚光束只作为轻量图形，不遮挡玩家和交互 */}
       {lightsOn && <>
         <mesh position={[-6.5, 3.4, -4.6]} rotation={[0, 0, -0.38]}>
