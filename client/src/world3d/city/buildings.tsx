@@ -38,6 +38,55 @@ function unitPlane(): THREE.PlaneGeometry {
   return _uPlane;
 }
 
+// Primary facade mass: an extruded, chamfered profile with real corner faces.
+// It is intentionally separate from unitBox so the major silhouettes do not
+// collapse into sharp-edged rectangular prisms when MergeBag batches them.
+let _uFacade: THREE.ExtrudeGeometry | null = null;
+function unitFacade(): THREE.ExtrudeGeometry {
+  if (_uFacade) return _uFacade;
+  const shape = new THREE.Shape();
+  const c = 0.08;
+  shape.moveTo(-0.5 + c, -0.5);
+  shape.lineTo(0.5 - c, -0.5);
+  shape.lineTo(0.5, -0.5 + c);
+  shape.lineTo(0.5, 0.5 - c);
+  shape.lineTo(0.5 - c, 0.5);
+  shape.lineTo(-0.5 + c, 0.5);
+  shape.lineTo(-0.5, 0.5 - c);
+  shape.lineTo(-0.5, -0.5 + c);
+  shape.closePath();
+  _uFacade = new THREE.ExtrudeGeometry(shape, {
+    depth: 1,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    bevelSize: 0.035,
+    bevelThickness: 0.035,
+    curveSegments: 1,
+  });
+  _uFacade.translate(0, 0, -0.5);
+  _uFacade.computeVertexNormals();
+  return _uFacade;
+}
+
+let _uWindowFrame: THREE.ExtrudeGeometry | null = null;
+function unitWindowFrame(): THREE.ExtrudeGeometry {
+  if (_uWindowFrame) return _uWindowFrame;
+  const outer = new THREE.Shape();
+  outer.moveTo(-0.5, -0.5); outer.lineTo(0.5, -0.5); outer.lineTo(0.5, 0.5);
+  outer.lineTo(-0.5, 0.5); outer.closePath();
+  const hole = new THREE.Path();
+  hole.moveTo(-0.34, -0.31); hole.lineTo(0.34, -0.31); hole.lineTo(0.34, 0.31);
+  hole.lineTo(-0.34, 0.31); hole.closePath();
+  outer.holes.push(hole);
+  _uWindowFrame = new THREE.ExtrudeGeometry(outer, {
+    depth: 0.14, bevelEnabled: true, bevelSegments: 1,
+    bevelSize: 0.018, bevelThickness: 0.018, curveSegments: 1,
+  });
+  _uWindowFrame.translate(0, 0, -0.07);
+  _uWindowFrame.computeVertexNormals();
+  return _uWindowFrame;
+}
+
 // ── 朝向:显式 ry 优先,否则面向最近的马路(P3 不自造坐标,只按数据推导)────
 function facingRy(b: Building): number {
   if (b.ry !== undefined) return b.ry;
@@ -70,10 +119,13 @@ function put(
   bag: MergeBag, b: Building, ry: number,
   lx: number, y: number, lz: number,
   w: number, h: number, d: number,
-  color: THREE.ColorRepresentation, extra?: { rx?: number; rz?: number; lry?: number }
+  color: THREE.ColorRepresentation, extra?: { rx?: number; rz?: number; lry?: number; profile?: 'facade' | 'window' }
 ): void {
   const [x, z] = l2w(b, ry, lx, lz);
-  bag.add(unitBox(), {
+  const profile = extra?.profile === 'facade'
+    ? unitFacade()
+    : extra?.profile === 'window' ? unitWindowFrame() : unitBox();
+  bag.add(profile, {
     x, y, z, ry: ry + (extra?.lry ?? 0), rx: extra?.rx, rz: extra?.rz,
     sx: w, sy: h, sz: d, color,
   });
@@ -303,9 +355,9 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
 
   // 上层主体(带前后进退,破"方盒感")
   // 上层不再是一整块长方体：三段错层体块用不同退进量形成真实施工缝。
-  put(out.walls, b, ry, -w * 0.31, (groundH + h) / 2, -0.22, w * 0.38, h - groundH, d - 0.65, wall);
-  put(out.walls, b, ry, 0, (groundH + h) / 2, 0.05, w * 0.28, h - groundH - 0.22, d - 0.42, wall.clone().offsetHSL(0, 0, 0.018));
-  put(out.walls, b, ry, w * 0.31, (groundH + h) / 2 + 0.14, -0.08, w * 0.38, h - groundH - 0.48, d - 0.82, wall.clone().offsetHSL(0, 0, -0.018));
+  put(out.walls, b, ry, -w * 0.31, (groundH + h) / 2, -0.22, w * 0.38, h - groundH, d - 0.65, wall, { profile: 'facade' });
+  put(out.walls, b, ry, 0, (groundH + h) / 2, 0.05, w * 0.28, h - groundH - 0.22, d - 0.42, wall.clone().offsetHSL(0, 0, 0.018), { profile: 'facade' });
+  put(out.walls, b, ry, w * 0.31, (groundH + h) / 2 + 0.14, -0.08, w * 0.38, h - groundH - 0.48, d - 0.82, wall.clone().offsetHSL(0, 0, -0.018), { profile: 'facade' });
   const reliefs = 1 + Math.floor(rnd() * 2);
   for (let i = 0; i < reliefs; i++) {
     const rw = w * (0.2 + rnd() * 0.22);
@@ -367,10 +419,8 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
       } else {
         put(out.walls, b, ry, wx, wy, d / 2 + 0.01, 1.05, 1.25, 0.05, glass);
       }
-      // 窗洞四周的压边框：把贴墙色块改成真正嵌入立面的窗框。
-      put(out.walls, b, ry, wx, wy + 0.66, d / 2 + 0.08, 1.18, 0.07, 0.12, wallDark);
-      put(out.walls, b, ry, wx - 0.58, wy, d / 2 + 0.08, 0.07, 1.28, 0.12, wallDark);
-      put(out.walls, b, ry, wx + 0.58, wy, d / 2 + 0.08, 0.07, 1.28, 0.12, wallDark);
+      // 窗洞四周是一体挤出的带孔窗框，拥有内侧窗洞、压边和可观察厚度。
+      put(out.walls, b, ry, wx, wy, d / 2 + 0.1, 1.22, 1.32, 0.14, wallDark, { profile: 'window' });
       // 窗台
       put(out.walls, b, ry, wx, wy - 0.72, d / 2 + 0.06, 1.2, 0.08, 0.16, wall.clone().offsetHSL(0, 0, 0.03));
     }
@@ -465,7 +515,9 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   const warmGlassMat = surfaceMaterial('glass');
   warmGlassMat.color.set('#e5a557'); warmGlassMat.emissive.set('#ffb858'); warmGlassMat.emissiveIntensity = 0.2;
 
-  const podium = new THREE.Mesh(new THREE.BoxGeometry(w, 4.8, d), podiumMat);
+  const podiumGeo = unitFacade().clone();
+  podiumGeo.scale(w, 4.8, d);
+  const podium = new THREE.Mesh(podiumGeo, podiumMat);
   podium.position.y = 2.4;
   podium.castShadow = true;
   podium.receiveShadow = true;
@@ -588,8 +640,8 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
   const { frontage: w, depth: d } = cityBuildingLocalSize(b);
   const { h } = b;
   // 住宅主体由两段错位核心组成，阳台和压条在缝隙处产生真实投影。
-  put(out.walls, b, ry, -w * 0.22, h / 2, -0.12, w * 0.58, h, d - 0.45, wall);
-  put(out.walls, b, ry, w * 0.27, h / 2 + 0.1, 0.16, w * 0.44, h - 0.2, d - 0.78, wall.clone().offsetHSL(0, 0, 0.018));
+  put(out.walls, b, ry, -w * 0.22, h / 2, -0.12, w * 0.58, h, d - 0.45, wall, { profile: 'facade' });
+  put(out.walls, b, ry, w * 0.27, h / 2 + 0.1, 0.16, w * 0.44, h - 0.2, d - 0.78, wall.clone().offsetHSL(0, 0, 0.018), { profile: 'facade' });
   put(out.walls, b, ry, 0, 0.12, 0, w + 0.26, 0.24, d + 0.24, wallDark);
   // 住宅楼的楼板边缘和首层檐口先建立真实的层级，再叠加阳台、窗和设备。
   const apartmentBandCount = Math.max(3, Math.round(h / 3.0));
@@ -627,6 +679,7 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
         const ux = -(w - 2) / 2 + (u + 0.5) * ((w - 2) / nUnit);
         put(out.walls, b, ry, ux, fy + 0.05, d / 2 + 0.42, 2.0, 0.1, 0.85, wallDark);
         put(out.walls, b, ry, ux, fy + 0.5, d / 2 + 0.8, 2.0, 0.85, 0.06, wall.clone().offsetHSL(0, 0, -0.025));
+        put(out.walls, b, ry, ux, fy + 1.35, d / 2 + 0.1, 1.56, 1.32, 0.14, wallDark, { profile: 'window' });
         if (rnd() < 0.2) {
           putPlane(out.warm, b, ry, ux, fy + 1.35, d / 2 + 0.03, 1.4, 1.15, shade(ACCENT.windowWarm, (rnd() - 0.5) * 0.06));
         } else {
@@ -669,7 +722,7 @@ function buildTower(
     const sw = w * k, sd = d * k;
     const ox = i === 0 ? 0 : (rnd() - 0.5) * (w - sw) * 0.7;
     const oz = i === 0 ? 0 : (rnd() - 0.5) * (d - sd) * 0.7;
-    put(walls, b, ry, ox, y0 + sh / 2, oz, sw, sh, sd, wall.clone().offsetHSL(0, 0, i * 0.012));
+    put(walls, b, ry, ox, y0 + sh / 2, oz, sw, sh, sd, wall.clone().offsetHSL(0, 0, i * 0.012), { profile: 'facade' });
     // 分段檐口
     put(walls, b, ry, ox, y0 + sh - 0.15, oz, sw + 0.5, 0.3, sd + 0.5, wall.clone().offsetHSL(0, 0, -0.04));
     secDims.push({ y: y0, sh, sw, sd, ox, oz });
