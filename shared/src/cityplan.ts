@@ -190,9 +190,11 @@ export const BUILDINGS: CityBuilding[] = [
 /** 唯一三个可进入场馆；入口分布在北、西、南三侧的近距离街墙。 */
 export const VENUES: CityVenue[] = [
   {
-    key: 'cinema', x: 21.15, z: -5.45, ry: 0, label: '星汐电影院',
-    approach: [21.15, -4.85],
-    route: [[-8, 5.2], [-3, 1], [-3.2, -5.1], [21.15, -5.1], [21.15, -4.85]],
+    // Keep the door away from the nearby south-side bench; otherwise the
+    // interaction scanner correctly prefers the seat over the cinema door.
+    key: 'cinema', x: 23.0, z: -5.45, ry: 0, label: '星汐电影院',
+    approach: [23.0, -4.85],
+    route: [[-8, 5.2], [-3, 1], [-3.2, -5.1], [23.0, -5.1], [23.0, -4.85]],
   },
   {
     key: 'netcafe', x: -1.08, z: 15.05, ry: -Math.PI / 2, label: '镜界电竞观战馆',
@@ -204,8 +206,8 @@ export const VENUES: CityVenue[] = [
     // Stop on the widened sidewalk outside the rotated frontage. The approach
     // point is kept separate from the door so the player is never pushed
     // sideways by the venue's own facade collider.
-    approach: [-13.8, -14.55],
-    route: [[-8, 5.2], [-11.7, 5.2], [-11.7, -14.55], [-13.8, -14.55]],
+    approach: [-12.7, -14.55],
+    route: [[-8, 5.2], [-11.7, 5.2], [-11.7, -14.55], [-12.7, -14.55]],
   },
 ];
 
