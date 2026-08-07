@@ -12,6 +12,7 @@ import { ArenaExtras, CinemaExtras, NetcafeExtras } from '../prefabs/venueInteri
 import { ClubExtras } from '../prefabs/clubInteriors';
 import { WindowFrame } from '../prefabs/interiors';
 import { plankTexture, tileTexture, marbleTexture, carpetTexture, gridGlowTexture } from './textures';
+import { surfaceMaterial } from '../city/materials';
 
 interface Gap { side: 'n' | 's' | 'e' | 'w'; center: number; width: number; }
 interface InteriorConfig {
@@ -128,8 +129,16 @@ export function Walls({ layout, cfg }: { layout: SpaceLayout; cfg: InteriorConfi
   const { bounds } = layout;
   const t = 0.25;
   const h = cfg.height;
-  const wallMat = useMemo(() => new THREE.MeshStandardMaterial({ color: cfg.wallColor, roughness: 0.9 }), [cfg.wallColor]);
-  const trimMat = useMemo(() => new THREE.MeshStandardMaterial({ color: cfg.trimColor, roughness: 0.8 }), [cfg.trimColor]);
+  const wallMat = useMemo(() => {
+    const m = surfaceMaterial('paintedConcrete');
+    m.color.set(cfg.wallColor);
+    return m;
+  }, [cfg.wallColor]);
+  const trimMat = useMemo(() => {
+    const m = surfaceMaterial(cfg.floor === 'grid' ? 'brushedMetal' : 'wood');
+    m.color.set(cfg.trimColor);
+    return m;
+  }, [cfg.floor, cfg.trimColor]);
 
   const { regular, lintels } = useMemo(() => {
     const regular: { x: number; z: number; w: number; d: number }[] = [];

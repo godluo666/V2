@@ -377,7 +377,9 @@ function buildCinema(): SpaceLayout {
 
   return {
     key: SPACE.CINEMA, label: '极光影院·巨幕厅', indoor: true, bounds,
-    spawn: [0, 0, 10, Math.PI],
+    // Enter near the rear seating band rather than at the exit wall; the
+    // default third-person camera then has a clear axis toward the giant screen.
+    spawn: [0, 0, 4.8, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: b.heightZones, mediaPolicy: 'everyone',
   };
@@ -542,7 +544,9 @@ function buildNetcafe(): SpaceLayout {
 
   return {
     key: SPACE.NETCAFE, label: '镜界电竞馆 NEXUS', indoor: true, bounds,
-    spawn: [0, 0, 5.8, Math.PI],
+    // Start inside the central aisle so the first camera frame sees the
+    // stage, truss and tiered stands instead of clipping the south wall.
+    spawn: [0, 0, 2.8, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: [], mediaPolicy: 'everyone',
   };
