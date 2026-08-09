@@ -498,15 +498,36 @@ export async function walkFromVenueDoorToSpawn(page, venueKey) {
 /** Reach and enter a street venue using only coordinates from `cityplan.ts`. */
 export async function enterStreetVenue(page, venueKey) {
   if (!await spaceIs(page, 'plaza')) return false;
-  if (!await walkToVenueDoor(page, venueKey)) return false;
+  // A long indoor-to-outdoor transition can leave the first outdoor input
+  // focused on the fade frame. Re-arm the normal input path and retry the
+  // shared route once before declaring the venue unreachable. Both attempts
+  // still use the authoritative route and collision-valid walkTo helper.
+  let reachedDoor = await walkToVenueDoor(page, venueKey);
+  if (!reachedDoor) {
+    if (!await prepareWorldInput(page)) return false;
+    await page.waitForTimeout(450);
+    reachedDoor = await walkToVenueDoor(page, venueKey);
+  }
+  if (!reachedDoor) return false;
   const venue = await page.evaluate((key) => {
     const found = window.__nx.cityMap.venues.find((candidate) => candidate.key === key);
     if (!found) throw new Error(`Unknown street venue: ${key}`);
     return { label: found.label, approach: found.approach };
   }, venueKey);
-  return interactWhenPrompt(page, venue.label, ...venue.approach, {
+  let entered = await interactWhenPrompt(page, venue.label, ...venue.approach, {
     expectedSpace: venueKey,
   });
+  if (!entered && await spaceIs(page, 'plaza')) {
+    // Low-FPS interaction scans can miss the prompt immediately after the
+    // final movement snapshot. Re-focus, let one scan pass, then use the same
+    // real E interaction again; no state or position is written by the retry.
+    if (!await prepareWorldInput(page)) return false;
+    await page.waitForTimeout(450);
+    entered = await interactWhenPrompt(page, venue.label, ...venue.approach, {
+      expectedSpace: venueKey,
+    });
+  }
+  return entered;
 }
 
 /** Leave the current public interior through its shared-layout exit door. */

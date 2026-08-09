@@ -156,7 +156,11 @@ for (let i = 0; i < 10; i++) {
             && s.videos === 0 && s.audios === 0;
         },
         [probeSrc, wantMatrix],
-        { timeout: 5000, polling: 150 },
+        // Fullscreen exit restores two CSS3D layers in the same React commit;
+        // on SwiftShader the browser may briefly expose the old transform
+        // while the next layout pass is pending. Keep the strict state checks,
+        // but allow that real transition a little more time.
+        { timeout: 12000, polling: 200 },
       );
       return null;
     } catch {
