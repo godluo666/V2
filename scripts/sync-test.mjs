@@ -93,18 +93,76 @@ const positionsAtSameServerTime = (left, right) => {
   const at = Math.min(left.now + left.offset, right.now + right.offset);
   return [mediaPositionAt(left.media, at), mediaPositionAt(right.media, at)];
 };
-const waitForMediaOnBoth = (expected, timeout = 10_000) => Promise.all(
-  [p1, p2].map((page) => page.waitForFunction(
-    (wanted) => {
-      const media = window.__nx.world.getState().media;
-      return Object.entries(wanted).every(([key, value]) => media?.[key] === value);
-    },
-    expected,
-    { timeout, polling: 100 },
-  )),
-);
+const withDeadline = async (promise, timeout, label) => {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} exceeded ${timeout}ms`)), timeout);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+const waitForMediaOnBoth = async (expected, timeout = 60_000) => {
+  // Two software-rendered cinema clients can spend more than ten seconds in a
+  // single shader/geometry frame. WebSocket delivery is still healthy, but a
+  // 10s Playwright polling deadline can expire before the renderer main thread
+  // gets a chance to evaluate the predicate. Preserve a hard cloud bound while
+  // reporting each client's actual protocol state if synchronization is real.
+  const outcomes = await Promise.all([p1, p2].map(async (page, index) => {
+    try {
+      await page.waitForFunction(
+        (wanted) => {
+          const media = window.__nx.world.getState().media;
+          return Object.entries(wanted).every(([key, value]) => media?.[key] === value);
+        },
+        expected,
+        { timeout, polling: 200 },
+      );
+      return null;
+    } catch (error) {
+      let actual = null;
+      try {
+        actual = await withDeadline(
+          page.evaluate(() => ({
+            connected: window.__nx?.connection.connected ?? false,
+            space: window.__nx?.world.getState().spaceKey ?? null,
+            media: window.__nx?.world.getState().media ?? null,
+          })),
+          5_000,
+          `player ${index + 1} media diagnostic`,
+        );
+      } catch {
+        actual = { unreadableWithinMs: 5_000 };
+      }
+      return { player: index + 1, error: String(error), actual };
+    }
+  }));
+  const missed = outcomes.filter(Boolean);
+  if (missed.length > 0) {
+    throw new Error(`media synchronization timeout for ${JSON.stringify(expected)}: ${JSON.stringify(missed)}`);
+  }
+};
 const mediaKey = (m) => JSON.stringify(m && ['url', 'kind', 'playing', 'position', 'rate', 'loop', 'updatedAt', 'setBy', 'revision'].map((k) => m[k]));
-const send = (t, d) => p1.evaluate(([tt, dd]) => window.__nx.connection.send(tt, dd), [t, d]);
+const send = async (t, d) => {
+  // Connection.send deliberately drops commands while the socket is closed.
+  // Assert the real public client is connected and still in the media venue so
+  // a transient reconnect cannot masquerade as a synchronization failure.
+  await p1.waitForFunction(
+    () => window.__nx?.connection.connected
+      && window.__nx.world.getState().spaceKey === 'cinema',
+    undefined,
+    { timeout: 60_000, polling: 200 },
+  );
+  await withDeadline(
+    p1.evaluate(([tt, dd]) => window.__nx.connection.send(tt, dd), [t, d]),
+    5_000,
+    `media command ${t}`,
+  );
+};
 
 // ── 两人沿紧凑的一番街进入北侧电影院 ──
 for (const p of [p1, p2]) {
