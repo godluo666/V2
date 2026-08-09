@@ -20,6 +20,7 @@ import {
   cityBuildingLocalSize,
 } from '@nexuspark/shared/src/cityplan';
 import { surfaceMaterial } from './materials';
+import { applyPhysicalUv } from './physicalUv';
 import { ACCENT, ENV } from './palette';
 
 type MaterialSlot =
@@ -48,6 +49,9 @@ interface VenueEnvelope {
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
 const UNIT_CYLINDERS = new Map<number, THREE.CylinderGeometry>();
 const UP = new THREE.Vector3(0, 1, 0);
+const PHYSICAL_UV_SLOTS = new Set<MaterialSlot>([
+  'concrete', 'paleConcrete', 'brick', 'inkMetal', 'brightMetal', 'clubWood',
+]);
 
 /** Resolve every hero anchor from the shared collision/route contract. */
 function venueEnvelope(key: VenueKey): VenueEnvelope {
@@ -170,11 +174,13 @@ class HeroBatch {
     position: THREE.Vector3,
     scale: THREE.Vector3,
     quaternion: THREE.Quaternion,
+    physicalUv = false,
   ): void {
     // BufferGeometryUtils requires every input in a merge to share the same
     // indexed/non-indexed layout. Boxes and cylinders are indexed while
     // ExtrudeGeometry is not guaranteed to be, so normalise all hero pieces.
     const geometry = source.index ? source.toNonIndexed() : source.clone();
+    if (physicalUv) applyPhysicalUv(geometry, scale);
     geometry.applyMatrix4(new THREE.Matrix4().compose(position, quaternion, scale));
     const list = this.parts.get(slot) ?? [];
     list.push(geometry);
@@ -193,6 +199,7 @@ class HeroBatch {
       new THREE.Vector3(x, y, z),
       new THREE.Vector3(w, h, d),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)),
+      PHYSICAL_UV_SLOTS.has(slot),
     );
   }
 
@@ -244,6 +251,7 @@ class HeroBatch {
       position,
       scale,
       new THREE.Quaternion().setFromEuler(rotation),
+      PHYSICAL_UV_SLOTS.has(slot),
     );
   }
 

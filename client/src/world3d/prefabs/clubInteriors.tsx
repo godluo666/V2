@@ -25,7 +25,7 @@ const creamFabric = surfaceMaterial('seatFabric'); creamFabric.color.set('#ead8c
 const blushFabric = surfaceMaterial('seatFabric'); blushFabric.color.set('#d98b91');
 const sageFabric = surfaceMaterial('seatFabric'); sageFabric.color.set('#8fb8a5');
 const lavenderFabric = surfaceMaterial('seatFabric'); lavenderFabric.color.set('#9783b8');
-const rugEdge = surfaceMaterial('acousticFabric'); rugEdge.color.set('#d8b59a');
+const rugEdge = surfaceMaterial('acousticFabric'); rugEdge.color.set('#c78f79');
 
 /**
  * 归一化的程序化倒角实体：软包使用更大的圆角，木作只做细小倒棱。
@@ -96,7 +96,7 @@ function SculptedPart({
 
 function RugFringe({ w, d }: { w: number; d: number }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const fringeCount = Math.max(24, Math.round(w / 0.21));
+  const fringeCount = Math.max(40, Math.round(w / 0.105));
   const fringeStep = (w - 0.24) / fringeCount;
 
   useLayoutEffect(() => {
@@ -112,7 +112,7 @@ function RugFringe({ w, d }: { w: number; d: number }) {
           side * (d / 2 + 0.075 + (i % 3) * 0.004),
         );
         transform.rotation.set(0, (i % 5 - 2) * 0.018, 0);
-        transform.scale.set(fringeStep * 0.78, 0.032, 0.17 + (i % 3) * 0.018);
+        transform.scale.set(Math.min(0.04, fringeStep * 0.42), 0.018, 0.19 + (i % 3) * 0.016);
         transform.updateMatrix();
         mesh.setMatrixAt(instance, transform.matrix);
         instance += 1;

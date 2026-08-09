@@ -7,7 +7,6 @@ type P3 = [number, number, number];
 
 const metal = surfaceMaterial('brushedMetal');
 const cyan = toonMat('#40e8ff', { emissive: '#40e8ff', emissiveIntensity: 1.15 });
-const pink = toonMat('#ff3f83', { emissive: '#ff3f83', emissiveIntensity: 1.0 });
 const yellow = toonMat('#ffd34f', { emissive: '#ffb52e', emissiveIntensity: 0.9 });
 const violet = toonMat('#7a5fff', { emissive: '#7a5fff', emissiveIntensity: 0.85 });
 
@@ -58,12 +57,22 @@ export default function CyberpunkLayer() {
       <Cable points={[[-20, 13.2, 5.5], [-10, 14.1, 1.0], [5, 13.6, -1.8], [20, 14.4, -5.3]]} />
       <Cable points={[[-2, 10.4, -20], [-4, 11.7, -10], [-8, 10.8, 0], [-12, 12.1, 16]]} color="#243343" radius={0.045} />
 
-      {/* 路口中央的全息环与信号柱：低矮、不阻塞道路，但提供赛博城市的纵向焦点。 */}
+      {/* 路口信号柱只保留一个有实体撑杆的识别环。早期三只无支撑
+          圆环既遮挡建筑，也在近景里像悬浮装饰。 */}
       <group position={[-8, 0, 1]}>
         <mesh position={[0, 2.8, 0]} material={metal}><cylinderGeometry args={[0.16, 0.22, 5.6, 8]} /></mesh>
-        {[1.5, 2.5, 3.5].map((y, i) => (
-          <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} material={[cyan, pink, yellow][i]}>
-            <torusGeometry args={[0.7 + i * 0.08, 0.045, 6, 24]} />
+        <mesh position={[0, 3.1, 0]} rotation={[Math.PI / 2, 0, 0]} material={cyan}>
+          <torusGeometry args={[0.66, 0.055, 7, 28]} />
+        </mesh>
+        {[0, Math.PI * 2 / 3, Math.PI * 4 / 3].map((angle) => (
+          <mesh
+            key={angle}
+            position={[Math.cos(angle) * 0.33, 3.1, Math.sin(angle) * 0.33]}
+            rotation={[0, -angle, 0]}
+            material={metal}
+            castShadow
+          >
+            <boxGeometry args={[0.66, 0.055, 0.055]} />
           </mesh>
         ))}
         <mesh position={[0, 5.65, 0]} material={violet}><boxGeometry args={[0.9, 0.16, 0.9]} /></mesh>

@@ -478,10 +478,12 @@ export default function LocalPlayer() {
       : spaceKey === SPACE.NETCAFE
         ? THREE.MathUtils.lerp(cam.dist, Math.max(cam.dist, 12.4), arenaHeroFrame)
         : cam.dist;
-    // Keep just enough shoulder angle to read the vestibule return.  The former
-    // 1.8m offset exposed the west end of the facade and left a large empty-sky
-    // crop; aiming at the physical door below recentres the entrance.
-    const facadeShoulder = cinemaFacadeFrame * 0.55;
+    // Shift the lens slightly west of the approach while it keeps aiming at the
+    // physical door.  The east-side shoulder used by the previous pass pushed
+    // the entrance left and exposed the end of the street as empty sky/black
+    // road; this opposite parallax keeps the vestibule and its side return in
+    // frame without inventing test-only scenery.
+    const facadeShoulder = cinemaFacadeFrame * -0.55;
     let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * viewDistance
       + Math.cos(cam.yaw) * facadeShoulder;
     let cz = l.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * viewDistance

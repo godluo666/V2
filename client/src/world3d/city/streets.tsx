@@ -19,6 +19,7 @@ import { ROADS, CROSSING, CROSSWALKS, SIDEWALKS } from '@nexuspark/shared/src/ci
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
 import { surfaceMaterial } from './materials';
+import { applyPhysicalUv } from './physicalUv';
 import type { BuildQueue } from './progressive';
 import { manholeResources, drainResources } from './props2';
 
@@ -54,6 +55,7 @@ export class MergeBag {
       rx?: number; ry?: number; rz?: number;
       sx?: number; sy?: number; sz?: number;
       color: THREE.ColorRepresentation;
+      physicalUv?: boolean;
     }
   ): this {
     // Normalize procedural profiles before batching. ExtrudeGeometry and the
@@ -71,6 +73,9 @@ export class MergeBag {
     if (position && !g.getAttribute('normal')) g.computeVertexNormals();
     if (position && !g.getAttribute('uv')) {
       g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(position.count * 2), 2));
+    }
+    if (opts.physicalUv) {
+      applyPhysicalUv(g, new THREE.Vector3(opts.sx ?? 1, opts.sy ?? 1, opts.sz ?? 1));
     }
     const m = new THREE.Matrix4().compose(
       new THREE.Vector3(opts.x, opts.y, opts.z),

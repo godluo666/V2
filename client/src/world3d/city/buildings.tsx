@@ -29,6 +29,7 @@ import type { BuildQueue } from './progressive';
 import { MergeBag, unitBox, unitCylinder, vertexToonMat, makeCanvas, canvasTexture, shade, cssShade, jitterColor } from './streets';
 import { shutterTexture } from './props2';
 import { surfaceMaterial } from './materials';
+import { applyPhysicalUv } from './physicalUv';
 
 type Building = (typeof BUILDINGS)[number];
 
@@ -128,6 +129,9 @@ function put(
   bag.add(profile, {
     x, y, z, ry: ry + (extra?.lry ?? 0), rx: extra?.rx, rz: extra?.rz,
     sx: w, sy: h, sz: d, color,
+    // Only solid facade profiles opt in here. Window/glass planes, signs and
+    // screen content retain their authored UVs.
+    physicalUv: extra?.profile === 'facade',
   });
 }
 
@@ -528,6 +532,7 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   // deep storefronts supplied by HeroStreetStructures; from an oblique camera
   // the side elevation now exposes the same 0.9-1.3m reveal as the front.
   const podiumGeo = unitFacade().clone();
+  applyPhysicalUv(podiumGeo, new THREE.Vector3(w - 1.8, 4.45, d - 1.9));
   podiumGeo.scale(w - 1.8, 4.45, d - 1.9);
   const podium = new THREE.Mesh(podiumGeo, podiumMat);
   podium.position.set(0, 2.225, -0.35);
@@ -548,8 +553,10 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
     }))),
   ];
   for (const part of structuralParts) {
+    const geometry = new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]);
+    applyPhysicalUv(geometry);
     const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]),
+      geometry,
       part.material,
     );
     mesh.position.set(part.position[0], part.position[1], part.position[2]);
