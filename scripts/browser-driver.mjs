@@ -460,7 +460,10 @@ export async function walkToVenueDoor(page, venueKey) {
       throw new Error(`Missing shared route for venue: ${key}`);
     }
     return venue.route.map(([x, z], index) => (
-      index === venue.route.length - 1 ? [x, z, 8_000, 0.6] : [x, z]
+    // The final approach includes the venue's collision-heavy doorway. Keep a
+    // real-input budget comparable to the reverse exit route; eight seconds
+    // was enough on a desktop GPU but flakes for the second SwiftShader page.
+    index === venue.route.length - 1 ? [x, z, 24_000, 0.6] : [x, z]
     ));
   }, venueKey);
   return await walkRoute(page, points) && await spaceIs(page, 'plaza');
