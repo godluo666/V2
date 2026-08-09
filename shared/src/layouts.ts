@@ -12,6 +12,7 @@ import { SPACE } from './constants';
 import {
   BUILDINGS, CITY_BOUNDS, VENUES, cityBuildingLocalSize,
 } from './cityplan';
+import { ARENA_SPATIAL_CONTRACT, CINEMA_SPATIAL_CONTRACT } from './venueSpatialContracts';
 
 export type InteractKind =
   | 'seat' | 'door' | 'switch' | 'board' | 'whiteboard' | 'screen' | 'jukebox'
@@ -224,7 +225,11 @@ function buildCity(): SpaceLayout {
     [-13.9, -20, 0, 12],
     [-2.1, -18.5, 0, 11],
   ] as const) {
-    b.prop('c_wires', x, 0, z, ry, { len, sag: 0.8, strands: 3 });
+    // Keep the supported utility bundles above storefront headers.  At the old
+    // 5.2m default they crossed the hero screens and cinema portal at normal
+    // eye height; explicit 8.2m anchors preserve the urban service layer
+    // without turning the first frame into a tangle of foreground strokes.
+    b.prop('c_wires', x, 8.2, z, ry, { len, sag: 0.8, strands: 2 });
     b.circle(x, z, 0.18);
   }
 
@@ -334,12 +339,21 @@ function buildCinema(): SpaceLayout {
   // 34×30m 高规格巨幕厅：银幕前墙、双侧过道、六级阶梯观众席和后部集散区。
   // 业务 ID 沿用 cine-*，但旧 30×24 平面不再作为布局约束。
   const b = new B();
-  const bounds: Bounds = { minX: -17, maxX: 17, minZ: -15, maxZ: 15 };
+  const bounds: Bounds = { ...CINEMA_SPATIAL_CONTRACT.bounds };
 
-  b.inter('cine-exit', 'door', 0, 0, 14.7, 0, '返回一番街', {
+  const [exitX, exitY, exitZ] = CINEMA_SPATIAL_CONTRACT.exit.position;
+  b.inter('cine-exit', 'door', exitX, exitY, exitZ, 0, '返回一番街', {
     target: SPACE.PLAZA, spawn: streetReturnFor('cinema'),
   });
-  b.inter('cine-screen', 'screen', 0, 6.8, -14.35, 0, '极光巨幕');
+  const cinemaScreen = CINEMA_SPATIAL_CONTRACT.screen;
+  b.inter(
+    cinemaScreen.id,
+    'screen',
+    ...cinemaScreen.position,
+    0,
+    '极光巨幕',
+    { width: cinemaScreen.width, height: cinemaScreen.height },
+  );
 
   // Architectural collision follows cinemaHall.tsx's actual inner faces.
   // The front wall blocks the recessed screen/proscenium, side leaves protect
@@ -354,13 +368,17 @@ function buildCinema(): SpaceLayout {
   // Subwoofer cabinets project beyond the proscenium wall onto the stage.
   b.box(-14.15, -13.15, 1.75, 1.0);
   b.box(14.15, -13.15, 1.75, 1.0);
+  // The six central low-frequency cabinets form one continuous physical bank.
+  // Keep the screen approach around z=-11 clear while preventing players from
+  // walking through the visible enclosures at the foot of the giant screen.
+  b.box(0, -13.22, 22.12, 0.76);
 
   // 六排 × 十二座，按 3-6-3 分区。双主过道中心位于 x=±6.3，和实体导视灯一致。
-  const seatX = [-12, -10.8, -9.6, -3, -1.8, -0.6, 0.6, 1.8, 3, 9.6, 10.8, 12];
+  const seatX = CINEMA_SPATIAL_CONTRACT.seating.x;
   let seatIdx = 0;
-  for (let row = 0; row < 6; row++) {
-    const z = -5.2 + row * 2.55;
-    const lift = 0.38 * row;
+  for (let row = 0; row < CINEMA_SPATIAL_CONTRACT.seating.rows; row++) {
+    const z = CINEMA_SPATIAL_CONTRACT.seating.firstZ + row * CINEMA_SPATIAL_CONTRACT.seating.rowSpacing;
+    const lift = CINEMA_SPATIAL_CONTRACT.seating.rowRise * row;
     if (lift > 0) {
       b.prop('cinema_riser', 0, 0, z, 0, { w: 29.2, d: 2.55, h: lift, row });
       b.heightZones.push({
@@ -540,26 +558,35 @@ function buildLobby(): SpaceLayout {
 function buildNetcafe(): SpaceLayout {
   const b = new B();
   // 42×34m 大型赛事观战馆：旧 20×15m 网吧平面被完全替换。
-  const bounds: Bounds = { minX: -21, maxX: 21, minZ: -17, maxZ: 17 };
+  const bounds: Bounds = { ...ARENA_SPATIAL_CONTRACT.bounds };
 
-  b.inter('nc-exit', 'door', 0, 0, 16.7, 0, '返回一番街', {
+  const [exitX, exitY, exitZ] = ARENA_SPATIAL_CONTRACT.exit.position;
+  b.inter('nc-exit', 'door', exitX, exitY, exitZ, 0, '返回一番街', {
     target: SPACE.PLAZA, spawn: streetReturnFor('netcafe'),
   });
   b.inter('nc-lights', 'switch', 2.1, 1.2, 16.85, 0, '赛事灯光', { switchId: 'nc-lights' });
 
-  b.inter('nc-wall', 'screen', 0, 7.2, -16.55, 0, '赛事主屏');
+  const arenaScreen = ARENA_SPATIAL_CONTRACT.screen;
+  b.inter(
+    arenaScreen.id,
+    'screen',
+    ...arenaScreen.position,
+    0,
+    '赛事主屏',
+    { width: arenaScreen.width, height: arenaScreen.height },
+  );
 
   // 八个原有业务机位移入中央多层赛台；保留 nc-s0..7 和 seatIdx 协议。
-  const cols = [-6.6, -2.2, 2.2, 6.6];
+  const cols = ARENA_SPATIAL_CONTRACT.stations.x;
   cols.forEach((x, i) => {
-    b.prop('nc_station', x, 0.6, -6.3, 0, { row: 0, seatIdx: i });
-    b.box(x, -6.3, 1.85, 0.9);
-    b.inter(`nc-s${i}`, 'seat', x, 1.07, -5.05, Math.PI, '进入选手席');
+    b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 0, { row: 0, seatIdx: i });
+    b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 1.85, 0.9);
+    b.inter(`nc-s${i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[0], Math.PI, '进入选手席');
   });
   cols.forEach((x, i) => {
-    b.prop('nc_station', x, 0.6, -1.6, Math.PI, { row: 1, seatIdx: 4 + i });
-    b.box(x, -1.6, 1.85, 0.9);
-    b.inter(`nc-s${4 + i}`, 'seat', x, 1.07, -2.85, 0, '进入选手席');
+    b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], Math.PI, { row: 1, seatIdx: 4 + i });
+    b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], 1.85, 0.9);
+    b.inter(`nc-s${4 + i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[1], 0, '进入选手席');
   });
 
   // CompetitionFloor 的真实可行走顶面。floorHeightAt 按声明顺序命中，

@@ -43,6 +43,11 @@ const token = (await res.json()).token;
 await page.goto(BASE, { waitUntil: 'domcontentloaded' });
 await page.evaluate((t) => {
   localStorage.setItem('np_token', t);
+  // The first-run help panel is a real full-screen modal. Mark the tutorial as
+  // acknowledged before readiness validation, just like the desktop evidence
+  // player, so the overlay detector does not correctly wait forever for a
+  // modal that this journey only closed after the wait had already returned.
+  localStorage.setItem('np_help_seen', '1');
   localStorage.setItem('np_settings', JSON.stringify({
     quality: 'low', shadows: false, postfx: false, reflections: false, particles: false, clouds: false,
     masterVolume: 0, musicVolume: 0, sfxVolume: 0, voiceVolume: 0, mediaVolume: 0, invertY: false,

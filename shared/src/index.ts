@@ -7,6 +7,7 @@ export * from './protocol';
 export * from './catalog';
 export * from './cityplan';
 export * from './layouts';
+export * from './venueSpatialContracts';
 export * from './xiangqi';
 export * from './mahjong';
 export * from './riichi';

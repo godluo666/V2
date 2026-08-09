@@ -12,16 +12,14 @@
 import { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { CINEMA_SPATIAL_CONTRACT } from '@nexuspark/shared';
 import { surfaceMaterial, type SurfaceKind } from '../city/materials';
 
 type P3 = [number, number, number];
 
-export const CINEMA_HALL_METRICS = {
-  bounds: { minX: -17, maxX: 17, minZ: -15, maxZ: 15 },
-  ceilingY: 13.5,
-  screen: { position: [0, 6.8, -14.35] as P3, width: 24, height: 10 },
-  rearEntryZ: 14.7,
-} as const;
+/** Backward-compatible art export; gameplay and architecture now share one
+ * authoritative coordinate contract. */
+export const CINEMA_HALL_METRICS = CINEMA_SPATIAL_CONTRACT;
 
 function tinted(kind: SurfaceKind, color: string, micro = true) {
   const material = surfaceMaterial(kind, false, micro);
@@ -55,12 +53,6 @@ blackSteel.metalness = 0.38;
 blackSteel.roughness = 0.66;
 brushedSteel.metalness = 0.58;
 brushedSteel.roughness = 0.46;
-
-const screenSheen = new THREE.MeshStandardMaterial({
-  color: '#334154', emissive: '#364a65', emissiveIntensity: 0.2,
-  roughness: 0.72, metalness: 0.02, transparent: true, opacity: 0.2,
-  depthWrite: false, toneMapped: true,
-});
 
 const guideOn = new THREE.MeshStandardMaterial({
   color: '#ffd2a0', emissive: '#ff7a42', emissiveIntensity: 1.5,
@@ -234,6 +226,45 @@ const seatCupGeometry = mergeParts([
   { geometry: seatCylinder, position: [0.43, 0.703, 0.185], scale: [0.054, 0.052, 0.054] },
 ]);
 
+const subwooferX = [-9.5, -5.7, -1.9, 1.9, 5.7, 9.5];
+const subDriverSource = new THREE.CylinderGeometry(0.19, 0.23, 0.06, 14);
+const subPortSource = new THREE.CylinderGeometry(0.11, 0.11, 0.07, 12);
+const subShellGeometry = mergeParts(subwooferX.map((x) => ({
+  geometry: seatBox, position: [x, 1.02, -13.22] as P3, scale: [3.12, 0.76, 0.76] as P3,
+})));
+const subGrilleGeometry = mergeParts(subwooferX.map((x) => ({
+  geometry: seatBox, position: [x, 1.02, -12.815] as P3, scale: [2.82, 0.54, 0.08] as P3,
+})));
+const subDriverGeometry = mergeParts(subwooferX.flatMap((x) => [-0.78, 0].map((offset) => ({
+  geometry: subDriverSource,
+  position: [x + offset, 1.02, -12.755] as P3,
+  rotation: [Math.PI / 2, 0, 0] as P3,
+}))));
+const subPortGeometry = mergeParts(subwooferX.map((x) => ({
+  geometry: subPortSource,
+  position: [x + 0.88, 1.02, -12.75] as P3,
+  rotation: [Math.PI / 2, 0, 0] as P3,
+})));
+const subWalnutBaseGeometry = mergeParts(subwooferX.filter((_, index) => index % 2 === 1).map((x) => ({
+  geometry: seatBox, position: [x, 0.59, -13.22] as P3, scale: [2.35, 0.1, 0.58] as P3,
+})));
+const subSteelBaseGeometry = mergeParts(subwooferX.filter((_, index) => index % 2 === 0).map((x) => ({
+  geometry: seatBox, position: [x, 0.59, -13.22] as P3, scale: [2.35, 0.1, 0.58] as P3,
+})));
+
+function SubwooferBank() {
+  return (
+    <group dispose={null}>
+      <mesh geometry={subShellGeometry} material={blackSteel} castShadow receiveShadow />
+      <mesh geometry={subGrilleGeometry} material={speakerCone} castShadow />
+      <mesh geometry={subDriverGeometry} material={speakerDustCap} />
+      <mesh geometry={subPortGeometry} material={speakerDustCap} />
+      <mesh geometry={subWalnutBaseGeometry} material={walnut} castShadow />
+      <mesh geometry={subSteelBaseGeometry} material={brushedSteel} castShadow />
+    </group>
+  );
+}
+
 function SpeakerCabinet({ position, scale = 1, yaw = 0 }: {
   position: P3;
   scale?: number;
@@ -300,13 +331,6 @@ function ScreenProscenium({ lightsOn }: { lightsOn: boolean }) {
       <mesh position={[0, 6.8, -14.59]} material={blackSteel} receiveShadow>
         <boxGeometry args={[25.15, 10.85, 0.42]} />
       </mesh>
-      {/* Low-energy reflective veil: preserves a readable screen surface when
-          a persisted media source is black/initialising. The DOM video remains
-          the sole player and renders above this translucent physical layer. */}
-      <mesh position={[0, 6.8, -14.265]} material={screenSheen} renderOrder={1}>
-        <planeGeometry args={[23.94, 9.94]} />
-      </mesh>
-
       {/* Load-bearing proscenium and stepped inner reveal. */}
       {[-13.15, 13.15].map((x) => (
         <group key={x}>
@@ -364,6 +388,11 @@ function ScreenProscenium({ lightsOn }: { lightsOn: boolean }) {
       <mesh position={[0, 0.215, -10.52]} material={guide}>
         <boxGeometry args={[12.8, 0.04, 0.07]} />
       </mesh>
+
+      {/* The screen base is a real low-frequency array, not an empty black
+          strip. Each cabinet has a deep shell, recessed grille, drivers and
+          reflex port; its top remains below the 1.8m bottom of the image. */}
+      <SubwooferBank />
 
       <LineArray side={-1} />
       <LineArray side={1} />

@@ -7,6 +7,7 @@ import { LAYOUTS, floorHeightAt } from '../src/layouts';
 import type { SpaceLayout } from '../src/layouts';
 import { resolveCollisions, clampToBounds } from '../src/math';
 import { SPACE } from '../src/constants';
+import { ARENA_SPATIAL_CONTRACT, CINEMA_SPATIAL_CONTRACT } from '../src/venueSpatialContracts';
 
 const city = LAYOUTS[SPACE.PLAZA];
 
@@ -150,11 +151,17 @@ describe('三个场馆室内基线', () => {
     const seats = cinema.props.filter((p) => p.type === 'cinema_seat');
     const seatSnaps = cinema.interactables.filter((i) => i.kind === 'seat' && /^cine-s\d+$/.test(i.id));
     const risers = cinema.props.filter((p) => p.type === 'cinema_riser');
-    expect(cinema.bounds).toEqual({ minX: -17, maxX: 17, minZ: -15, maxZ: 15 });
+    expect(cinema.bounds).toEqual(CINEMA_SPATIAL_CONTRACT.bounds);
     expect(seats).toHaveLength(72);
     expect(seatSnaps).toHaveLength(72);
     expect(risers).toHaveLength(5);
     expect(cinema.heightZones).toHaveLength(15);
+    const cinemaScreen = cinema.interactables.find((item) => item.id === CINEMA_SPATIAL_CONTRACT.screen.id)!;
+    expect(cinemaScreen.pos).toEqual(CINEMA_SPATIAL_CONTRACT.screen.position);
+    expect(cinemaScreen.data).toMatchObject({
+      width: CINEMA_SPATIAL_CONTRACT.screen.width,
+      height: CINEMA_SPATIAL_CONTRACT.screen.height,
+    });
     expect(floorHeightAt(cinema, 0, -12)).toBeCloseTo(0.58, 6);
     expect(floorHeightAt(cinema, 0, -10.55)).toBeCloseTo(0.2, 6);
     seats.forEach((seat, index) => {
@@ -171,11 +178,17 @@ describe('三个场馆室内基线', () => {
 
   it('电竞观战馆扩建为 42 × 34 米赛事空间，保留 8 个机位和共享大屏', () => {
     const arena = LAYOUTS[SPACE.NETCAFE];
-    expect(arena.bounds).toEqual({ minX: -21, maxX: 21, minZ: -17, maxZ: 17 });
+    expect(arena.bounds).toEqual(ARENA_SPATIAL_CONTRACT.bounds);
     expect(arena.mediaPolicy).toBe('everyone');
     expect(arena.props.filter((p) => p.type === 'nc_station')).toHaveLength(8);
     expect(arena.interactables.filter((i) => /^nc-s\d+$/.test(i.id))).toHaveLength(8);
-    expect(arena.interactables.find((i) => i.id === 'nc-wall')?.kind).toBe('screen');
+    const arenaScreen = arena.interactables.find((i) => i.id === ARENA_SPATIAL_CONTRACT.screen.id)!;
+    expect(arenaScreen.kind).toBe('screen');
+    expect(arenaScreen.pos).toEqual(ARENA_SPATIAL_CONTRACT.screen.position);
+    expect(arenaScreen.data).toMatchObject({
+      width: ARENA_SPATIAL_CONTRACT.screen.width,
+      height: ARENA_SPATIAL_CONTRACT.screen.height,
+    });
     expect(arena.heightZones).toHaveLength(12);
 
     // 主舞台三层完成面和入口三段踏步必须与 ArenaHallArchitecture 的
@@ -191,7 +204,7 @@ describe('三个场馆室内基线', () => {
 
     // 主屏背壳有碰撞，但主持台后仍保留一条真实可走的检修通道；
     // 玩家无需穿模即可进入客户端 3.4m / 服务端 5m 的互动范围。
-    const screen = arena.interactables.find((i) => i.id === 'nc-wall')!;
+    const screen = arenaScreen;
     const screenApproach: [number, number] = [0, -15.75];
     const resolvedApproach = resolveCollisions(...screenApproach, 0.34, arena.colliders);
     expect(resolvedApproach).toEqual(screenApproach);

@@ -105,16 +105,24 @@ function materials(): HeroMaterials {
   brick.color.set('#76504b');
 
   const inkMetal = surfaceMaterial('metal');
-  inkMetal.color.set(ENV.outline);
-  inkMetal.roughness = 0.48;
+  // Cloud SwiftShader has no useful environment reflection, so near-black
+  // high-metalness faces collapse into featureless silhouettes.  Keep the
+  // ink hierarchy while allowing broad structural faces to receive daylight.
+  inkMetal.color.set('#202833');
+  inkMetal.metalness = 0.48;
+  inkMetal.roughness = 0.62;
 
   const brightMetal = surfaceMaterial('brushedMetal');
-  brightMetal.color.set('#76818a');
+  brightMetal.color.set('#8f9ca4');
+  brightMetal.metalness = 0.62;
+  brightMetal.roughness = 0.46;
 
   const darkGlass = surfaceMaterial('darkGlass');
-  darkGlass.color.set('#102632');
-  darkGlass.emissive.set('#0b2631');
-  darkGlass.emissiveIntensity = 0.08;
+  darkGlass.color.set('#193743');
+  darkGlass.metalness = 0.34;
+  darkGlass.roughness = 0.28;
+  darkGlass.emissive.set('#0d303a');
+  darkGlass.emissiveIntensity = 0.12;
 
   const warmGlass = surfaceMaterial('glass');
   warmGlass.color.set('#caa66e');
@@ -334,6 +342,23 @@ function cinemaStructure(palette: HeroMaterials): THREE.Group {
   const portal = portalGeometry(7.25, 9.7, 5.05, 1.25, 0.72);
   batch.geometry('paleConcrete', portal, new THREE.Vector3(portalX, 0.08, facadeZ + 0.12));
   batch.box('cinemaAccent', portalX, 9.18, facadeZ + 0.54, 5.25, 0.24, 0.34);
+
+  // The portal piers are close enough to fill the facade evidence shot.  Give
+  // each one a real plinth, recessed maintenance panels, perimeter ribs and
+  // construction joints so neither reads as a single smooth grey slab.
+  const portalPierOffset = 3.075;
+  for (const side of [-1, 1]) {
+    const pierX = portalX + side * portalPierOffset;
+    batch.box('brick', pierX, 0.62, facadeZ + 0.78, 0.94, 1.12, 0.22);
+    batch.box('inkMetal', pierX + side * 0.44, 4.9, facadeZ + 0.76, 0.1, 8.48, 0.24);
+    batch.box('brightMetal', pierX - side * 0.44, 4.9, facadeZ + 0.76, 0.08, 8.48, 0.2);
+    for (const [panelY, panelH] of [[2.05, 1.28], [4.02, 1.44], [6.15, 1.55], [8.08, 1.12]] as const) {
+      batch.box('darkGlass', pierX, panelY, facadeZ + 0.79, 0.6, panelH, 0.12);
+      batch.box('brightMetal', pierX, panelY - panelH / 2 - 0.07, facadeZ + 0.83, 0.72, 0.08, 0.15);
+    }
+    batch.box('cinemaAccent', pierX, 3.02, facadeZ + 0.9, 0.14, 0.42, 0.16);
+    batch.box('cinemaAccent', pierX, 7.12, facadeZ + 0.9, 0.14, 0.42, 0.16);
+  }
 
   // The authoritative interaction marker sits 1.7m in front of the old wall
   // plane. A projecting vestibule physically joins that marker back to the

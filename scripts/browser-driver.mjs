@@ -22,6 +22,211 @@ const spaceIs = (page, expectedSpace) => page.evaluate(
   expectedSpace,
 );
 
+// Match the product's shared PLAYER_RADIUS.  The route planner reads the
+// current SpaceLayout from the browser, then keeps every segment outside those
+// authoritative colliders.  It never mutates the space or player position.
+const ROUTE_CLEARANCE = 0.34;
+const ROUTE_GRID = 0.55;
+const ROUTE_EPSILON = 1e-5;
+
+const routeColliderPenetration = (collider, x, z) => {
+  if (collider.kind === 'circle') {
+    return Math.max(0, collider.r + ROUTE_CLEARANCE - Math.hypot(x - collider.x, z - collider.z));
+  }
+  const px = collider.w / 2 + ROUTE_CLEARANCE - Math.abs(x - collider.x);
+  const pz = collider.d / 2 + ROUTE_CLEARANCE - Math.abs(z - collider.z);
+  return px > 0 && pz > 0 ? Math.min(px, pz) : 0;
+};
+
+const routePointIsClear = (layout, x, z) => {
+  const { bounds } = layout;
+  if (x < bounds.minX + ROUTE_CLEARANCE || x > bounds.maxX - ROUTE_CLEARANCE
+    || z < bounds.minZ + ROUTE_CLEARANCE || z > bounds.maxZ - ROUTE_CLEARANCE) return false;
+  return !layout.colliders.some(
+    (collider) => routeColliderPenetration(collider, x, z) > ROUTE_EPSILON,
+  );
+};
+
+const routeSegmentIsClear = (layout, from, to) => {
+  const distance = Math.hypot(to.x - from.x, to.z - from.z);
+  const steps = Math.max(1, Math.ceil(distance / 0.18));
+  for (let step = 0; step <= steps; step++) {
+    const t = step / steps;
+    if (!routePointIsClear(
+      layout,
+      from.x + (to.x - from.x) * t,
+      from.z + (to.z - from.z) * t,
+    )) return false;
+  }
+  return true;
+};
+
+/**
+ * A server-authoritative stand can begin exactly on a seat collider's expanded
+ * edge (or a few floating-point millimetres inside it). Permit only a first
+ * segment whose penetration into every starting collider never increases and
+ * which touches no new collider before reaching clear floor.
+ */
+const routeSegmentEscapesStart = (layout, from, to) => {
+  if (!routePointIsClear(layout, to.x, to.z)) return false;
+  const startBlockers = layout.colliders
+    .map((collider, index) => ({
+      collider,
+      index,
+      penetration: routeColliderPenetration(collider, from.x, from.z),
+    }))
+    .filter(({ penetration }) => penetration > ROUTE_EPSILON);
+  if (startBlockers.length === 0) return routeSegmentIsClear(layout, from, to);
+  const blockerIndexes = new Set(startBlockers.map(({ index }) => index));
+  const previous = new Map(startBlockers.map(({ index, penetration }) => [index, penetration]));
+  const distance = Math.hypot(to.x - from.x, to.z - from.z);
+  const steps = Math.max(1, Math.ceil(distance / 0.12));
+  let escaped = false;
+
+  for (let step = 1; step <= steps; step++) {
+    const t = step / steps;
+    const x = from.x + (to.x - from.x) * t;
+    const z = from.z + (to.z - from.z) * t;
+    for (let index = 0; index < layout.colliders.length; index++) {
+      const penetration = routeColliderPenetration(layout.colliders[index], x, z);
+      if (!blockerIndexes.has(index)) {
+        if (penetration > ROUTE_EPSILON) return false;
+        continue;
+      }
+      if (penetration > (previous.get(index) ?? 0) + ROUTE_EPSILON) return false;
+      previous.set(index, penetration);
+    }
+    escaped = [...previous.values()].every((penetration) => penetration <= ROUTE_EPSILON);
+    if (escaped && !routePointIsClear(layout, x, z)) return false;
+  }
+  return escaped;
+};
+
+/**
+ * Plan a collision-valid polyline against the shared SpaceLayout.
+ *
+ * A* only supplies topology.  The returned line is visibility-simplified and
+ * every retained segment is re-checked against the same shared colliders, so
+ * callers still traverse it through normal, server-authoritative input.
+ */
+function planSharedLayoutRoute(layout, start, target) {
+  const startIsClear = routePointIsClear(layout, start.x, start.z);
+  if (!routePointIsClear(layout, target.x, target.z)) return null;
+  if ((startIsClear && routeSegmentIsClear(layout, start, target))
+    || (!startIsClear && routeSegmentEscapesStart(layout, start, target))) {
+    return { points: [[target.x, target.z]], escapeFirst: !startIsClear };
+  }
+
+  const minX = layout.bounds.minX + ROUTE_CLEARANCE;
+  const minZ = layout.bounds.minZ + ROUTE_CLEARANCE;
+  const maxIx = Math.floor((layout.bounds.maxX - ROUTE_CLEARANCE - minX) / ROUTE_GRID);
+  const maxIz = Math.floor((layout.bounds.maxZ - ROUTE_CLEARANCE - minZ) / ROUTE_GRID);
+  const gridPoint = (ix, iz) => ({ x: minX + ix * ROUTE_GRID, z: minZ + iz * ROUTE_GRID });
+  const gridKey = (ix, iz) => `${ix}:${iz}`;
+  const nearestGrid = (point) => ({
+    ix: Math.max(0, Math.min(maxIx, Math.round((point.x - minX) / ROUTE_GRID))),
+    iz: Math.max(0, Math.min(maxIz, Math.round((point.z - minZ) / ROUTE_GRID))),
+  });
+
+  const aroundStart = nearestGrid(start);
+  const candidates = [];
+  for (let radius = 0; radius <= 5; radius++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dz = -radius; dz <= radius; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== radius) continue;
+        const ix = aroundStart.ix + dx;
+        const iz = aroundStart.iz + dz;
+        if (ix < 0 || ix > maxIx || iz < 0 || iz > maxIz) continue;
+        const point = gridPoint(ix, iz);
+        const reachesCandidate = startIsClear
+          ? routeSegmentIsClear(layout, start, point)
+          : routeSegmentEscapesStart(layout, start, point);
+        if (routePointIsClear(layout, point.x, point.z) && reachesCandidate) {
+          candidates.push({ ix, iz, point, distance: Math.hypot(point.x - start.x, point.z - start.z) });
+        }
+      }
+    }
+    if (candidates.length > 0) break;
+  }
+  candidates.sort((left, right) => left.distance - right.distance);
+  const first = candidates[0];
+  if (!first) return null;
+
+  const firstKey = gridKey(first.ix, first.iz);
+  const firstHeuristic = Math.hypot(target.x - first.point.x, target.z - first.point.z);
+  const open = [{
+    ix: first.ix,
+    iz: first.iz,
+    key: firstKey,
+    g: first.distance,
+    f: first.distance + firstHeuristic,
+  }];
+  const best = new Map([[firstKey, first.distance]]);
+  const parent = new Map();
+  const closed = new Set();
+  let endKey = null;
+  const directions = [
+    [-1, 0], [1, 0], [0, -1], [0, 1],
+    [-1, -1], [-1, 1], [1, -1], [1, 1],
+  ];
+
+  for (let visited = 0; open.length > 0 && visited < 12_000; visited++) {
+    let bestIndex = 0;
+    for (let index = 1; index < open.length; index++) {
+      if (open[index].f < open[bestIndex].f) bestIndex = index;
+    }
+    const current = open.splice(bestIndex, 1)[0];
+    if (closed.has(current.key)) continue;
+    closed.add(current.key);
+    const currentPoint = gridPoint(current.ix, current.iz);
+    if (routeSegmentIsClear(layout, currentPoint, target)) {
+      endKey = current.key;
+      break;
+    }
+
+    for (const [dx, dz] of directions) {
+      const ix = current.ix + dx;
+      const iz = current.iz + dz;
+      if (ix < 0 || ix > maxIx || iz < 0 || iz > maxIz) continue;
+      const nextPoint = gridPoint(ix, iz);
+      if (!routePointIsClear(layout, nextPoint.x, nextPoint.z)
+        || !routeSegmentIsClear(layout, currentPoint, nextPoint)) continue;
+      const key = gridKey(ix, iz);
+      if (closed.has(key)) continue;
+      const stepCost = Math.hypot(dx, dz) * ROUTE_GRID;
+      const g = current.g + stepCost;
+      if (g >= (best.get(key) ?? Infinity)) continue;
+      best.set(key, g);
+      parent.set(key, current.key);
+      const heuristic = Math.hypot(target.x - nextPoint.x, target.z - nextPoint.z);
+      open.push({ ix, iz, key, g, f: g + heuristic });
+    }
+  }
+  if (!endKey) return null;
+
+  const gridPath = [];
+  let cursor = endKey;
+  while (cursor) {
+    const [ix, iz] = cursor.split(':').map(Number);
+    gridPath.push(gridPoint(ix, iz));
+    cursor = parent.get(cursor) ?? null;
+  }
+  gridPath.reverse();
+  const raw = [start, ...gridPath, target];
+  const simplified = [];
+  let anchor = 0;
+  while (anchor < raw.length - 1) {
+    let next = raw.length - 1;
+    while (next > anchor + 1 && !routeSegmentIsClear(layout, raw[anchor], raw[next])) next--;
+    simplified.push(raw[next]);
+    anchor = next;
+  }
+  return {
+    points: simplified.map(({ x, z }) => [x, z]),
+    escapeFirst: !startIsClear,
+  };
+}
+
 /**
  * Wait until the requested world is mounted and has produced browser frames.
  *
@@ -31,6 +236,7 @@ const spaceIs = (page, expectedSpace) => page.evaluate(
  * player; it does not expose a product-side test bypass.
  */
 export async function waitForRenderedWorld(page, expectedSpace, timeoutMs = 60_000) {
+  const startedAt = Date.now();
   try {
     await page.waitForFunction(
       (space) => {
@@ -81,15 +287,39 @@ export async function waitForRenderedWorld(page, expectedSpace, timeoutMs = 60_0
       { timeout: timeoutMs, polling: 200 },
     );
 
-    // A browser RAF can advance even when Three stopped drawing. Require two
-    // increments from the heartbeat that runs inside R3F's render loop.
+    // A browser RAF can advance even when Three stopped drawing, so still
+    // require a fresh R3F heartbeat after the requested named root is present.
+    // One increment is sufficient: R3F renders the mounted scene after its
+    // useFrame subscribers run. Requiring two increments inside a fixed 10s
+    // window made a healthy SwiftShader scene fail whenever a single detailed
+    // interior frame took longer than five seconds to compile and draw.
     const renderFrame = await page.evaluate(() => window.__nxRenderFrame ?? 0);
+    const elapsedMs = Date.now() - startedAt;
+    const heartbeatTimeoutMs = Math.max(30_000, timeoutMs - elapsedMs);
     await page.waitForFunction(
-      (startFrame) => (window.__nxRenderFrame ?? 0) >= startFrame + 2,
+      (startFrame) => (window.__nxRenderFrame ?? 0) > startFrame,
       renderFrame,
-      { timeout: 10_000, polling: 100 },
+      { timeout: heartbeatTimeoutMs, polling: 200 },
     );
-    return await spaceIs(page, expectedSpace);
+    // Re-run the cheap critical checks after the slow frame. This prevents a
+    // late space switch, fade, context loss, or error fallback from turning a
+    // heartbeat belonging to a now-obscured canvas into valid evidence.
+    return await page.evaluate((space) => {
+      const nx = window.__nx;
+      const canvas = document.querySelector('canvas');
+      const scene = window.__nxScene;
+      const gl = canvas?.getContext('webgl2') || canvas?.getContext('webgl');
+      return !!nx
+        && nx.world.getState().spaceKey === space
+        && !nx.ui.getState().fade
+        && !!canvas
+        && canvas.width >= 2
+        && canvas.height >= 2
+        && !!gl
+        && !gl.isContextLost()
+        && typeof scene?.getObjectByName === 'function'
+        && !!scene.getObjectByName(`nx-space-${space}`);
+    }, expectedSpace);
   } catch {
     return false;
   }
@@ -97,7 +327,7 @@ export async function waitForRenderedWorld(page, expectedSpace, timeoutMs = 60_0
 
 export async function prepareWorldInput(page) {
   await page.bringToFront();
-  const stoodUp = await page.evaluate(() => {
+  const standRequest = await page.evaluate(() => {
     const nx = window.__nx;
     nx.ui.getState().setHelpSeen();
     nx.ui.getState().closePanel();
@@ -106,29 +336,48 @@ export async function prepareWorldInput(page) {
     nx.hot.uiOpen = false;
     nx.hot.keys.clear();
     if (nx.hot.local.seatId) {
+      const beforeSnap = nx.hot.selfSnap;
+      const seatId = nx.hot.local.seatId;
       // A one-frame Space key can be missed by a low-FPS cloud renderer.
       // This is the same protocol action LocalPlayer sends when movement starts.
       nx.connection.send('stand', {});
-      return true;
+      return {
+        stoodUp: true,
+        seatId,
+        beforeSnapAt: beforeSnap?.t ?? null,
+        beforeSnapX: beforeSnap?.x ?? nx.hot.local.x,
+        beforeSnapZ: beforeSnap?.z ?? nx.hot.local.z,
+      };
     }
-    return false;
+    return {
+      stoodUp: false,
+      seatId: null,
+      beforeSnapAt: null,
+      beforeSnapX: null,
+      beforeSnapZ: null,
+    };
   });
-  if (stoodUp) {
+  if (standRequest.stoodUp) {
     try {
       await page.waitForFunction(
-        () => {
+        ({ seatId, beforeSnapAt, beforeSnapX, beforeSnapZ }) => {
           const nx = window.__nx;
-          return nx.hot.local.seatId == null
-            && !Object.values(nx.world.getState().seats).includes(nx.hot.selfId);
+          const released = nx.hot.local.seatId == null
+            && nx.world.getState().seats[seatId] !== nx.hot.selfId;
+          const snap = nx.hot.selfSnap;
+          const authoritativeStandArrived = snap != null
+            && (beforeSnapAt == null || snap.t > beforeSnapAt)
+            && Math.hypot(snap.x - beforeSnapX, snap.z - beforeSnapZ) > 0.2;
+          return released && authoritativeStandArrived;
         },
-        undefined,
-        { timeout: 4_000, polling: 100 },
+        standRequest,
+        { timeout: 8_000, polling: 100 },
       );
     } catch {
       return false;
     }
   }
-  await page.waitForTimeout(stoodUp ? 300 : 100);
+  await page.waitForTimeout(standRequest.stoodUp ? 300 : 100);
   return true;
 }
 
@@ -179,7 +428,16 @@ export async function walkTo(page, tx, tz, timeoutMs = 45000, stopAt = 1.0) {
 
 /** Run route points in order and stop immediately if one is blocked. */
 export async function walkRoute(page, points) {
-  for (const [x, z, timeoutMs = 12_000, stopAt = 1] of points) {
+  for (const [x, z, requestedTimeoutMs, stopAt = 1] of points) {
+    // Route length, not renderer frame rate, determines the default budget.
+    // A 19m shared street leg previously had the same 12s as a 2m leg and
+    // expired halfway through when two SwiftShader browsers shared one runner.
+    const timeoutMs = requestedTimeoutMs ?? await page.evaluate(([tx, tz, stop]) => {
+      const nx = window.__nx;
+      const confirmed = nx.hot.selfSnap ?? nx.hot.local;
+      const distance = Math.max(0, Math.hypot(tx - confirmed.x, tz - confirmed.z) - stop);
+      return Math.min(90_000, Math.max(12_000, Math.ceil(distance * 4_000) + 6_000));
+    }, [x, z, stopAt]);
     if (!await walkTo(page, x, z, timeoutMs, stopAt)) return false;
   }
   return true;
@@ -268,34 +526,27 @@ export async function exitToStreet(page) {
       ? [x, z - Math.sign(z) * 0.35]
       : [x - Math.sign(x) * 0.35, z];
     const confirmed = nx.hot.selfSnap ?? nx.hot.local;
-    const route = [];
-    if (currentSpace === 'cinema' && confirmed.z < 8.8) {
-      // Cinema seat rows span three blocks with clear aisles centred at ±6.3m.
-      // A player standing from any raked seat is released immediately in front
-      // of that row; first move laterally along the row edge, then follow the
-      // aisle to the rear concourse. This uses shared geometry coordinates and
-      // normal input instead of attempting a collision-invalid diagonal.
-      const aisleX = confirmed.x < 0 ? -6.3 : 6.3;
-      const rowCentres = [-5.2, -2.65, -0.1, 2.45, 5.0, 7.55];
-      const nearestRow = rowCentres.reduce(
-        (best, rowZ) => Math.abs(rowZ - confirmed.z) < Math.abs(best - confirmed.z) ? rowZ : best,
-        rowCentres[0],
-      );
-      const clearRowEdgeZ = Math.abs(nearestRow - confirmed.z) < 1.05
-        ? nearestRow - 1.05
-        : confirmed.z;
-      if (Math.abs(clearRowEdgeZ - confirmed.z) > 0.12) {
-        route.push([confirmed.x, clearRowEdgeZ, 12_000, 0.66]);
-      }
-      route.push([aisleX, clearRowEdgeZ, 18_000, 0.72]);
-      route.push([aisleX, 11.65, 18_000, 0.8]);
-      route.push([0, 11.65, 14_000, 0.8]);
-    }
-    return { label: door.label, inward, approach, route };
+    return {
+      label: door.label,
+      inward,
+      approach,
+      start: { x: confirmed.x, z: confirmed.z },
+      navigation: { bounds: layout.bounds, colliders: layout.colliders },
+    };
   });
+  const plannedRoute = planSharedLayoutRoute(
+    exit.navigation,
+    exit.start,
+    { x: exit.inward[0], z: exit.inward[1] },
+  );
+  if (!plannedRoute) return false;
+  const route = plannedRoute.points.map(([x, z], index) => (
+    plannedRoute.escapeFirst && index === 0
+      ? [x, z, 18_000, 0.03]
+      : [x, z]
+  ));
   const reachedExit = await walkRoute(page, [
-    ...exit.route,
-    [exit.inward[0], exit.inward[1]],
+    ...route,
     [exit.approach[0], exit.approach[1], 8_000, 0.6],
   ]);
   if (!reachedExit || !await spaceIs(page, sourceSpace)) return false;

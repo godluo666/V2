@@ -21,9 +21,7 @@ import {
 import MediaScreen from '../media/MediaScreen';
 import { Bookshelf } from '../prefabs/furniture';
 import { XiangqiTablePrefab, MahjongTablePrefab, RiichiTablePrefab } from '../prefabs/gameTables';
-import {
-  NcCounter, GrTea, GrCounter, GrLantern,
-} from '../prefabs/venueInteriors';
+import { GrTea, GrLantern } from '../prefabs/clubVenueProps';
 import { ArenaPlayerStation } from '../prefabs/arenaHall';
 import { PremiumCinemaSeat } from '../prefabs/cinemaHall';
 import {
@@ -87,9 +85,7 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'fireplace': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><Fireplace color="#8a8078" state={{ on: true }} /></group>;
     // ── 网吧 NEXUS / 雀庄「东风阁」室内专属件(P5,总纲 §4.4)──────────────
     case 'nc_station': return <ArenaPlayerStation key={key} position={pos} ry={p.ry} seatIdx={(p.data?.seatIdx as number) ?? 0} />;
-    case 'nc_counter': return <NcCounter key={key} position={pos} ry={p.ry} />;
     case 'gr_tea': return <GrTea key={key} position={pos} ry={p.ry} />;
-    case 'gr_counter': return <GrCounter key={key} position={pos} ry={p.ry} />;
     case 'gr_lantern': return <GrLantern key={key} position={pos} />;
     case 'club_rug': return (
       <ClubRug key={key} position={pos} ry={p.ry}
@@ -164,12 +160,17 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'whiteboard': return (
       <WhiteboardSurface key={key} position={it.pos} rotation={it.ry} boardId={String(it.data?.boardId ?? it.id)} />
     );
-    // 影院超大银幕:几乎铺满整面前墙;电竞馆改为横跨北墙的赛事主屏;其余挂屏常规尺寸
-    case 'screen': return it.id === 'cine-screen'
-      ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={24} height={10} />
-      : it.id === 'nc-wall'
-        ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={22.4} height={7.6} />
-        : <MediaScreen key={key} position={it.pos} rotation={it.ry} width={8.6} height={4.6} />;
+    // Screen dimensions travel with the authoritative interactable contract;
+    // registry no longer mirrors venue IDs and hard-coded metres.
+    case 'screen': return (
+      <MediaScreen
+        key={key}
+        position={it.pos}
+        rotation={it.ry}
+        width={(it.data?.width as number) ?? 8.6}
+        height={(it.data?.height as number) ?? 4.6}
+      />
+    );
     case 'jukebox': return <Jukebox key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} />;
     case 'ttt': return <TttMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'lightsout': return <LightsOutMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;

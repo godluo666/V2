@@ -10,6 +10,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { ARENA_SPATIAL_CONTRACT } from '@nexuspark/shared';
 import { useSession, useVoice, useWorld } from '../../state/stores';
 import { voice } from '../../voice/voice';
 import { surfaceMaterial, type SurfaceKind } from '../city/materials';
@@ -34,14 +35,14 @@ const MATERIAL = {
   // Calibrated for the real low-tier cloud path (no shadows/post FX).  These
   // remain dark arena finishes, but their albedo steps are far enough apart for
   // truss, rail, equipment shell and riser silhouettes to survive without Bloom.
-  concrete: finish('oldConcrete', '#343d4b'),
-  painted: finish('paintedConcrete', '#48566a'),
-  blackMetal: finish('metal', '#1d2938'),
+  concrete: finish('oldConcrete', '#3e4857'),
+  painted: finish('paintedConcrete', '#526176'),
+  blackMetal: finish('metal', '#263444'),
   steel: finish('brushedMetal', '#8796aa'),
-  darkSteel: finish('brushedMetal', '#3d4b60'),
+  darkSteel: finish('brushedMetal', '#52637a'),
   glass: finish('darkGlass', '#172b40'),
-  deck: finish('cinemaCarpet', '#292d46'),
-  acoustic: finish('acousticFabric', '#403a58'),
+  deck: finish('cinemaCarpet', '#343a55'),
+  acoustic: finish('acousticFabric', '#49415f'),
   seat: finish('seatFabric', '#505976'),
   seatAccent: finish('seatFabric', '#704482'),
   cyan: illuminated('plasticLightbox', '#39d9f2', 0.82),
@@ -49,6 +50,7 @@ const MATERIAL = {
   violet: illuminated('plasticLightbox', '#7656ef', 0.78),
   violetDim: illuminated('plasticLightbox', '#45347f', 0.24),
   pink: illuminated('plasticLightbox', '#e34fb4', 0.68),
+  pinkDim: illuminated('plasticLightbox', '#7a3566', 0.2),
   warning: illuminated('plasticLightbox', '#efc557', 0.48),
 };
 
@@ -180,6 +182,66 @@ function stationIdleTexture(): THREE.CanvasTexture {
   stationIdle.colorSpace = THREE.SRGBColorSpace;
   stationIdle.anisotropy = 4;
   return stationIdle;
+}
+
+const sideDisplayTextures = new Map<-1 | 1, THREE.CanvasTexture>();
+
+function sideDisplayTexture(side: -1 | 1): THREE.CanvasTexture {
+  const cached = sideDisplayTextures.get(side);
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = 420;
+  canvas.height = 640;
+  const ctx = canvas.getContext('2d')!;
+  const accent = side < 0 ? '#44e4f1' : '#9a68ff';
+  const gradient = ctx.createLinearGradient(0, 0, 420, 640);
+  gradient.addColorStop(0, side < 0 ? '#073446' : '#241641');
+  gradient.addColorStop(0.55, '#10182b');
+  gradient.addColorStop(1, side < 0 ? '#17203c' : '#351b46');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 420, 640);
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 10;
+  ctx.strokeRect(22, 22, 376, 596);
+  ctx.strokeStyle = 'rgba(220,244,255,.22)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(42, 42, 336, 556);
+  ctx.fillStyle = accent;
+  ctx.fillRect(42, 76, 336, 12);
+  ctx.fillRect(42, 548, 336, 12);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#e9f9ff';
+  ctx.font = '900 54px "Segoe UI", sans-serif';
+  ctx.fillText(side < 0 ? 'ALPHA' : 'OMEGA', 210, 218);
+  ctx.font = '900 116px "Segoe UI", sans-serif';
+  ctx.fillStyle = accent;
+  ctx.fillText('00', 210, 364);
+  ctx.font = '800 24px "Segoe UI", sans-serif';
+  ctx.fillStyle = '#c6d5e4';
+  ctx.fillText('MATCH STANDBY', 210, 430);
+  ctx.font = '700 18px "Segoe UI", sans-serif';
+  ctx.fillStyle = '#90a9bd';
+  ctx.fillText('NEXUS LIVE SYSTEM', 210, 502);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  sideDisplayTextures.set(side, texture);
+  return texture;
+}
+
+function SideEventDisplay({ side, active }: { side: -1 | 1; active: boolean }) {
+  const texture = useMemo(() => sideDisplayTexture(side), [side]);
+  const material = useMemo(() => new THREE.MeshBasicMaterial({
+    map: texture,
+    color: active ? '#ffffff' : '#414a58',
+    toneMapped: false,
+  }), [active, texture]);
+  useEffect(() => () => material.dispose(), [material]);
+  return (
+    <mesh position={[0, 0, 0.35]} material={material}>
+      <planeGeometry args={[3.9, 5.62]} />
+    </mesh>
+  );
 }
 
 function useStationVideo(seatIdx: number): THREE.VideoTexture | null {
@@ -634,45 +696,126 @@ function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+/** A single-draw-call header truss for the main display. The long chords,
+ * uprights and alternating braces share one InstancedMesh instead of adding
+ * dozens of individual scene nodes to an already detailed arena. */
+function ScreenHeaderTruss({ position, length }: { position: P3; length: number }) {
+  const specs = useMemo<InstanceSpec[]>(() => {
+    const bayCount = Math.max(4, Math.round(length / 2.1));
+    const bay = length / bayCount;
+    const height = 0.68;
+    const depth = 0.58;
+    const diagonalLength = Math.sqrt(bay * bay + height * height);
+    const diagonalAngle = Math.atan2(height, bay);
+    const parts: InstanceSpec[] = [
+      { position: [0, -height / 2, -depth / 2], scale: [length, 0.1, 0.1] },
+      { position: [0, -height / 2, depth / 2], scale: [length, 0.1, 0.1] },
+      { position: [0, height / 2, -depth / 2], scale: [length, 0.1, 0.1] },
+      { position: [0, height / 2, depth / 2], scale: [length, 0.1, 0.1] },
+    ];
+    for (let index = 0; index <= bayCount; index++) {
+      const x = -length / 2 + index * bay;
+      parts.push(
+        { position: [x, 0, -depth / 2], scale: [0.08, height, 0.08] },
+        { position: [x, 0, depth / 2], scale: [0.08, height, 0.08] },
+      );
+    }
+    for (let index = 0; index < bayCount; index++) {
+      const x = -length / 2 + bay * (index + 0.5);
+      const direction = index % 2 ? -1 : 1;
+      parts.push(
+        {
+          position: [x, 0, -depth / 2],
+          rotation: [0, 0, direction * diagonalAngle],
+          scale: [diagonalLength, 0.07, 0.07],
+        },
+        {
+          position: [x, 0, depth / 2],
+          rotation: [0, 0, -direction * diagonalAngle],
+          scale: [diagonalLength, 0.07, 0.07],
+        },
+      );
+    }
+    return parts;
+  }, [length]);
+  return (
+    <group position={position}>
+      <InstancedParts specs={specs} material={MATERIAL.steel} />
+    </group>
+  );
+}
+
 function MainScreenStructure({ lightsOn }: { lightsOn: boolean }) {
   const cyan = lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim;
   const violet = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
+  const screen = ARENA_SPATIAL_CONTRACT.screen;
+  const [screenX, screenY, screenZ] = screen.position;
+  const shellY = screenY - 0.1;
+  const shellZ = screenZ - 0.29;
+  const rearFaceZ = screenZ - 0.13;
+  const trimZ = screenZ + 0.09;
+  const edgeX = screen.width / 2 + 0.95;
+  const topBeamY = screenY + screen.height / 2 + 0.34;
+  const lowerBeamY = screenY - screen.height / 2 - 0.54;
+  const serviceFrontZ = screenZ + 1.09;
   return (
-    <group>
-      {/* 24m 屏幕外壳；MediaScreen 应放在 [0, 7.2, -16.55]、约 22.4 × 7.6m。 */}
-      <Part position={[0, 7.1, -16.84]} scale={[24.6, 8.9, 0.28]} material={MATERIAL.blackMetal} />
+    <group position={[screenX, 0, 0]}>
+      {/* The media surface and this physical housing read from one shared
+          contract, keeping art aligned with interaction and collision. */}
+      <Part position={[0, shellY, shellZ]} scale={[screen.width + 2.2, screen.height + 1.3, 0.28]} material={MATERIAL.blackMetal} />
       {/* 深色保护层留在媒体显示面后方，避免遮住唯一播放器。 */}
-      <Part position={[0, 7.1, -16.68]} scale={[22.9, 7.95, 0.05]} material={MATERIAL.glass} />
-      <Part position={[0, 11.34, -16.46]} scale={[24.7, 0.36, 0.38]} material={MATERIAL.steel} />
-      <Part position={[0, 2.86, -16.46]} scale={[24.7, 0.36, 0.38]} material={MATERIAL.steel} />
-      {[-12.15, 12.15].map((x) => (
+      <Part position={[0, shellY, rearFaceZ]} scale={[screen.width + 0.5, screen.height + 0.35, 0.05]} material={MATERIAL.glass} />
+      <Part position={[0, topBeamY, trimZ]} scale={[screen.width + 2.3, 0.36, 0.38]} material={MATERIAL.steel} />
+      <Part position={[0, lowerBeamY, trimZ]} scale={[screen.width + 2.3, 0.36, 0.38]} material={MATERIAL.steel} />
+      {[-edgeX, edgeX].map((x) => (
         <group key={x}>
-          <Part position={[x, 7.1, -16.46]} scale={[0.42, 8.8, 0.38]} material={MATERIAL.steel} />
-          <Part position={[x, 7.1, -16.2]} scale={[0.09, 8.0, 0.08]} material={x < 0 ? cyan : violet} castShadow={false} />
+          <Part position={[x, shellY, trimZ]} scale={[0.42, screen.height + 1.2, 0.38]} material={MATERIAL.steel} />
+          <Part position={[x, shellY, screenZ + 0.35]} scale={[0.09, screen.height + 0.4, 0.08]} material={x < 0 ? cyan : violet} castShadow={false} />
           {/* 侧向承重柱落到地坪，避免主屏框架在近景中悬空。 */}
-          <Part position={[x, 5.35, -16.72]} scale={[0.7, 10.7, 1.05]} material={MATERIAL.concrete} />
+          <Part position={[x, (screenY + 3.5) / 2, screenZ - 0.17]} scale={[0.7, screenY + 3.5, 1.05]} material={MATERIAL.concrete} />
         </group>
       ))}
 
       {/* 屏幕后真实背架：立柱、横梁和交叉抗侧力支撑。 */}
       {[-10.8, -7.2, -3.6, 0, 3.6, 7.2, 10.8].map((x) => (
-        <Part key={`screen-post-${x}`} position={[x, 6.9, -16.78]} scale={[0.18, 10.8, 0.18]} material={MATERIAL.darkSteel} />
+        <Part key={`screen-post-${x}`} position={[x, screenY - 0.3, screenZ - 0.23]} scale={[0.18, screen.height + 3.2, 0.18]} material={MATERIAL.darkSteel} />
       ))}
       {[3.4, 6.2, 9.0, 11.7].map((y) => (
-        <Part key={`screen-beam-${y}`} position={[0, y, -16.78]} scale={[24.0, 0.18, 0.18]} material={MATERIAL.darkSteel} />
+        <Part key={`screen-beam-${y}`} position={[0, y, screenZ - 0.23]} scale={[screen.width + 1.6, 0.18, 0.18]} material={MATERIAL.darkSteel} />
       ))}
       {[-8.8, -1.8, 5.2].map((x) => (
-        <group key={x} position={[x, 7.5, -16.82]}>
+        <group key={x} position={[x, screenY + 0.3, screenZ - 0.27]}>
           <Part position={[0, 0, 0]} scale={[7.3, 0.13, 0.13]} rotation={[0, 0, 0.72]} material={MATERIAL.steel} />
           <Part position={[0, 0, 0]} scale={[7.3, 0.13, 0.13]} rotation={[0, 0, -0.72]} material={MATERIAL.steel} />
         </group>
       ))}
 
+      {/* Front service bridge establishes the screen's scale and gives the
+          housing a maintainable lower edge. It stays above head height and
+          below the 3.4m image bottom, so it changes no navigation collider. */}
+      <Part position={[0, lowerBeamY - 0.44, screenZ + 0.55]} scale={[screen.width + 0.6, 0.22, 1.15]} material={MATERIAL.darkSteel} />
+      <Part position={[0, lowerBeamY - 0.28, serviceFrontZ]} scale={[screen.width + 0.3, 0.1, 0.12]} material={MATERIAL.steel} />
+      <Part position={[0, lowerBeamY + 0.22, serviceFrontZ]} scale={[screen.width + 0.3, 0.11, 0.11]} material={MATERIAL.steel} />
+      {[-11, -8.25, -5.5, -2.75, 0, 2.75, 5.5, 8.25, 11].map((x) => (
+        <Part
+          key={`service-rail-${x}`}
+          position={[x, lowerBeamY - 0.03, serviceFrontZ]}
+          scale={[0.08, 0.5, 0.08]}
+          material={MATERIAL.darkSteel}
+        />
+      ))}
+      <ScreenHeaderTruss position={[0, topBeamY + 0.88, screenZ + 0.2]} length={screen.width + 2.8} />
+
       {/* 向观众席折出的两块侧屏，均有厚外壳和后部检修支臂。 */}
       {([-1, 1] as const).map((side) => (
-        <group key={side} position={[side * 15.65, 7.0, -14.25]} rotation={[0, side * -0.34, 0]}>
+        <group
+          key={side}
+          position={[side * (screen.width / 2 + 4.45), screenY - 0.2, screenZ + 2.3]}
+          rotation={[0, side * -0.34, 0]}
+        >
           <Part position={[0, 0, 0]} scale={[4.4, 6.2, 0.5]} material={MATERIAL.blackMetal} />
           <Part position={[0, 0, 0.28]} scale={[3.92, 5.65, 0.07]} material={MATERIAL.glass} />
+          <SideEventDisplay side={side} active={lightsOn} />
           <Part position={[0, 3.18, 0.28]} scale={[4.05, 0.08, 0.08]} material={side < 0 ? cyan : violet} castShadow={false} />
           {/* 落地检修柱连接侧屏全高；共享碰撞只包住这根实体柱。 */}
           <Part position={[0, -1.95, -0.62]} scale={[0.3, 10.1, 0.9]} material={MATERIAL.steel} />
@@ -737,8 +880,20 @@ function TrussSpan({ position, length, axis }: { position: P3; length: number; a
   );
 }
 
-function ArenaLuminaire({ position, color }: { position: P3; color: 'cyan' | 'violet' | 'pink' }) {
-  const lit = color === 'cyan' ? MATERIAL.cyan : color === 'violet' ? MATERIAL.violet : MATERIAL.pink;
+function ArenaLuminaire({
+  position,
+  color,
+  active,
+}: {
+  position: P3;
+  color: 'cyan' | 'violet' | 'pink';
+  active: boolean;
+}) {
+  const lit = color === 'cyan'
+    ? (active ? MATERIAL.cyan : MATERIAL.cyanDim)
+    : color === 'violet'
+      ? (active ? MATERIAL.violet : MATERIAL.violetDim)
+      : (active ? MATERIAL.pink : MATERIAL.pinkDim);
   return (
     <group position={position}>
       <CylinderPart position={[0, 0.22, 0]} scale={[0.12, 0.42, 0.12]} material={MATERIAL.darkSteel} />
@@ -781,7 +936,7 @@ function OverheadRig({ lightsOn }: { lightsOn: boolean }) {
         </group>
       )))}
       {mounts.map((mount) => (
-        <ArenaLuminaire key={mount.position.join('-')} {...mount} />
+        <ArenaLuminaire key={mount.position.join('-')} {...mount} active={lightsOn} />
       ))}
 
       {/* 顶部双路电缆桥架，包含实体侧帮、横撑和下引线。 */}

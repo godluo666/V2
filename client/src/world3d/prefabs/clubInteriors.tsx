@@ -452,19 +452,37 @@ function ClubWallDetails() {
             <mesh position={[0, 2.15, 0]} castShadow material={darkWood}>
               <boxGeometry args={[3.15, 2.35, 0.16]} />
             </mesh>
-            <mesh position={[0, 2.15, side * 0.105]} material={panelMats[(i + (side > 0 ? 1 : 0)) % panelMats.length]}>
+            {/* `side` identifies the wall, so its interior-facing surface is
+                the opposite direction.  The previous sign placed every insert
+                behind its timber backing and the cloud camera only saw four
+                nearly black rectangles. */}
+            <mesh position={[0, 2.15, -side * 0.105]} material={panelMats[(i + (side > 0 ? 1 : 0)) % panelMats.length]}>
               <boxGeometry args={[2.82, 1.98, 0.055]} />
             </mesh>
-            <mesh position={[0, 3.2, side * 0.15]} material={glowGold}>
+            <mesh position={[0, 3.2, -side * 0.15]} material={glowGold}>
               <boxGeometry args={[2.5, 0.045, 0.045]} />
             </mesh>
-            <mesh position={[0, 1.08, side * 0.15]} material={wood}>
+            <mesh position={[0, 1.08, -side * 0.15]} material={wood}>
               <boxGeometry args={[2.55, 0.08, 0.34]} />
             </mesh>
             {[-1, 1].map((edge) => (
-              <mesh key={edge} position={[edge * 1.45, 2.15, side * 0.14]} material={darkWood}>
+              <mesh key={edge} position={[edge * 1.45, 2.15, -side * 0.14]} material={darkWood}>
                 <boxGeometry args={[0.08, 2.12, 0.22]} />
               </mesh>
+            ))}
+            {[-0.82, 0, 0.82].map((noteX, noteIdx) => (
+              <group
+                key={`panel-note-${noteX}`}
+                position={[noteX, 2.2 + ((noteIdx + i) % 2) * 0.32, -side * 0.155]}
+                rotation={[0, 0, (noteIdx - 1) * 0.035]}
+              >
+                <mesh material={(noteIdx + i) % 2 ? paper : lavender}>
+                  <boxGeometry args={[0.46, 0.58, 0.028]} />
+                </mesh>
+                <mesh position={[0, 0.22, -side * 0.025]} material={(noteIdx + i) % 2 ? pink : cyan}>
+                  <boxGeometry args={[0.3, 0.035, 0.025]} />
+                </mesh>
+              </group>
             ))}
           </group>
         ))
@@ -475,19 +493,20 @@ function ClubWallDetails() {
             <mesh position={[0, 2.4, 0]} castShadow material={darkWood}>
               <boxGeometry args={[2.35, 2.6, 0.18]} />
             </mesh>
-            <mesh position={[0, 2.4, 0.12]} material={wood}>
+            {/* Local -Z points into the room for both mirrored side walls. */}
+            <mesh position={[0, 2.4, -0.12]} material={wood}>
               <boxGeometry args={[1.98, 2.2, 0.08]} />
             </mesh>
             {[-0.78, 0, 0.78].map((x, j) => (
-              <group key={j} position={[x, 2.12 + (j % 2) * 0.42, 0.2]}>
+              <group key={j} position={[x, 2.12 + (j % 2) * 0.42, -0.2]}>
                 <mesh material={j % 2 ? gold : cyan}><boxGeometry args={[0.35, 0.24, 0.12]} /></mesh>
                 <mesh position={[0, 0.2, 0]} material={j % 2 ? pink : sage}><cylinderGeometry args={[0.08, 0.08, 0.18, 10]} /></mesh>
               </group>
             ))}
-            <mesh position={[0, 1.18, 0.2]} material={wood}>
+            <mesh position={[0, 1.18, -0.2]} material={wood}>
               <boxGeometry args={[2.05, 0.1, 0.42]} />
             </mesh>
-            <mesh position={[0, 1.02, 0.2]} material={darkWood}>
+            <mesh position={[0, 1.02, -0.2]} material={darkWood}>
               <boxGeometry args={[0.12, 0.32, 0.32]} />
             </mesh>
           </group>
