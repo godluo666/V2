@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { toonMat } from '../city/toon';
 import { surfaceMaterial } from '../city/materials';
+import { useWorld } from '../../state/stores';
 
 type P3 = [number, number, number];
 
@@ -299,6 +300,21 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
 
 export function FlyingChessTable({ position, ry }: { position: P3; ry: number }) {
   const colors = [red, blue, gold, green];
+  const game = useWorld((state) => state.flying['gr-flight']);
+  const homeSpots: P3[] = [
+    [-0.42, 0.84, -0.42], [0.42, 0.84, -0.42],
+    [0.42, 0.84, 0.42], [-0.42, 0.84, 0.42],
+  ];
+  const trackPoint = (colour: number, progress: number): P3 => {
+    const cell = (colour * 13 + progress) % 52;
+    const side = Math.floor(cell / 13);
+    const step = cell % 13;
+    const along = -0.48 + step * 0.08;
+    if (side === 0) return [along, 0.84, -0.58];
+    if (side === 1) return [0.58, 0.84, along];
+    if (side === 2) return [-along, 0.84, 0.58];
+    return [-0.58, 0.84, -along];
+  };
   return (
     <group position={position} rotation={[0, ry, 0]}>
       {/* A woven floor-stall mat and low cushions make this a sit-down street
@@ -337,6 +353,27 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           <mesh position={[x, 0.82, z]} material={colors[i]}><sphereGeometry args={[0.065, 12, 8]} /></mesh>
         </group>
       ))}
+      {/* The board is a live view of the authoritative server state.  Pawns
+          leave their home markers after a roll, follow the 52-cell perimeter,
+          and stack in the centre when they finish; the HUD remains the control
+          surface, while the physical stall visibly reflects every move. */}
+      {game?.pawns.flatMap((pawns, colour) => pawns.map((progress, pawn) => {
+        const p = progress < 0
+          ? homeSpots[colour]
+          : progress >= 52
+          ? [((pawn % 2) - 0.5) * 0.18, 0.84, (Math.floor(pawn / 2) - 0.5) * 0.18] as P3
+          : trackPoint(colour, progress);
+        return (
+          <group key={`live-pawn-${colour}-${pawn}`} position={p}>
+            <mesh material={colors[colour]} castShadow>
+              <cylinderGeometry args={[0.075, 0.09, 0.07, 12]} />
+            </mesh>
+            <mesh position={[0, 0.075, 0]} material={colors[colour]} castShadow>
+              <sphereGeometry args={[0.065, 12, 8]} />
+            </mesh>
+          </group>
+        );
+      }))}
       {[-0.48, 0.48].flatMap((x) => [-0.48, 0.48].map((z) => (
         <mesh key={`${x}-${z}`} position={[x, 0.31, z]} rotation={[z * 0.06, 0, -x * 0.06]} material={darkWood} castShadow>
           <cylinderGeometry args={[0.035, 0.052, 0.62, 8]} />
