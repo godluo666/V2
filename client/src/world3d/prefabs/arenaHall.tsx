@@ -1180,9 +1180,16 @@ function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
             <Part position={[0, 0, 0.12]} scale={[4.2, 2.42, 0.34]} material={MATERIAL.blackMetal} />
             <Part position={[0, 1.26, 0.18]} scale={[4.32, 0.1, 0.18]} material={MATERIAL.steel} castShadow={false} />
             <Part position={[0, -1.26, 0.18]} scale={[4.32, 0.1, 0.18]} material={MATERIAL.steel} castShadow={false} />
-            <mesh position={[0, 0, -0.08]} rotation={[0, Math.PI, 0]} castShadow={false}>
+            {/* The housing is a real thick box. Keep the live face on its
+                camera-facing +Z side; placing it behind the shell made the
+                four overhead displays read as black slabs in the cloud view. */}
+            <mesh position={[0, 0, 0.31]} castShadow={false}>
               <planeGeometry args={[3.78, 2.08]} />
-              <meshBasicMaterial map={overheadScreenTexture(index)} toneMapped={false} />
+              <meshBasicMaterial
+                map={overheadScreenTexture(index)}
+                toneMapped={false}
+                side={THREE.DoubleSide}
+              />
             </mesh>
             <Part position={[0, -1.58, 0.12]} scale={[0.12, 0.8, 0.12]} material={MATERIAL.darkSteel} />
             <mesh position={[0, -1.98, 0.12]} rotation={[Math.PI / 2, 0, 0]} material={accent} castShadow={false}>
