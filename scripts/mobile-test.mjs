@@ -60,7 +60,11 @@ if (!mobileWorldReady) {
   await abortJourney('plaza 未完成 WebGL 场景挂载；停止后续 __nx 与触控节点访问');
 }
 await page.keyboard.press('Escape');
-await page.waitForTimeout(400);
+// The readiness heartbeat proves the R3F scene is mounted, but the first
+// SwiftShader city pass can still be compiling its facade materials. Let two
+// additional render intervals settle before capturing the visual evidence so
+// a valid world is not represented by its transient clear color.
+await page.waitForTimeout(2500);
 
 const touchButtonCount = await page.evaluate(() => document.querySelectorAll('.touch-btn').length);
 check('触控层渲染(4 个动作键)', touchButtonCount === 4);
