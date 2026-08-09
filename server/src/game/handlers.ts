@@ -442,6 +442,21 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     }
   },
 
+  flight_action(world, s, d: C2SPayload<'flight_action'>) {
+    if (!s.buckets.interact.take()) return;
+    const sp = space(world, s);
+    const table = sp?.flying.get(d.machineId);
+    if (!sp || !table || !nearInteractable(sp, s, d.machineId, ['flying'])) return;
+    let error: string | null = null;
+    if (d.action === 'join') error = table.join(s);
+    else if (d.action === 'leave') table.leave(s);
+    else if (d.action === 'roll') error = table.roll(s);
+    else if (d.action === 'pass') error = table.pass(s);
+    else if (d.action === 'move') error = table.move(s, d.pawn ?? -1);
+    if (error) { toast(s, 'info', error); return; }
+    sp.broadcast('game_flight', sp.flyingPublic(table));
+  },
+
   game_leave(world, s, d: C2SPayload<'game_leave'>) {
     const sp = space(world, s);
     if (!sp) return;

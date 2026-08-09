@@ -4,7 +4,7 @@ import type {
   SelfState, SpaceInit, PublicProfile, ChatMsg, MediaState, MusicState, WorldEnv,
   RoomData, BoardPost, Stroke, TicTacToeState, LightsOutState, DialogueNode,
   RoomDirectoryEntry, SeatStateEntry, AvatarConfig, InventoryEntry,
-  XiangqiState, MahjongView, RiichiView,
+  XiangqiState, MahjongView, RiichiView, FlyingChessState,
 } from '@nexuspark/shared';
 
 // ── Session / auth ──────────────────────────────────────────────────────────
@@ -56,6 +56,7 @@ interface WorldStore {
   room: RoomData | null;
   ttt: Record<string, TicTacToeState>;
   lo: Record<string, LightsOutState>;
+  flying: Record<string, FlyingChessState>;
   xq: Record<string, XiangqiState>;
   mj: Record<string, MahjongView>;
   rj: Record<string, RiichiView>;
@@ -79,6 +80,7 @@ interface WorldStore {
   setRoom: (r: RoomData | null) => void;
   setTtt: (t: TicTacToeState) => void;
   setLo: (l: LightsOutState) => void;
+  setFlying: (game: FlyingChessState) => void;
   setXq: (t: XiangqiState) => void;
   setMj: (v: MahjongView) => void;
   setRj: (v: RiichiView) => void;
@@ -100,6 +102,7 @@ export const useWorld = create<WorldStore>((set) => ({
   room: null,
   ttt: {},
   lo: {},
+  flying: {},
   xq: {},
   mj: {},
   rj: {},
@@ -121,6 +124,7 @@ export const useWorld = create<WorldStore>((set) => ({
     room: init.room,
     ttt: Object.fromEntries(init.games.tictactoe.map((t) => [t.machineId, t])),
     lo: Object.fromEntries(init.games.lightsout.map((l) => [l.machineId, l])),
+    flying: Object.fromEntries(init.games.flying.map((game) => [game.machineId, game])),
     xq: Object.fromEntries(init.games.xiangqi.map((t) => [t.tableId, t])),
     mj: Object.fromEntries(init.games.mahjong.map((v) => [v.pub.tableId, v])),
     // riichi 字段由并行工单并入 SpaceInit.games 类型;服务器已在发,先宽松读取
@@ -154,6 +158,7 @@ export const useWorld = create<WorldStore>((set) => ({
   setRoom: (room) => set({ room }),
   setTtt: (t) => set((s) => ({ ttt: { ...s.ttt, [t.machineId]: t } })),
   setLo: (l) => set((s) => ({ lo: { ...s.lo, [l.machineId]: l } })),
+  setFlying: (game) => set((s) => ({ flying: { ...s.flying, [game.machineId]: game } })),
   setXq: (t) => set((s) => ({ xq: { ...s.xq, [t.tableId]: t } })),
   setMj: (v) => set((s) => ({ mj: { ...s.mj, [v.pub.tableId]: v } })),
   setRj: (v) => set((s) => ({ rj: { ...s.rj, [v.pub.tableId]: v } })),
@@ -188,6 +193,7 @@ export type PanelKind =
   | { kind: 'jukebox' }
   | { kind: 'ttt'; machineId: string }
   | { kind: 'lightsout'; machineId: string }
+  | { kind: 'flying'; machineId: string }
   | { kind: 'xiangqi'; tableId: string }
   | { kind: 'mahjong'; tableId: string }
   | { kind: 'riichi'; tableId: string }

@@ -20,7 +20,6 @@ import { BuildQueue } from './progressive';
 import { Streets, shade } from './streets';
 import { Buildings } from './buildings';
 import { Foreground } from './foreground';
-import StreetCrowd from './StreetCrowd';
 import CyberpunkLayer from './CyberpunkLayer';
 import { HeroStreetStructures } from './heroStructures';
 
@@ -86,7 +85,6 @@ export default function City() {
       <HeroStreetStructures />
       <Foreground queue={queue} />
       <CyberpunkLayer />
-      <StreetCrowd />
 
       {/* 布局道具与交互物(c_* 分支见 spaces/registry) */}
       {layout.props.map((p, i) => renderProp(p, i))}

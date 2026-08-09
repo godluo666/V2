@@ -25,7 +25,7 @@ import { GrTea, GrLantern } from '../prefabs/clubVenueProps';
 import { ArenaPlayerStation } from '../prefabs/arenaHall';
 import { PremiumCinemaSeat } from '../prefabs/cinemaHall';
 import {
-  ClubRug, ClubSofa, ClubStage, FlyingChessTable, ClubTrophyWall,
+  ClubRug, ClubSofa, ClubStage, FlyingChessTable, FloorCushion, ClubTrophyWall,
   ClubStorageCabinet, ClubReadingNook, ClubChair, ClubCraftTable,
 } from '../prefabs/clubInteriors';
 import {
@@ -76,7 +76,9 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'mailboxes': return <Mailboxes key={key} position={pos} rotation={p.ry} />;
     case 'window': return <WindowFrame key={key} position={pos} rotation={p.ry} w={(p.data?.w as number) ?? 1.6} />;
     case 'table_round': return <TableRound key={key} position={pos} />;
-    case 'chair': return p.data?.style === 'club'
+    case 'chair': return p.data?.style === 'floor'
+      ? <FloorCushion key={key} position={pos} ry={p.ry} accent={(p.data?.accent as number) ?? 0} />
+      : p.data?.style === 'club'
       ? <ClubChair key={key} position={pos} ry={p.ry} accent={(p.data?.accent as number) ?? 0} />
       : <group key={key} position={pos} rotation={[0, p.ry, 0]}><Chair color="#7a6248" /></group>;
     case 'sofa': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><Sofa color="#4d6a92" /></group>;

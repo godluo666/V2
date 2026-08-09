@@ -117,6 +117,59 @@ export function XiangqiPanel({ tableId }: { tableId: string }) {
   );
 }
 
+/** Authoritative four-colour flying-chess board for the club's floor stall. */
+export function FlyingChessPanel({ machineId }: { machineId: string }) {
+  const game = useWorld((s) => s.flying[machineId]);
+  if (!game) return <div className="dim">地摊棋局正在准备中…</div>;
+  const me = game.players.findIndex((player) => player?.id === hot.selfId);
+  const myTurn = me >= 0 && game.turn === me && game.winner < 0;
+  const send = (action: 'join' | 'leave' | 'roll' | 'move' | 'pass', pawn?: number) => {
+    connection.send('flight_action', { machineId, action, ...(pawn === undefined ? {} : { pawn }) });
+    audio.click();
+  };
+  return (
+    <div className="col" style={{ gap: 8 }}>
+      <div className="dim" style={{ fontSize: 12 }}>
+        四色地摊飞行棋 · 四枚棋子走完 52 格即可获胜
+      </div>
+      <div className="row" style={{ flexWrap: 'wrap', gap: 5 }}>
+        {game.players.map((player, slot) => {
+          const color = ['#ff5b67', '#48c8ff', '#ffd35a', '#69db8b'][slot];
+          const done = game.pawns[slot].filter((position) => position === 52).length;
+          return (
+            <div key={slot} style={{ border: `2px solid ${color}`, padding: '4px 7px', minWidth: 92, opacity: player ? 1 : 0.45 }}>
+              <b style={{ color }}>{player?.username ?? `颜色 ${slot + 1}`}</b>
+              <div style={{ fontSize: 11 }}>{done}/4 到达终点</div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>
+        {(game.pawns[me >= 0 ? me : 0] ?? []).map((position, pawn) => (
+          <button
+            key={pawn}
+            className="btn small"
+            disabled={!myTurn || game.dice === null}
+            onClick={() => send('move', pawn)}
+          >
+            棋子 {pawn + 1}<br />{position < 0 ? '家中' : position === 52 ? '终点' : `${position}/52`}
+          </button>
+        ))}
+      </div>
+      <div className="row">
+        {me < 0 && <button className="btn primary" onClick={() => send('join')}>加入地摊棋局</button>}
+        {me >= 0 && game.winner >= 0 && <button className="btn primary" onClick={() => send('join')}>再来一局</button>}
+        {me >= 0 && game.winner < 0 && game.dice === null && <button className="btn primary" disabled={!myTurn} onClick={() => send('roll')}>掷骰子</button>}
+        {me >= 0 && game.winner < 0 && game.dice !== null && <button className="btn" disabled={!myTurn} onClick={() => send('pass')}>结束回合（{game.dice}）</button>}
+        {me >= 0 && <button className="btn ghost" onClick={() => send('leave')}>离开棋局</button>}
+      </div>
+      <div className="dim" style={{ fontSize: 12 }}>
+        {game.winner >= 0 ? `颜色 ${game.winner + 1} 获胜！` : game.dice !== null ? `颜色 ${game.turn + 1} 掷出 ${game.dice} 点，选择一枚棋子。` : `轮到颜色 ${game.turn >= 0 ? game.turn + 1 : '—'}。`}
+      </div>
+    </div>
+  );
+}
+
 /* ─── 麻将牌面 ───────────────────────────────────────────────────────────── */
 export function TileFace({ face, gold, small = false, onClick, raised = false }: {
   face: number; gold?: boolean; small?: boolean; onClick?: () => void; raised?: boolean;

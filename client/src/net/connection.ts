@@ -235,6 +235,9 @@ class Connection {
       case 'game_lo':
         world.setLo(d as S2CMap['game_lo']);
         break;
+      case 'game_flight':
+        world.setFlying(d as S2CMap['game_flight']);
+        break;
       case 'game_xq':
         world.setXq(d as S2CMap['game_xq']);
         break;

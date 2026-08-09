@@ -147,6 +147,17 @@ export interface LightsOutState {
   best: number | null;
 }
 
+/** Authoritative four-colour flying-chess table state. Positions are -1 for
+ * the home tray, 0..51 on the shared track and 52 at the finish. */
+export interface FlyingChessState {
+  machineId: string;
+  players: [PublicProfile | null, PublicProfile | null, PublicProfile | null, PublicProfile | null];
+  pawns: [number[], number[], number[], number[]];
+  turn: number;
+  dice: number | null;
+  winner: number;
+}
+
 // ── NPC dialogue ────────────────────────────────────────────────────────────
 export interface DialogueNode {
   npcId: number;
@@ -196,6 +207,7 @@ export interface SpaceInit {
   games: {
     tictactoe: TicTacToeState[];
     lightsout: LightsOutState[];
+    flying: FlyingChessState[];
     xiangqi: import('./xiangqi').XiangqiState[];
     mahjong: import('./mahjong').MahjongView[];
   };

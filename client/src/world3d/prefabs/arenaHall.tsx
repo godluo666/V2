@@ -1118,6 +1118,78 @@ function ArenaLuminaire({
   );
 }
 
+const overheadScreenTextures = new Map<number, THREE.CanvasTexture>();
+function overheadScreenTexture(index: number): THREE.CanvasTexture {
+  const cached = overheadScreenTextures.get(index);
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = 640;
+  canvas.height = 360;
+  const ctx = canvas.getContext('2d')!;
+  const colors = ['#25d7e8', '#a67bff', '#ff4f9a', '#ffd25a'];
+  const accent = colors[index % colors.length];
+  const gradient = ctx.createLinearGradient(0, 0, 640, 360);
+  gradient.addColorStop(0, '#101724');
+  gradient.addColorStop(0.48, index % 2 ? '#271b43' : '#12343e');
+  gradient.addColorStop(1, '#080b12');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 640, 360);
+  ctx.strokeStyle = `${accent}66`;
+  ctx.lineWidth = 5;
+  for (let x = -360; x < 760; x += 48) {
+    ctx.beginPath();
+    ctx.moveTo(x, 360);
+    ctx.lineTo(x + 360, 0);
+    ctx.stroke();
+  }
+  ctx.fillStyle = accent;
+  ctx.fillRect(36, 38, 150, 9);
+  ctx.font = '700 30px Arial';
+  ctx.fillText(`LIVE FEED 0${index + 1}`, 36, 94);
+  ctx.font = '700 58px Arial';
+  ctx.fillText(index % 2 ? 'VS' : 'ON AIR', 36, 177);
+  ctx.font = '700 22px Arial';
+  ctx.fillStyle = '#e9f4ff';
+  ctx.fillText('MOONLIGHT CUP / STAGE CAM', 36, 226);
+  ctx.strokeStyle = `${accent}bb`;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(28, 28, 584, 302);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 2;
+  overheadScreenTextures.set(index, texture);
+  return texture;
+}
+
+function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
+  const positions = [-7.2, -2.4, 2.4, 7.2];
+  return (
+    <group>
+      {positions.map((x, index) => {
+        const accent = index % 2 === 0 ? (lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim) : (lightsOn ? MATERIAL.violet : MATERIAL.violetDim);
+        return (
+          <group key={x} position={[x, 9.65, -2.5]} rotation={[0.18, 0, 0]}>
+            <Part position={[0, 0, 0.12]} scale={[4.2, 2.42, 0.34]} material={MATERIAL.blackMetal} />
+            <Part position={[0, 1.26, 0.18]} scale={[4.32, 0.1, 0.18]} material={MATERIAL.steel} castShadow={false} />
+            <Part position={[0, -1.26, 0.18]} scale={[4.32, 0.1, 0.18]} material={MATERIAL.steel} castShadow={false} />
+            <mesh position={[0, 0, -0.08]} rotation={[0, Math.PI, 0]} castShadow={false}>
+              <planeGeometry args={[3.78, 2.08]} />
+              <meshBasicMaterial map={overheadScreenTexture(index)} toneMapped={false} />
+            </mesh>
+            <Part position={[0, -1.58, 0.12]} scale={[0.12, 0.8, 0.12]} material={MATERIAL.darkSteel} />
+            <mesh position={[0, -1.98, 0.12]} rotation={[Math.PI / 2, 0, 0]} material={accent} castShadow={false}>
+              <circleGeometry args={[0.11, 12]} />
+            </mesh>
+          </group>
+        );
+      })}
+      {positions.map((x) => (
+        <Cable key={`screen-cable-${x}`} points={[[x, 12.4, -2.5], [x, 11.2, -2.5], [x, 9.1, -2.5]]} color="#242d38" radius={0.035} />
+      ))}
+    </group>
+  );
+}
+
 function OverheadRig({ lightsOn }: { lightsOn: boolean }) {
   const mounts: Array<{ position: P3; color: 'cyan' | 'violet' | 'pink' }> = [
     { position: [-8, 11.35, -8.0], color: 'cyan' },
@@ -1301,6 +1373,7 @@ export function ArenaHallArchitecture({
       <ArenaFloorFinish />
       <CompetitionFloor lightsOn={lightsOn} />
       <MainScreenStructure lightsOn={lightsOn} />
+      <OverheadScreenArray lightsOn={lightsOn} />
       <TieredStands lightsOn={lightsOn} />
       <OverheadRig lightsOn={lightsOn} />
       <BroadcastAndControl lightsOn={lightsOn} />

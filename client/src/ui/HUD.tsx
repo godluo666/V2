@@ -18,7 +18,7 @@ import {
   NotesPanel, StoragePanel,
 } from './panels';
 import { SettingsPanel, AvatarEditor, HelpPanel } from './SettingsPanels';
-import { XiangqiPanel, MahjongPanel } from './GamePanelsCn';
+import { XiangqiPanel, MahjongPanel, FlyingChessPanel } from './GamePanelsCn';
 import RiichiPanel from './RiichiPanel';
 import { RoomEditorBar, RoomSettingsPanel } from './RoomEditorBar';
 
@@ -52,6 +52,7 @@ function panelTitle(p: PanelKind): string {
     case 'ttt': return 'VERSUS·井字棋';
     case 'lightsout': return '关灯谜题';
     case 'xiangqi': return '象棋';
+    case 'flying': return '地摊飞行棋';
     case 'mahjong': return '福州麻将';
     case 'riichi': return '立直麻将·东风阁';
     case 'vending': return '贩卖机';
@@ -78,6 +79,7 @@ function PanelBody({ p }: { p: PanelKind }): ReactNode {
     case 'ttt': return <TttPanel machineId={p.machineId} />;
     case 'lightsout': return <LightsOutPanel machineId={p.machineId} />;
     case 'xiangqi': return <XiangqiPanel tableId={p.tableId} />;
+    case 'flying': return <FlyingChessPanel machineId={p.machineId} />;
     case 'mahjong': return <MahjongPanel tableId={p.tableId} />;
     case 'riichi': return <RiichiPanel tableId={p.tableId} />;
     case 'vending': return <VendingPanel vendId={p.vendId} items={p.items} />;

@@ -153,6 +153,9 @@ export function performAction(t: Target): void {
     case 'lightsout':
       ui.openPanel({ kind: 'lightsout', machineId: t.id });
       break;
+    case 'flying':
+      ui.openPanel({ kind: 'flying', machineId: t.id });
+      break;
     case 'vending':
       ui.openPanel({ kind: 'vending', vendId: t.id, items: (t.data?.items as string[]) ?? [] });
       break;

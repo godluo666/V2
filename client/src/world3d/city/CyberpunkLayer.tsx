@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { toonMat } from './toon';
 import { surfaceMaterial } from './materials';
 
@@ -13,6 +14,9 @@ const supportMetal = surfaceMaterial('brushedMetal');
 supportMetal.color.set('#9ca8b0');
 supportMetal.metalness = 0.54;
 supportMetal.roughness = 0.5;
+const fxPink = toonMat('#ff3f83', { emissive: '#ff176b', emissiveIntensity: 1.15 });
+const fxAqua = toonMat('#37e8f1', { emissive: '#13c9e5', emissiveIntensity: 1.1 });
+const fxGold = toonMat('#ffd34f', { emissive: '#ff9e2e', emissiveIntensity: 1.05 });
 
 function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; color?: string; radius?: number }) {
   const geo = useMemo(() => {
@@ -23,6 +27,40 @@ function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; co
   return <mesh geometry={geo} material={mat} />;
 }
 
+function StreetFX() {
+  const left = useRef<THREE.Group>(null);
+  const right = useRef<THREE.Group>(null);
+  const t = useRef(0);
+  useFrame((_, delta) => {
+    t.current += delta;
+    if (left.current) left.current.position.y = Math.sin(t.current * 2.1) * 0.06;
+    if (right.current) right.current.position.y = Math.sin(t.current * 1.8 + 1.4) * 0.05;
+  });
+  const bars = [-2.8, -1.4, 0, 1.4, 2.8];
+  return (
+    <group name="street-saturated-fx">
+      <group ref={left} position={[-18.4, 5.0, -8.8]} rotation={[0, 0.08, -0.12]}>
+        {bars.map((x, i) => (
+          <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, i % 2 ? -0.3 : 0.3]} material={i % 2 ? fxAqua : fxPink}>
+            <boxGeometry args={[0.12, 2.4 + (i % 3) * 0.55, 0.12]} />
+          </mesh>
+        ))}
+        <mesh position={[0, -1.35, 0]} material={supportMetal}><boxGeometry args={[7.4, 0.12, 0.14]} /></mesh>
+      </group>
+      <group ref={right} position={[15.5, 4.0, 2.5]} rotation={[0, -0.12, 0.16]}>
+        {bars.slice(0, 4).map((x, i) => (
+          <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, i % 2 ? 0.24 : -0.24]} material={i === 1 ? fxGold : fxAqua}>
+            <boxGeometry args={[0.14, 1.8 + (i % 2) * 0.7, 0.14]} />
+          </mesh>
+        ))}
+        <mesh position={[0, -1.1, 0]} material={supportMetal}><boxGeometry args={[6.2, 0.1, 0.14]} /></mesh>
+      </group>
+      <Cable points={[[-22.5, 6.8, -11.2], [-15.0, 7.4, -10.7], [-7.4, 6.9, -10.4]]} color="#ff3f83" radius={0.055} />
+      <Cable points={[[8.8, 7.1, 7.2], [15.2, 7.8, 6.6], [22.4, 7.0, 5.8]]} color="#37e8f1" radius={0.05} />
+    </group>
+  );
+}
+
 /**
  * 赛博街头层：不是 HUD，而是可被相机看到并参与透视的实体构件——立面检修平台、
  * 电缆、消防梯和受控局部灯光。它们只占现有街区，不扩张可玩地图或横切地标。
@@ -30,6 +68,7 @@ function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; co
 export default function CyberpunkLayer() {
   return (
     <group name="cyberpunk-street-layer">
+      <StreetFX />
       {/*
        * Keep the media-tower sightline open. The former 31m bridge occupied the
        * same depth and height as the tower screen, physically cutting through

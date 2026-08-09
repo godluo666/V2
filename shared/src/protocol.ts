@@ -67,6 +67,11 @@ export const c2s = {
   game_join: z.object({ machineId: z.string().min(1).max(32) }),
   game_leave: z.object({ machineId: z.string().min(1).max(32) }),
   game_move: z.object({ machineId: z.string().min(1).max(32), cell: z.number().int().min(0).max(24) }),
+  flight_action: z.object({
+    machineId: z.string().min(1).max(32),
+    action: z.enum(['join', 'leave', 'roll', 'move', 'pass']),
+    pawn: z.number().int().min(0).max(3).optional(),
+  }),
   xq_move: z.object({ tableId: z.string().min(1).max(32), from: z.number().int().min(0).max(89), to: z.number().int().min(0).max(89) }),
   mj_action: z.object({
     tableId: z.string().min(1).max(32),
@@ -146,6 +151,7 @@ export interface S2CMap {
   npc_dialog: DialogueNode | { npcId: number; end: true };
   game_ttt: TicTacToeState;
   game_lo: LightsOutState;
+  game_flight: import('./types').FlyingChessState;
   game_xq: import('./xiangqi').XiangqiState;
   game_mj: import('./mahjong').MahjongView;
   game_rj: import('./riichi/view').RiichiView;

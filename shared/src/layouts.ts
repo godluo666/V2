@@ -17,7 +17,7 @@ import { ARENA_SPATIAL_CONTRACT, CINEMA_SPATIAL_CONTRACT } from './venueSpatialC
 export type InteractKind =
   | 'seat' | 'door' | 'switch' | 'board' | 'whiteboard' | 'screen' | 'jukebox'
   | 'ttt' | 'lightsout' | 'vending' | 'kiosk' | 'bookshelf' | 'elevator'
-  | 'xiangqi' | 'mahjong' | 'riichi';
+  | 'xiangqi' | 'mahjong' | 'riichi' | 'flying';
 
 export interface Interactable {
   id: string;
@@ -233,30 +233,11 @@ function buildCity(): SpaceLayout {
     b.circle(x, z, 0.18);
   }
 
-  const npcs: NpcDef[] = [
-    {
-      id: -1, name: 'Yuki', dialogueId: 'greeter', speed: 1.1, pause: 6,
-      avatar: npcAvatar('#f2a5b5', '#5a3b8c', '#cbb8d9', '#5a3b8c', 1, '#5a3b8c', 1),
-      waypoints: [[-12.5, 5.9], [-4, 5.9], [-2.8, -3.8], [-8, -4.2]],
-    },
-    {
-      id: -2, name: 'Kaito', dialogueId: 'walker', speed: 1.4, pause: 3,
-      avatar: npcAvatar('#f5b8c4', '#3f7d44', '#b7cf8f', '#4a4a55', 0, '#333333', 0),
-      waypoints: [[-13.2, -7], [-13.2, -16.8], [-3, -16.8], [-3, -8]],
-    },
-    {
-      id: -5, name: 'Rin', dialogueId: 'walker', speed: 1.2, pause: 4,
-      avatar: npcAvatar('#f2a5b5', '#2f3b5c', '#9fb3d9', '#33383f', 0, '#333333', 2),
-      // Keep all three venue approaches clear; Rin animates the long south-east pavement.
-      waypoints: [[6, 6.5], [14, 6.5], [25, 6.5], [18, 6.5]],
-    },
-  ];
-
   return {
     key: SPACE.PLAZA, label: '月汐町·一番街', indoor: false, bounds,
     spawn: STREET_SPAWN,
     colliders: b.colliders, interactables: b.interactables, props: b.props,
-    npcs, heightZones: [], hasBall: false,
+    npcs: [], heightZones: [], hasBall: false,
   };
 }
 
@@ -577,16 +558,17 @@ function buildNetcafe(): SpaceLayout {
   );
 
   // 八个原有业务机位移入中央多层赛台；保留 nc-s0..7 和 seatIdx 协议。
-  const cols = ARENA_SPATIAL_CONTRACT.stations.x;
-  cols.forEach((x, i) => {
+  const mainCols = ARENA_SPATIAL_CONTRACT.stations.x;
+  const reserveCols = ARENA_SPATIAL_CONTRACT.stations.reserveX;
+  mainCols.forEach((x, i) => {
     b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 0, { row: 0, seatIdx: i });
     b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 1.85, 0.9);
     b.inter(`nc-s${i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[0], Math.PI, '进入选手席');
   });
-  cols.forEach((x, i) => {
-    b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], Math.PI, { row: 1, seatIdx: 4 + i });
+  reserveCols.forEach((x, i) => {
+    b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], Math.PI, { row: 1, seatIdx: 5 + i });
     b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], 1.85, 0.9);
-    b.inter(`nc-s${4 + i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[1], 0, '进入选手席');
+    b.inter(`nc-s${5 + i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[1], 0, '进入选手席');
   });
 
   // CompetitionFloor 的真实可行走顶面。floorHeightAt 按声明顺序命中，
@@ -664,7 +646,7 @@ function buildGameroom(): SpaceLayout {
     accent: number,
     label: string,
   ) => {
-    b.prop('chair', x, 0, z, ry, { style: 'club', accent });
+    b.prop('chair', x, 0, z, ry, { style: id.startsWith('gr-flight-') ? 'floor' : 'club', accent });
     // The Dango body is 0.8m deep.  A small local-forward offset and the real
     // cushion-top height keep it clear of both the padded back and table edge.
     const [seatX, seatY, seatZ] = clubSeatPosition(x, 0.61, z, ry, 0, 0.18);
@@ -710,6 +692,7 @@ function buildGameroom(): SpaceLayout {
   ] as const) {
     addClubChair(`gr-flight-s${i}`, x, z, ry, i, '围坐飞行棋');
   }
+  b.inter('gr-flight', 'flying', 4.35, 0.86, -2.75, 0, '打开地摊飞行棋');
 
   // 中央后段的社团筹备桌把两个功能区串成一体；桌体阻挡与实体一致，
   // 左右仍各保留超过 1.5m 的绕行空间，不堵入口主轴。

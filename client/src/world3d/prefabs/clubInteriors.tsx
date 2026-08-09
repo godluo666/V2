@@ -301,6 +301,19 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
   const colors = [red, blue, gold, green];
   return (
     <group position={position} rotation={[0, ry, 0]}>
+      {/* A woven floor-stall mat and low cushions make this a sit-down street
+          game rather than another dining table. The service seat anchors stay
+          unchanged so the authoritative multiplayer seat logic remains valid. */}
+      <SculptedPart position={[0, 0.04, 0]} scale={[3.35, 0.08, 3.35]} material={rug} />
+      <SculptedPart position={[0, 0.09, 0]} scale={[3.02, 0.025, 3.02]} material={rugEdge} castShadow={false} />
+      {[
+        [0, -1.36, red], [1.36, 0, blue], [0, 1.36, green], [-1.36, 0, gold],
+      ].map(([x, z, material], index) => (
+        <group key={`floor-cushion-${index}`} position={[x as number, 0.34, z as number]} rotation={[0, index * Math.PI / 2, 0]}>
+          <SculptedPart position={[0, 0, 0]} scale={[0.78, 0.27, 0.58]} material={material as THREE.Material} soft />
+          <SculptedPart position={[0, 0.16, -0.12]} scale={[0.56, 0.08, 0.11]} material={creamFabric} soft castShadow={false} />
+        </group>
+      ))}
       <SculptedPart position={[0, 0.66, 0]} scale={[1.34, 0.13, 1.34]} material={wood} />
       <SculptedPart position={[0, 0.735, 0]} scale={[1.18, 0.04, 1.18]} material={cream} />
       {/* 桌裙使桌面与四腿形成完整木作，而不是一块板悬在腿上。 */}
@@ -338,6 +351,16 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           <SculptedPart position={[0, 0.01, 0.23]} scale={[0.1, 0.07, 0.025]} material={gold} castShadow={false} />
         </group>
       ))}
+    </group>
+  );
+}
+
+export function FloorCushion({ position, ry, accent = 0 }: { position: P3; ry: number; accent?: number }) {
+  const materials = [red, blue, green, gold];
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <SculptedPart position={[0, 0.28, 0]} scale={[0.82, 0.28, 0.62]} material={materials[accent % materials.length]} soft />
+      <SculptedPart position={[0, 0.45, -0.1]} scale={[0.58, 0.07, 0.12]} material={creamFabric} soft castShadow={false} />
     </group>
   );
 }

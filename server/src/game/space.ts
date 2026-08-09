@@ -2,7 +2,7 @@ import type { DB } from '../db/database';
 import { kvGet, kvSet } from '../db/database';
 import type {
   SpaceLayout, Interactable, ChatMsg, MediaState, MusicState, Stroke, RoomData,
-  EntitySnap, ObjSnap, TicTacToeState, LightsOutState, PublicProfile, NpcDef, BoardPost,
+  EntitySnap, ObjSnap, TicTacToeState, LightsOutState, FlyingChessState, PublicProfile, NpcDef, BoardPost,
 } from '@nexuspark/shared';
 import {
   LAYOUTS, ROOM_BOUNDS, ROOM_DOOR, ROOM_SWITCH, FURNITURE_BY_TYPE, CHAT_HISTORY,
@@ -16,6 +16,7 @@ import { encode } from '@nexuspark/shared';
 import { XiangqiTable } from './xiangqiTable';
 import { MahjongTable } from './mahjongTable';
 import { RiichiTable } from './riichiTable';
+import { FlyingChessTable } from './flyingChess';
 
 export interface SeatDef { x: number; y: number; z: number; ry: number; }
 
@@ -65,6 +66,7 @@ export class Space {
   colliders: Collider[] = [];
   ttt = new Map<string, TttInternal>();
   lo = new Map<string, LoInternal>();
+  flying = new Map<string, FlyingChessTable>();
   xq = new Map<string, XiangqiTable>();
   mj = new Map<string, MahjongTable>();
   rj = new Map<string, RiichiTable>();
@@ -118,6 +120,7 @@ export class Space {
           });
         }
         if (i.kind === 'xiangqi') this.xq.set(i.id, new XiangqiTable(i.id));
+        if (i.kind === 'flying') this.flying.set(i.id, new FlyingChessTable(i.id));
         if (i.kind === 'mahjong') this.mj.set(i.id, new MahjongTable(i.id));
         // 'riichi' 字面量由并行工单加入联合类型,这里按字符串比较避免编译依赖
         if ((i.kind as string) === 'riichi') this.rj.set(i.id, new RiichiTable(i.id));
@@ -367,6 +370,9 @@ export class Space {
       best: l.best?.moves ?? null,
     };
   }
+  flyingPublic(table: FlyingChessTable): FlyingChessState {
+    return table.publicState();
+  }
 
   /** Broadcast a mahjong table with per-viewer redaction. */
   broadcastMahjong(table: MahjongTable): void {
@@ -408,6 +414,9 @@ export class Space {
         l.session = null;
         this.broadcast('game_lo', this.loPublic(l));
       }
+    }
+    for (const table of this.flying.values()) {
+      if (table.leave(s)) this.broadcast('game_flight', this.flyingPublic(table));
     }
   }
 

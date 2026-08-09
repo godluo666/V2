@@ -363,6 +363,7 @@ export class World {
     const games = {
       tictactoe: [...space.ttt.values()].map((t) => space.tttPublic(t)),
       lightsout: [...space.lo.values()].map((l) => space.loPublic(l)),
+      flying: [...space.flying.values()].map((table) => space.flyingPublic(table)),
       xiangqi: [...space.xq.values()].map((t) => t.publicState()),
       mahjong: [...space.mj.values()].map((t) => t.viewFor(session)),
       riichi: [...space.rj.values()].map((t) => t.viewFor(session)),

@@ -36,7 +36,10 @@ export const ARENA_SPATIAL_CONTRACT = {
     height: 7.6,
   },
   stations: {
-    x: [-6.6, -2.2, 2.2, 6.6] as const,
+    // Five contiguous starters form the central player bench; three reserves
+    // stay on the rear tier so nc-s0..7 interactions remain available.
+    x: [-4.4, -2.2, 0, 2.2, 4.4] as const,
+    reserveX: [-2.2, 0, 2.2] as const,
     rowZ: [-6.3, -1.6] as const,
     seatZ: [-5.05, -2.85] as const,
     deckY: 0.6,
