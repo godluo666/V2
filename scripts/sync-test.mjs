@@ -191,7 +191,22 @@ check('服务器权威 position 已 seek 到 300', a.media?.position === 300 && 
 for (const page of [p1, p2]) {
   await page.evaluate(() => window.__nx.ui.getState().openPanel({ kind: 'media', screenId: 'cine-screen' }));
 }
-await p1.waitForTimeout(350);
+// Let each low-FPS page process its focus/visibility refresh and verify that
+// the rendered attribute has caught up to that page's own server-clock anchor
+// before comparing the two DOM progress values.
+for (const page of [p1, p2]) {
+  await page.bringToFront();
+  await page.waitForFunction(() => {
+    const media = window.__nx.world.getState().media;
+    const attr = Number(document.querySelector('[data-authoritative-position]')?.getAttribute('data-authoritative-position'));
+    if (!media || !Number.isFinite(attr)) return false;
+    const now = Date.now() + window.__nx.connection.serverTimeOffset;
+    const expected = media.playing
+      ? media.position + Math.max(0, now - media.updatedAt) / 1000 * media.rate
+      : media.position;
+    return Math.abs(attr - expected) < 0.45;
+  }, undefined, { timeout: 12_000, polling: 200 });
+}
 const [uiA, uiB] = await Promise.all([p1, p2].map((page) => page.evaluate(() =>
   Number(document.querySelector('[data-authoritative-position]')?.getAttribute('data-authoritative-position')),
 )));

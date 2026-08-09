@@ -20,10 +20,20 @@ function useAuthoritativeMediaPosition(media: MediaState | null): number {
   const calculate = () => media ? mediaPositionAt(media, Date.now() + hot.serverTimeOffset) : 0;
   const [position, setPosition] = useState(calculate);
   useEffect(() => {
-    setPosition(calculate());
+    const refresh = () => setPosition(calculate());
+    refresh();
     if (!media?.playing) return;
-    const iv = setInterval(() => setPosition(calculate()), 200);
-    return () => clearInterval(iv);
+    const iv = setInterval(refresh, 200);
+    // Chromium can pause timers for a background SwiftShader page. Refresh
+    // immediately when the panel regains focus/visibility so the displayed
+    // bar never resumes from an old local media-element clock.
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
   }, [media]);
   return position;
 }

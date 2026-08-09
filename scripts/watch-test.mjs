@@ -170,6 +170,9 @@ for (let i = 0; i < 10; i++) {
   const fsBad = await waitState(false);
   if (fsBad) { stable = false; console.log('  ✗ 全屏态异常 @ round', i, JSON.stringify(fsBad)); break; }
   await p1.keyboard.press('Escape');
+  // CSS3D projection is restored in a layout effect. Give Chromium one full
+  // layout/paint turn before the strict world-state poll begins.
+  await p1.waitForTimeout(500);
   const backBad = await waitState(true);
   if (backBad) { stable = false; console.log('  ✗ 退出态异常 @ round', i, JSON.stringify(backBad)); break; }
 }
