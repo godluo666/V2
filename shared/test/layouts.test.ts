@@ -78,6 +78,10 @@ describe('月汐町一番街坐标契约', () => {
       expect(door?.pos[2]).toBe(venue.z);
       expect(venue.route.at(-1)).toEqual(venue.approach);
     }
+    const cinema = VENUES.find((venue) => venue.key === 'cinema')!;
+    const cinemaFramingPoint = cinema.route.at(-2)!;
+    expect(cinemaFramingPoint[0]).toBeCloseTo(cinema.approach[0], 6);
+    expect(cinemaFramingPoint[1]).toBeGreaterThan(cinema.approach[1]);
   });
 
   it('住宅与场馆不压住道路和步道', () => {

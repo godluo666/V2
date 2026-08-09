@@ -67,13 +67,22 @@ function venueEnvelope(key: VenueKey): VenueEnvelope {
   };
 }
 
-function mediaTowerEnvelope(): { building: (typeof BUILDINGS)[number]; rotation: number; front: number } {
+function mediaTowerEnvelope(): {
+  building: (typeof BUILDINGS)[number];
+  rotation: number;
+  front: number;
+  frontage: number;
+  depth: number;
+} {
   const building = BUILDINGS.find((item) => item.style === 'mediaTower');
   if (!building) throw new Error('Missing media tower in cityplan');
+  const size = cityBuildingLocalSize(building);
   return {
     building,
     rotation: building.ry ?? 0,
-    front: cityBuildingLocalSize(building).depth / 2,
+    front: size.depth / 2,
+    frontage: size.frontage,
+    depth: size.depth,
   };
 }
 
@@ -320,8 +329,11 @@ function cinemaStructure(palette: HeroMaterials): THREE.Group {
   const facadeZ = envelope.front - 0.05;
   const roofY = envelope.building.h;
 
-  const portal = portalGeometry(7.25, 10.8, 5.05, 1.35, 0.72);
-  batch.geometry('inkMetal', portal, new THREE.Vector3(portalX, 0.08, facadeZ + 0.12));
+  // Keep the entrance crown inside the normal 42° approach framing; the much
+  // taller roof silhouette remains separate above the main building mass.
+  const portal = portalGeometry(7.25, 9.7, 5.05, 1.25, 0.72);
+  batch.geometry('paleConcrete', portal, new THREE.Vector3(portalX, 0.08, facadeZ + 0.12));
+  batch.box('cinemaAccent', portalX, 9.18, facadeZ + 0.54, 5.25, 0.24, 0.34);
 
   // The authoritative interaction marker sits 1.7m in front of the old wall
   // plane. A projecting vestibule physically joins that marker back to the
@@ -626,6 +638,58 @@ function mediaTowerScreenShell(palette: HeroMaterials): THREE.Group {
   const frontZ = envelope.front + 0.01;
   const screenBottom = 4.74;
   const screenTop = 11.96;
+
+  // Deep ground-floor arcade on all camera-facing sides. The original podium
+  // was a single 4.8m-high mass; these projecting mullions, recessed panes,
+  // sills and cornices split that grey wall before any signage is considered.
+  const frontBayCount = 5;
+  const frontBayWidth = (envelope.frontage - 0.8) / frontBayCount;
+  batch.box('inkMetal', 0, 1.82, frontZ - 0.78, envelope.frontage - 1.05, 3.34, 0.26);
+  for (let bay = 0; bay < frontBayCount; bay++) {
+    const x = -envelope.frontage / 2 + 0.4 + (bay + 0.5) * frontBayWidth;
+    const material: MaterialSlot = bay === 1 || bay === 4 ? 'warmGlass' : 'darkGlass';
+    batch.box(material, x, 1.72, frontZ + 0.38, frontBayWidth - 0.42, 2.72, 0.16);
+    batch.box('brightMetal', x, 0.34, frontZ + 0.45, frontBayWidth - 0.34, 0.14, 0.38);
+    batch.box('brightMetal', x, 3.1, frontZ + 0.45, frontBayWidth - 0.34, 0.14, 0.38);
+  }
+  for (let edge = 0; edge <= frontBayCount; edge++) {
+    const x = -envelope.frontage / 2 + 0.4 + edge * frontBayWidth;
+    batch.box('concrete', x, 1.85, frontZ + 0.42, 0.26, 3.7, 0.62);
+  }
+  batch.box('brightMetal', 0, 3.72, frontZ + 0.48, envelope.frontage + 0.18, 0.28, 0.62);
+  batch.box('inkMetal', 0, 4.02, frontZ + 0.92, envelope.frontage + 0.38, 0.2, 1.5, -0.08, 0, 0);
+  for (const x of [-envelope.frontage * 0.34, 0, envelope.frontage * 0.34]) {
+    batch.beam(
+      'brightMetal',
+      new THREE.Vector3(x, 3.66, frontZ + 0.28),
+      new THREE.Vector3(x, 3.88, frontZ + 1.58),
+      0.055,
+      8,
+    );
+  }
+
+  // The southwest entry camera sees the media tower obliquely, so the west
+  // return is as important as the nominal front. Both side elevations receive
+  // real window depth and a continuous load-bearing lintel instead of a blind
+  // concrete slab. The east return keeps the cinema approach coherent too.
+  const sideBayCount = 5;
+  const sideBayDepth = (envelope.depth - 1.0) / sideBayCount;
+  for (const side of [-1, 1]) {
+    const sideX = side * (envelope.frontage / 2 + 0.16);
+    for (let bay = 0; bay < sideBayCount; bay++) {
+      const z = -envelope.depth / 2 + 0.5 + (bay + 0.5) * sideBayDepth;
+      const material: MaterialSlot = (bay + (side > 0 ? 1 : 0)) % 3 === 0 ? 'warmGlass' : 'darkGlass';
+      batch.box(material, sideX, 1.7, z, 0.16, 2.65, sideBayDepth - 0.38);
+      batch.box('brightMetal', sideX + side * 0.09, 0.34, z, 0.34, 0.14, sideBayDepth - 0.28);
+      batch.box('brightMetal', sideX + side * 0.09, 3.06, z, 0.34, 0.14, sideBayDepth - 0.28);
+    }
+    for (let edge = 0; edge <= sideBayCount; edge++) {
+      const z = -envelope.depth / 2 + 0.5 + edge * sideBayDepth;
+      batch.box('concrete', sideX + side * 0.12, 1.82, z, 0.48, 3.65, 0.25);
+    }
+    batch.box('brightMetal', sideX + side * 0.12, 3.7, 0, 0.5, 0.28, envelope.depth - 0.38);
+    batch.box('inkMetal', sideX + side * 0.52, 3.98, 0, 1.1, 0.18, envelope.depth - 0.2, 0, 0, side * 0.035);
+  }
 
   // Curved segmented upper/lower cases.  The centre bows 0.55m into the street
   // and each section owns side faces, unlike a single flat sign plane.

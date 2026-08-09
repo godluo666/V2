@@ -28,19 +28,28 @@ function tinted(kind: SurfaceKind, color: string, micro = true) {
   return material;
 }
 
-const concrete = tinted('oldConcrete', '#242329');
-const paintedSteel = tinted('metal', '#232731');
-const brushedSteel = tinted('brushedMetal', '#6c6870');
-const blackSteel = tinted('metal', '#101218');
-const darkGlass = tinted('darkGlass', '#101924');
-const wallFabric = tinted('acousticFabric', '#201923');
-const burgundyFabric = tinted('acousticFabric', '#4c1c2c');
-const curtainVelvet = tinted('seatFabric', '#4e1327');
-const cinemaCarpet = tinted('cinemaCarpet', '#21151e');
-const stageCarpet = tinted('cinemaCarpet', '#351826');
-const walnut = tinted('wood', '#4b3029');
-const speakerCone = tinted('seatFabric', '#17151a');
+// The auditorium stays dark, but no structural material starts at digital
+// black. These values were calibrated against the cloud SwiftShader captures,
+// where the earlier #10-#24 albedos erased roughness and edge response.
+const concrete = tinted('oldConcrete', '#3c3941');
+const paintedSteel = tinted('metal', '#3a3f49');
+const brushedSteel = tinted('brushedMetal', '#8a8790');
+const blackSteel = tinted('metal', '#1e222b');
+const darkGlass = tinted('darkGlass', '#263341');
+const wallFabric = tinted('acousticFabric', '#443440');
+const burgundyFabric = tinted('acousticFabric', '#702c43');
+const curtainVelvet = tinted('seatFabric', '#7b203d');
+const cinemaCarpet = tinted('cinemaCarpet', '#38242f');
+const stageCarpet = tinted('cinemaCarpet', '#59283d');
+const walnut = tinted('wood', '#6b493b');
+const speakerCone = tinted('seatFabric', '#302b34');
 const speakerDustCap = tinted('darkGlass', '#06070a');
+
+const screenSheen = new THREE.MeshStandardMaterial({
+  color: '#334154', emissive: '#364a65', emissiveIntensity: 0.2,
+  roughness: 0.72, metalness: 0.02, transparent: true, opacity: 0.2,
+  depthWrite: false, toneMapped: true,
+});
 
 const guideOn = new THREE.MeshStandardMaterial({
   color: '#ffd2a0', emissive: '#ff7a42', emissiveIntensity: 1.5,
@@ -275,6 +284,12 @@ function ScreenProscenium({ lightsOn }: { lightsOn: boolean }) {
       <mesh position={[0, 6.8, -14.59]} material={blackSteel} receiveShadow>
         <boxGeometry args={[25.15, 10.85, 0.42]} />
       </mesh>
+      {/* Low-energy reflective veil: preserves a readable screen surface when
+          a persisted media source is black/initialising. The DOM video remains
+          the sole player and renders above this translucent physical layer. */}
+      <mesh position={[0, 6.8, -14.265]} material={screenSheen} renderOrder={1}>
+        <planeGeometry args={[23.94, 9.94]} />
+      </mesh>
 
       {/* Load-bearing proscenium and stepped inner reveal. */}
       {[-13.15, 13.15].map((x) => (
@@ -382,7 +397,7 @@ function AcousticWallBay({ side, z, index, lightsOn }: {
           <mesh position={[0, 0, 0.025]} material={lightsOn ? guideOn : guideOff}>
             <boxGeometry args={[0.26, 0.5, 0.08]} />
           </mesh>
-          {lightsOn && <pointLight position={[0, -0.15, 0.42]} color="#ff9164" intensity={1.6} distance={5.5} decay={2} />}
+          {lightsOn && <pointLight position={[0, -0.15, 0.42]} color="#ff9a70" intensity={5.5} distance={8} decay={1.85} />}
         </group>
       )}
     </group>
@@ -621,9 +636,41 @@ export function CinemaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
 
       {lightsOn && (
         <>
-          <pointLight position={[0, 11.9, 8.5]} color="#ffd0a2" intensity={13} distance={18} decay={2} castShadow />
-          <pointLight position={[-13.6, 7.2, 3]} color="#b73d5d" intensity={4} distance={10} decay={2} />
-          <pointLight position={[13.6, 7.2, 3]} color="#5577b8" intensity={3.5} distance={10} decay={2} />
+          {/* Screen bounce: broad cool source gives the seat fronts and stage a
+              readable value without lifting the whole room through ambient. */}
+          <rectAreaLight
+            position={[0, 7.1, -13.15]}
+            rotation={[0, Math.PI, 0]}
+            color="#b8cbe0"
+            intensity={4.8}
+            width={21}
+            height={8.2}
+          />
+          <spotLight
+            position={[0, 9.2, -12.7]}
+            target-position={[0, 1.35, 3.8]}
+            color="#9eb8d4"
+            intensity={72}
+            angle={0.83}
+            penumbra={0.82}
+            distance={28}
+            decay={1.65}
+          />
+          {/* Rear house light reveals upholstery backs and stepped depth; the
+              narrow cone leaves the side walls and ceiling in controlled dark. */}
+          <spotLight
+            position={[0, 9.8, 12.2]}
+            target-position={[0, 1.4, 0.5]}
+            color="#ffd0a6"
+            intensity={82}
+            angle={0.72}
+            penumbra={0.78}
+            distance={25}
+            decay={1.7}
+          />
+          <pointLight position={[0, 11.9, 8.5]} color="#ffd0a2" intensity={24} distance={21} decay={1.85} castShadow />
+          <pointLight position={[-14.2, 6.3, 1.5]} color="#d06a77" intensity={11} distance={12} decay={1.85} />
+          <pointLight position={[14.2, 6.3, 1.5]} color="#718db9" intensity={10} distance={12} decay={1.85} />
         </>
       )}
     </group>
@@ -631,13 +678,13 @@ export function CinemaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
 }
 
 const seatFabrics = [
-  tinted('seatFabric', '#6b1d34'),
-  tinted('seatFabric', '#741f38'),
-  tinted('seatFabric', '#64192f'),
+  tinted('seatFabric', '#8d2b49'),
+  tinted('seatFabric', '#99324f'),
+  tinted('seatFabric', '#81243f'),
 ];
-const seatMetal = tinted('metal', '#24252b');
-const seatTrim = tinted('brushedMetal', '#77727a');
-const cupInterior = tinted('darkGlass', '#090a0d');
+const seatMetal = tinted('metal', '#3b3e47');
+const seatTrim = tinted('brushedMetal', '#9c969e');
+const cupInterior = tinted('darkGlass', '#151a21');
 
 /**
  * Grounded premium cinema chair.  `position.y` is the exact deck contact

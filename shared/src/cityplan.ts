@@ -195,7 +195,10 @@ export const VENUES: CityVenue[] = [
     // approach leaves the door as the only actionable target in the scan cone.
     key: 'cinema', x: 16.0, z: -5.45, ry: 0, label: '星汐电影院',
     approach: [16.0, -4.85],
-    route: [[-8, 5.2], [-3, 1], [-3.2, -5.1], [16.0, -5.1], [16.0, -4.85]],
+    // Keep the final leg on the street side of the door and walk north into the
+    // facade. The follow camera therefore finishes facing the physical lobby,
+    // rather than turning its back on the entrance for the last 25 centimetres.
+    route: [[-8, 5.2], [-3, 1], [-3.2, -4.0], [16.0, -4.0], [16.0, -4.85]],
   },
   {
     key: 'netcafe', x: -1.08, z: 15.05, ry: -Math.PI / 2, label: '镜界电竞观战馆',

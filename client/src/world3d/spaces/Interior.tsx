@@ -46,13 +46,13 @@ const CONFIGS: Record<string, InteriorConfig> = {
     wallColor: '#342a31', trimColor: '#6b3b3d', ceilingColor: '#19171d', height: 13.5,
     floor: 'carpet', gaps: [{ side: 's', center: 0, width: 4.2 }],
     lights: [
-      { x: -14.6, z: -7, color: '#d66f67', intensity: 3.6 },
-      { x: 14.6, z: -7, color: '#d66f67', intensity: 3.6 },
-      { x: -14.6, z: 2.5, color: '#d66f67', intensity: 3.8 },
-      { x: 14.6, z: 2.5, color: '#d66f67', intensity: 3.8 },
-      { x: -14.6, z: 10.5, color: '#f0a764', intensity: 4.6 },
-      { x: 14.6, z: 10.5, color: '#f0a764', intensity: 4.6 },
-      { x: 0, z: 12.8, color: '#ffd19a', intensity: 6.8 },
+      { x: -14.6, z: -7, color: '#e8877e', intensity: 6.8 },
+      { x: 14.6, z: -7, color: '#d77d85', intensity: 6.8 },
+      { x: -14.6, z: 2.5, color: '#e8877e', intensity: 7.2 },
+      { x: 14.6, z: 2.5, color: '#839fca', intensity: 7.2 },
+      { x: -14.6, z: 10.5, color: '#f4b67b', intensity: 8.4 },
+      { x: 14.6, z: 10.5, color: '#f4b67b', intensity: 8.4 },
+      { x: 0, z: 12.8, color: '#ffd8a8', intensity: 10.5 },
     ],
   },
   arcade: {
@@ -328,7 +328,7 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
       {/* soft fill so interiors read clearly at any hour */}
       {lightsOn && (
         <ambientLight
-          intensity={spaceKey === 'cinema' ? 0.2 : spaceKey === 'netcafe' ? 0.24 : spaceKey === 'gameroom' ? 0.4 : 0.48}
+          intensity={spaceKey === 'cinema' ? 0.09 : spaceKey === 'netcafe' ? 0.24 : spaceKey === 'gameroom' ? 0.4 : 0.48}
           color={spaceKey === 'netcafe' ? '#8ea8c9' : cfg.neon ? '#a8add2' : '#fff2df'}
         />
       )}

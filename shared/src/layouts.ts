@@ -123,7 +123,10 @@ class B {
 
 /** Safe fallback used by archived rooms that no longer have a public façade. */
 /** South crosswalk reveal: camera starts down the short street and frames the sign canyon. */
-const STREET_SPAWN: [number, number, number, number] = [-8, 0, 5.2, Math.PI - 0.46];
+// Aim the establishing view at the media-tower arcade rather than the blind
+// edge between it and the north vista. This remains a player camera, not a
+// screenshot-only override, and keeps both crosswalk arms inside the frame.
+const STREET_SPAWN: [number, number, number, number] = [-8, 0, 5.2, Math.PI - 0.6];
 
 function streetReturnFor(key: (typeof VENUES)[number]['key']): [number, number, number, number] {
   const venue = VENUES.find((candidate) => candidate.key === key);

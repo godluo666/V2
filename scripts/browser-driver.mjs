@@ -122,12 +122,18 @@ export async function walkFromVenueDoorToSpawn(page, venueKey) {
     if (!venue?.route?.length) throw new Error(`Missing shared route for venue: ${key}`);
     return [...venue.route].reverse();
   }, venueKey);
-  // SwiftShader can spend several seconds compiling the interior while the
-  // first outdoor frames resume. Preserve the same route, but give each leg a
-  // cloud-safe window instead of treating that render hitch as a blocked path.
-  return walkRoute(page, points.map(([x, z], index) => (
-    index === points.length - 1 ? [x, z, 24_000, 1] : [x, z, 24_000, 1]
-  )));
+  // SwiftShader can spend several seconds compiling the outdoor scene again
+  // after an interior exit. Keep using real input and authoritative snapshots,
+  // but retry an interrupted leg once after input focus is re-established.
+  // This does not teleport or relax collision checks: both attempts still use
+  // walkTo and the shared route points.
+  for (const [x, z] of points) {
+    if (await walkTo(page, x, z, 24_000, 1)) continue;
+    await prepareWorldInput(page);
+    await page.waitForTimeout(450);
+    if (!await walkTo(page, x, z, 36_000, 1.2)) return false;
+  }
+  return true;
 }
 
 /** Reach and enter a street venue using only coordinates from `cityplan.ts`. */

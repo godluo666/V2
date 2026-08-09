@@ -518,24 +518,36 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   const warmGlassMat = surfaceMaterial('glass');
   warmGlassMat.color.set('#e5a557'); warmGlassMat.emissive.set('#ffb858'); warmGlassMat.emissiveIntensity = 0.2;
 
+  // The podium is a recessed service core, not a full-width street wall. The
+  // surrounding columns and transfer slabs leave genuine arcade voids for the
+  // deep storefronts supplied by HeroStreetStructures; from an oblique camera
+  // the side elevation now exposes the same 0.9-1.3m reveal as the front.
   const podiumGeo = unitFacade().clone();
-  podiumGeo.scale(w, 4.8, d);
+  podiumGeo.scale(w - 1.8, 4.45, d - 1.9);
   const podium = new THREE.Mesh(podiumGeo, podiumMat);
-  podium.position.y = 2.4;
+  podium.position.set(0, 2.225, -0.35);
   podium.castShadow = true;
   podium.receiveShadow = true;
   addOutline(podium);
   local.add(podium);
-  // 首层石材板缝与转角压条，避免巨幕塔底座退化成一整块无纹理方盒。
-  for (let i = -4; i <= 4; i++) {
-    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.035, 4.5, 0.03), inkMat);
-    seam.position.set(i * w * 0.105, 2.35, d / 2 + 0.03);
-    local.add(seam);
-  }
-  for (const side of [-1, 1] as const) {
-    const corner = new THREE.Mesh(new THREE.BoxGeometry(0.14, 4.6, d + 0.12), inkMat);
-    corner.position.set(side * (w / 2 - 0.08), 2.35, 0);
-    local.add(corner);
+  const structuralParts = [
+    // continuous base and roof transfer the tower load into the arcade frame
+    { position: [0, 0.14, 0] as const, size: [w + 0.12, 0.28, d + 0.12] as const, material: podiumMat },
+    { position: [0, 4.58, 0] as const, size: [w + 0.24, 0.42, d + 0.24] as const, material: inkMat },
+    // closed rear service wall; the three public-facing elevations remain open
+    { position: [0, 2.25, -d / 2 + 0.18] as const, size: [w, 4.5, 0.36] as const, material: podiumMat },
+    ...([-1, 1] as const).flatMap((sx) => ([-1, 1] as const).map((sz) => ({
+      position: [sx * (w / 2 - 0.38), 2.3, sz * (d / 2 - 0.38)] as const,
+      size: [0.72, 4.6, 0.72] as const,
+      material: podiumMat,
+    }))),
+  ];
+  for (const part of structuralParts) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...part.size), part.material);
+    mesh.position.set(...part.position);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    local.add(mesh);
   }
 
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 16), bodyMat);
@@ -554,20 +566,6 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
     fin.position.set(x, 26, z);
     local.add(fin);
   }
-
-  // 首层连续橱窗、暖门厅与檐口，把地标落到真实商业街尺度。
-  for (let i = -4; i <= 4; i++) {
-    const pane = new THREE.Mesh(
-      new THREE.BoxGeometry(w * 0.09, 2.55, 0.12),
-      i === 1 ? warmGlassMat : glassMat,
-    );
-    pane.position.set(i * w * 0.105, 1.55, d / 2 + 0.08);
-    local.add(pane);
-  }
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(w * 0.96, 0.18, 1.18), inkMat);
-  canopy.position.set(0, 4.7, d / 2 + 0.38);
-  canopy.rotation.x = -0.12;
-  local.add(canopy);
 
   // 主屏从首层檐口直接起跳，默认镜头内占据右上视觉焦点。
   const displayW = w * 0.94;

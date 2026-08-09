@@ -898,7 +898,7 @@ function WallArchitecture({ lightsOn }: { lightsOn: boolean }) {
       {[-1.82, 1.82].map((x) => (
         <Part key={`portal-jamb-${x}`} position={[x, 4.5, 16.52]} scale={[0.36, 9.0, 0.55]} material={MATERIAL.blackMetal} />
       ))}
-      <Part position={[0, 6.0, 16.52]} scale={[3.3, 6.0, 0.55]} material={MATERIAL.blackMetal} />
+      <Part position={[0, 6.6, 16.52]} scale={[3.3, 5.2, 0.55]} material={MATERIAL.blackMetal} />
       {[-1.43, 1.43].map((x) => (
         <Part key={`portal-glass-${x}`} position={[x, 1.42, 16.22]} scale={[0.58, 2.72, 0.12]} material={MATERIAL.glass} />
       ))}
@@ -907,7 +907,7 @@ function WallArchitecture({ lightsOn }: { lightsOn: boolean }) {
       <Part position={[0, 7.25, 14.9]} scale={[20.5, 0.48, 2.4]} material={MATERIAL.darkSteel} />
       <Part position={[0, 7.55, 14.9]} scale={[19.7, 0.14, 2.05]} material={MATERIAL.deck} />
       <RailRun position={[0, 7.62, 13.82]} length={19.7} axis="x" />
-      {[-9.4, -4.7, 0, 4.7, 9.4].map((x) => (
+      {[-9.4, -4.7, 4.7, 9.4].map((x) => (
         <Part key={x} position={[x, 5.15, 14.9]} scale={[0.32, 4.2, 0.32]} material={MATERIAL.steel} />
       ))}
     </group>
@@ -927,6 +927,22 @@ export function ArenaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
       <OverheadRig lightsOn={lightsOn} />
       <BroadcastAndControl lightsOn={lightsOn} />
       <WallArchitecture lightsOn={lightsOn} />
+
+      {/*
+       * 低画质也保留体积：这两盏结构光不投影、不依赖 Bloom/SSAO，
+       * 只把深色钢架、看台踏步和主屏外壳从黑背景中分离出来。
+       */}
+      <hemisphereLight
+        color="#91aac4"
+        groundColor="#171522"
+        intensity={lightsOn ? 0.42 : 0.12}
+      />
+      <directionalLight
+        position={[8, 12, 10]}
+        color="#d9e8f5"
+        intensity={lightsOn ? 0.7 : 0.16}
+        castShadow={false}
+      />
 
       {/* 非霓虹主照明：比赛区、观众区与后场均保留可读暗部。 */}
       {lightsOn && (

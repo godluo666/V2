@@ -10,7 +10,7 @@ import {
   WALK_SPEED, RUN_SPEED, JUMP_VELOCITY, GRAVITY, PLAYER_RADIUS,
   resolveCollisions, clampToBounds, floorHeightAt, LAYOUTS, isRoomSpace,
   ROOM_BOUNDS, SPACE, Anim, EMOTES, INTERACT_RANGE, dist2d,
-  GRAB_RANGE, HOLD_MIN, HOLD_MAX, LIFT_MAX, GRABBER_SLOW, INPUT_RATE,
+  GRAB_RANGE, HOLD_MIN, HOLD_MAX, LIFT_MAX, GRABBER_SLOW, INPUT_RATE, VENUES,
 } from '@nexuspark/shared';
 import { hot } from '../state/hot';
 import { useWorld, useUI, useSession, useVoice, useSettings, useSocial } from '../state/stores';
@@ -26,6 +26,7 @@ import { audio } from '../audio/engine';
 // truss; clamping either venue to the old low-room ceiling made the first frame
 // show wall paint instead of the screen, stage, and stands.
 const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 13.5, arcade: 3.6, shop: 3.4, lobby: 4.2, netcafe: 13.2, gameroom: 4.2 };
+const STREET_CINEMA = VENUES.find((venue) => venue.key === 'cinema');
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -343,22 +344,54 @@ export default function LocalPlayer() {
     // ── Camera rig(third/first 双模式,0.25s 平滑过渡)──
     const cam = hot.camera;
     const streetView = spaceKey === SPACE.PLAZA;
+    // The cinema door is close to a tall facade, so the generic follow rig can
+    // only frame its threshold. When the player deliberately faces the lobby
+    // from its shared approach, ease the same player camera backward and lift
+    // its target to the entrance crown. Turning away or leaving the pavement
+    // removes the blend immediately; this is not a cloud-test camera branch.
+    let cinemaFacadeFrame = 0;
+    if (streetView && STREET_CINEMA) {
+      const dx = l.x - STREET_CINEMA.approach[0];
+      const dz = l.z - STREET_CINEMA.approach[1];
+      const distance = Math.hypot(dx, dz);
+      const yawDelta = Math.atan2(
+        Math.sin(cam.yaw - STREET_CINEMA.ry),
+        Math.cos(cam.yaw - STREET_CINEMA.ry),
+      );
+      const proximity = 1 - THREE.MathUtils.smoothstep(distance, 1.6, 5.2);
+      const facing = 1 - THREE.MathUtils.smoothstep(Math.abs(yawDelta), 0.32, 0.82);
+      cinemaFacadeFrame = proximity * facing;
+    }
     // 玩家仍是原来的团子尺寸；户外把摄影目标抬到二层店招高度，让角色落在
     // 画面下三分之一，同时保留略向上的都市峡谷视角。
     const compositionLift = streetView
-      ? 1.72
+      ? THREE.MathUtils.lerp(1.72, 5.1, cinemaFacadeFrame)
       : spaceKey === SPACE.CINEMA ? 1.65
         : spaceKey === SPACE.NETCAFE ? 1.9
           : 0.8;
     const headY = l.y + compositionLift;
-    let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
-    let cz = l.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
-    let cy = headY + Math.sin(cam.pitch) * cam.dist;
+    const viewDistance = streetView
+      // 11.5m frames the 9.7m portal while keeping the lens north of the
+      // opposite apartment's projecting balcony line at world z≈7.3.
+      ? THREE.MathUtils.lerp(cam.dist, Math.max(cam.dist, 11.5), cinemaFacadeFrame)
+      : cam.dist;
+    // A slight eastward shoulder view reveals the vestibule depth and keeps the
+    // pulled-back lens clear of the phone booth at (16.3, 7.15).
+    const facadeShoulder = cinemaFacadeFrame * 1.8;
+    let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * viewDistance
+      + Math.cos(cam.yaw) * facadeShoulder;
+    let cz = l.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * viewDistance
+      - Math.sin(cam.yaw) * facadeShoulder;
+    let cy = headY + Math.sin(cam.pitch) * viewDistance;
     // keep the camera inside small interiors instead of behind their walls
     const ceiling = CEILINGS[spaceKey] ?? (isRoomSpace(spaceKey) ? 3.0 : 0);
     if (ceiling > 0) {
-      cx = Math.min(Math.max(cx, bounds.minX + 0.35), bounds.maxX - 0.35);
-      cz = Math.min(Math.max(cz, bounds.minZ + 0.35), bounds.maxZ - 0.35);
+      // The rebuilt cinema has 0.5-1.1m thick acoustic/rear-wall assemblies.
+      // Its old 0.35m camera inset placed the lens inside the z=14.7 sliding
+      // door/header, producing a near-clipped black evidence frame.
+      const wallInset = spaceKey === SPACE.CINEMA ? 1.45 : 0.35;
+      cx = Math.min(Math.max(cx, bounds.minX + wallInset), bounds.maxX - wallInset);
+      cz = Math.min(Math.max(cz, bounds.minZ + wallInset), bounds.maxZ - wallInset);
       cy = Math.min(cy, ceiling - 0.25);
     }
     const floorAtCam = floorHeightAt(layout, cx, cz);
