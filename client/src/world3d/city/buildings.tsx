@@ -543,8 +543,11 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
     }))),
   ];
   for (const part of structuralParts) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...part.size), part.material);
-    mesh.position.set(...part.position);
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(part.size[0], part.size[1], part.size[2]),
+      part.material,
+    );
+    mesh.position.set(part.position[0], part.position[1], part.position[2]);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     local.add(mesh);
