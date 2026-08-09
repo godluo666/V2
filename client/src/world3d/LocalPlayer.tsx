@@ -23,9 +23,9 @@ import { audio } from '../audio/engine';
 /** Interior ceiling heights for camera containment (rooms default to 3.0). */
 // Keep the large public venues framed as spaces rather than letting the camera
 // clip down into a low ceiling.  The arena has a 4.6m shell and a suspended
-// truss; clamping it to the old 3.4m room height made the first frame show wall
-// paint instead of the stage and stands.
-const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 12, arcade: 3.6, shop: 3.4, lobby: 4.2, netcafe: 4.4 };
+// truss; clamping either venue to the old low-room ceiling made the first frame
+// show wall paint instead of the screen, stage, and stands.
+const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 13.5, arcade: 3.6, shop: 3.4, lobby: 4.2, netcafe: 13.2, gameroom: 4.2 };
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -345,7 +345,12 @@ export default function LocalPlayer() {
     const streetView = spaceKey === SPACE.PLAZA;
     // 玩家仍是原来的团子尺寸；户外把摄影目标抬到二层店招高度，让角色落在
     // 画面下三分之一，同时保留略向上的都市峡谷视角。
-    const headY = l.y + (streetView ? 1.72 : 0.8);
+    const compositionLift = streetView
+      ? 1.72
+      : spaceKey === SPACE.CINEMA ? 1.65
+        : spaceKey === SPACE.NETCAFE ? 1.9
+          : 0.8;
+    const headY = l.y + compositionLift;
     let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
     let cz = l.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist;
     let cy = headY + Math.sin(cam.pitch) * cam.dist;
@@ -446,6 +451,8 @@ export default function LocalPlayer() {
     }
     let best: Target | null = null;
     let bestScore = Infinity;
+    let bestDoor: Target | null = null;
+    let bestDoorScore = Infinity;
     const camYaw = hot.camera.yaw;
     const fx = -Math.sin(camYaw);
     const fz = -Math.cos(camYaw);
@@ -454,10 +461,13 @@ export default function LocalPlayer() {
       const d = Math.hypot(dx, dz);
       if (d > INTERACT_RANGE) return;
       const facing = d > 0.001 ? (dx / d) * fx + (dz / d) * fz : 1;
-      // Entrances are intentional navigation anchors. Prefer a nearby door
-      // over an ambient bench/chair when their interaction radii overlap.
-      const doorBias = t.kind === 'door' && t.data?.target ? 0.45 : 0;
-      const score = d * (1.35 - Math.max(-0.2, facing)) - doorBias;
+      const score = d * (1.35 - Math.max(-0.2, facing));
+      // Entrances are intentional navigation anchors. Once a valid door is in
+      // range, ambient seats/NPCs must not steal E from the venue facade.
+      if (t.kind === 'door' && t.data?.target) {
+        if (score < bestDoorScore) { bestDoorScore = score; bestDoor = t; }
+        return;
+      }
       if (score < bestScore) { bestScore = score; best = t; }
     };
     for (const t of staticTargets) consider(t);
@@ -474,9 +484,10 @@ export default function LocalPlayer() {
     if (hot.ball.active && dist2d(px, pz, hot.ball.x, hot.ball.z) < 2.1) {
       consider({ id: 'ball', kind: 'ball', x: hot.ball.x, y: 0.3, z: hot.ball.z, ry: 0, label: '踢一脚沙滩球' });
     }
-    currentTarget.current = best;
-    if (best) {
-      ui.setPrompt({ label: labelFor(best), key: 'E' });
+    const selected = bestDoor ?? best;
+    currentTarget.current = selected;
+    if (selected) {
+      ui.setPrompt({ label: labelFor(selected), key: 'E' });
     } else if (grabCandidate.current != null) {
       // 没有 E 互动目标时,提示行显示抓取候选(准星高亮的那只团子)
       const ge = hot.players.get(grabCandidate.current);
@@ -485,6 +496,17 @@ export default function LocalPlayer() {
       ui.setPrompt(null);
     }
   };
+
+  // Interaction availability is gameplay state, not a visual effect. Keep it
+  // responsive even when cloud/mobile WebGL renders only a few frames per
+  // second; the store already de-duplicates identical prompt writes.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const l = hot.local;
+      scanInteractions(targets, l.x, l.z, l.ry);
+    }, 160);
+    return () => window.clearInterval(timer);
+  }, [targets]);
 
   if (!self) return null;
   return (

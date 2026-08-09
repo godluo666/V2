@@ -10,7 +10,7 @@ import {
   Sofa, CoffeeTable, Chair, Plant, Fireplace,
 } from '../prefabs/furniture';
 import {
-  CafeCounter, CinemaSeat, CinemaRiser, Concession, RopeBarrier, ShopShelf, ShopCounter,
+  CafeCounter, CinemaRiser, Concession, RopeBarrier, ShopShelf, ShopCounter,
   Directory, Mailboxes, WindowFrame, TableRound, HedgeRing,
 } from '../prefabs/interiors';
 import { MirrorStanding } from '../prefabs/furniture';
@@ -22,10 +22,13 @@ import MediaScreen from '../media/MediaScreen';
 import { Bookshelf } from '../prefabs/furniture';
 import { XiangqiTablePrefab, MahjongTablePrefab, RiichiTablePrefab } from '../prefabs/gameTables';
 import {
-  NcStation, NcCounter, GrTea, GrCounter, GrLantern,
+  NcCounter, GrTea, GrCounter, GrLantern,
 } from '../prefabs/venueInteriors';
+import { ArenaPlayerStation } from '../prefabs/arenaHall';
+import { PremiumCinemaSeat } from '../prefabs/cinemaHall';
 import {
   ClubRug, ClubSofa, ClubStage, FlyingChessTable, ClubTrophyWall,
+  ClubStorageCabinet, ClubReadingNook, ClubChair,
 } from '../prefabs/clubInteriors';
 import {
   CLamp, CVend, CBench, CFence, CBike, CTrash, CPoster, CAc, CWires, CSignal,
@@ -50,7 +53,14 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'bld_shop': return <BldShop key={key} position={pos} />;
     case 'bld_tower': return <BldTower key={key} position={pos} />;
     case 'cafe_counter': return <CafeCounter key={key} position={pos} rotation={p.ry} />;
-    case 'cinema_seat': return <group key={key}><CinemaSeat position={pos} rotation={p.ry} /></group>;
+    case 'cinema_seat': return (
+      <PremiumCinemaSeat
+        key={key}
+        position={pos}
+        rotation={p.ry}
+        variant={((p.data?.row as number) ?? 0) + ((p.data?.seatIdx as number) ?? 0)}
+      />
+    );
     case 'cinema_riser': return (
       <CinemaRiser key={key} position={pos} rotation={p.ry}
         w={(p.data?.w as number) ?? 21}
@@ -68,13 +78,15 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'mailboxes': return <Mailboxes key={key} position={pos} rotation={p.ry} />;
     case 'window': return <WindowFrame key={key} position={pos} rotation={p.ry} w={(p.data?.w as number) ?? 1.6} />;
     case 'table_round': return <TableRound key={key} position={pos} />;
-    case 'chair': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><Chair color="#7a6248" /></group>;
+    case 'chair': return p.data?.style === 'club'
+      ? <ClubChair key={key} position={pos} ry={p.ry} accent={(p.data?.accent as number) ?? 0} />
+      : <group key={key} position={pos} rotation={[0, p.ry, 0]}><Chair color="#7a6248" /></group>;
     case 'sofa': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><Sofa color="#4d6a92" /></group>;
     case 'coffee_table': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><CoffeeTable color="#6e5136" /></group>;
     case 'plant': return <group key={key} position={pos}><Plant color="#3f7d44" /></group>;
     case 'fireplace': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><Fireplace color="#8a8078" state={{ on: true }} /></group>;
     // ── 网吧 NEXUS / 雀庄「东风阁」室内专属件(P5,总纲 §4.4)──────────────
-    case 'nc_station': return <NcStation key={key} position={pos} ry={p.ry} seatIdx={(p.data?.seatIdx as number) ?? 0} />;
+    case 'nc_station': return <ArenaPlayerStation key={key} position={pos} ry={p.ry} seatIdx={(p.data?.seatIdx as number) ?? 0} />;
     case 'nc_counter': return <NcCounter key={key} position={pos} ry={p.ry} />;
     case 'gr_tea': return <GrTea key={key} position={pos} ry={p.ry} />;
     case 'gr_counter': return <GrCounter key={key} position={pos} ry={p.ry} />;
@@ -87,6 +99,8 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'club_stage': return <ClubStage key={key} position={pos} ry={p.ry} />;
     case 'club_flying_chess': return <FlyingChessTable key={key} position={pos} ry={p.ry} />;
     case 'club_trophy_wall': return <ClubTrophyWall key={key} position={pos} ry={p.ry} />;
+    case 'club_storage': return <ClubStorageCabinet key={key} position={pos} ry={p.ry} />;
+    case 'club_reading_nook': return <ClubReadingNook key={key} position={pos} ry={p.ry} />;
     // ── 「月汐町·晴日生活街」c_* 城市道具(cityplan/P2 布局 → city/props2 组件)──
     case 'c_lamp': return <CLamp key={key} position={pos} ry={p.ry} />;
     case 'c_vend': return (
@@ -153,7 +167,7 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'screen': return it.id === 'cine-screen'
       ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={24} height={10} />
       : it.id === 'nc-wall'
-        ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={15.6} height={6.6} />
+        ? <MediaScreen key={key} position={it.pos} rotation={it.ry} width={22.4} height={7.6} />
         : <MediaScreen key={key} position={it.pos} rotation={it.ry} width={8.6} height={4.6} />;
     case 'jukebox': return <Jukebox key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} />;
     case 'ttt': return <TttMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;

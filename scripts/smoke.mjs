@@ -6,7 +6,8 @@
 import { chromium } from 'playwright';
 import {
   JOURNEY_CHROMIUM_ARGS, enterStreetVenue, exitToStreet,
-  interactWhenPrompt, prepareWorldInput, sitOnHighestSeat, walkFromVenueDoorToSpawn, walkTo,
+  interactWhenPrompt, prepareWorldInput, sitOnHighestSeat,
+  walkFromVenueDoorToSpawn, walkTo, walkToVenueDoor,
 } from './browser-driver.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
@@ -122,6 +123,9 @@ check('WebGL context available', await p1.evaluate(() => {
   return !!(canvas?.getContext('webgl2') || canvas?.getContext('webgl'));
 }));
 await captureEvidence(p1, 'street-crossroads-desktop.png', 'compact crossroads desktop');
+await walkToVenueDoor(p1, 'cinema');
+await captureEvidence(p1, 'street-cinema-facade-desktop.png', 'cinema facade close view');
+check('facade close-view route returns to street spawn', await walkFromVenueDoorToSpawn(p1, 'cinema'));
 
 let p2Browser = await launchBrowser();
 let p2 = await newPlayer(p2Browser, `smoke_p2_${RUN}`);
@@ -141,6 +145,7 @@ check(
   (await state(p1)).space === 'gameroom' && (await state(p2)).space === 'gameroom',
 );
 check('party hall uses the activity-room label', (await state(p1)).label.includes('社团活动室'));
+await captureEvidence(p1, 'party-hall-wide-desktop.png', 'party hall wide view');
 
 for (const page of [p1, p2]) {
   await walkTo(page, 4.7, 5.5, 12_000);
@@ -187,6 +192,7 @@ check('both players returned to the compact street', (await state(p1)).space ===
 for (const page of [p1, p2]) await enterCinema(page);
 const bothInCinema = (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema';
 check('both players entered the cinema', bothInCinema);
+if (bothInCinema) await captureEvidence(p1, 'cinema-hall-wide-desktop.png', 'cinema hall wide view');
 
 await p2Browser.close();
 if (bothInCinema) {
@@ -209,6 +215,14 @@ if (bothInCinema && await exitToStreet(p1)) {
   const enteredArena = await enterStreetVenue(p1, 'netcafe');
   if (enteredArena && (await state(p1)).space === 'netcafe') {
     await captureEvidence(p1, 'arena-desktop.png', 'esports arena desktop');
+    const arenaApron = await p1.evaluate(() => {
+      const stage = window.__nx.layouts.netcafe?.heightZones?.[0];
+      return stage
+        ? { x: (stage.minX + stage.maxX) / 2, z: stage.maxZ + 1.5 }
+        : { x: 0, z: 3.05 };
+    });
+    await walkTo(p1, arenaApron.x, arenaApron.z, 16_000, 0.8);
+    await captureEvidence(p1, 'arena-stage-close-desktop.png', 'esports stage close view');
   } else {
     console.log('  esports arena evidence skipped', JSON.stringify(await state(p1)));
   }

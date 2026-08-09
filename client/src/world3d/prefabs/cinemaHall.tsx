@@ -1,0 +1,661 @@
+/**
+ * Aurora Grand Screen Hall — physical architecture for the 34 x 30 metre
+ * cinema layout.  Media playback remains owned by MediaScreen; this module
+ * supplies the structure around it and never creates a second player.
+ *
+ * Coordinate contract:
+ *   bounds       x [-17, 17], z [-15, 15]
+ *   screen       centre [0, 6.8, -14.35], visible size 24 x 10 m
+ *   rear / entry z ~= 13 / 15
+ *   ceiling      y ~= 13.5
+ */
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { surfaceMaterial, type SurfaceKind } from '../city/materials';
+
+type P3 = [number, number, number];
+
+export const CINEMA_HALL_METRICS = {
+  bounds: { minX: -17, maxX: 17, minZ: -15, maxZ: 15 },
+  ceilingY: 13.5,
+  screen: { position: [0, 6.8, -14.35] as P3, width: 24, height: 10 },
+  rearEntryZ: 14.7,
+} as const;
+
+function tinted(kind: SurfaceKind, color: string, micro = true) {
+  const material = surfaceMaterial(kind, false, micro);
+  material.color.set(color);
+  return material;
+}
+
+const concrete = tinted('oldConcrete', '#242329');
+const paintedSteel = tinted('metal', '#232731');
+const brushedSteel = tinted('brushedMetal', '#6c6870');
+const blackSteel = tinted('metal', '#101218');
+const darkGlass = tinted('darkGlass', '#101924');
+const wallFabric = tinted('acousticFabric', '#201923');
+const burgundyFabric = tinted('acousticFabric', '#4c1c2c');
+const curtainVelvet = tinted('seatFabric', '#4e1327');
+const cinemaCarpet = tinted('cinemaCarpet', '#21151e');
+const stageCarpet = tinted('cinemaCarpet', '#351826');
+const walnut = tinted('wood', '#4b3029');
+const speakerCone = tinted('seatFabric', '#17151a');
+const speakerDustCap = tinted('darkGlass', '#06070a');
+
+const guideOn = new THREE.MeshStandardMaterial({
+  color: '#ffd2a0', emissive: '#ff7a42', emissiveIntensity: 1.5,
+  roughness: 0.38, metalness: 0.14,
+});
+const guideOff = new THREE.MeshStandardMaterial({
+  color: '#5b3c35', emissive: '#3a1415', emissiveIntensity: 0.08,
+  roughness: 0.7, metalness: 0.1,
+});
+const exitOn = new THREE.MeshStandardMaterial({
+  color: '#bfe9cc', emissive: '#48d878', emissiveIntensity: 1.15,
+  roughness: 0.42, metalness: 0.06,
+});
+const exitOff = new THREE.MeshStandardMaterial({
+  color: '#405649', emissive: '#16351f', emissiveIntensity: 0.12,
+  roughness: 0.7,
+});
+
+/** Bevelled solid used for panels and upholstery; unlike a Plane it exposes
+ * a side wall and catches a readable highlight around every edge. */
+function bevelledSolid(w: number, h: number, d: number, cut: number, bevel = 0.025) {
+  const hw = w / 2;
+  const hh = h / 2;
+  const c = Math.min(cut, hw * 0.42, hh * 0.42);
+  const shape = new THREE.Shape();
+  shape.moveTo(-hw + c, -hh);
+  shape.lineTo(hw - c, -hh);
+  shape.lineTo(hw, -hh + c);
+  shape.lineTo(hw, hh - c);
+  shape.lineTo(hw - c, hh);
+  shape.lineTo(-hw + c, hh);
+  shape.lineTo(-hw, hh - c);
+  shape.lineTo(-hw, -hh + c);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: d,
+    steps: 1,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    bevelSize: bevel,
+    bevelThickness: bevel,
+  });
+  geometry.translate(0, 0, -d / 2);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/** Horizontal stage footprint with a bowed front apron. */
+function stageGeometry(height: number, inset = 0) {
+  const shape = new THREE.Shape();
+  const half = 14.1 - inset;
+  const rear = 14.7 - inset * 0.2; // shape-y becomes -world-z after rotation
+  const sideFront = 11.8 - inset * 0.08;
+  const centreFront = 10.7 - inset * 0.12;
+  shape.moveTo(-half, rear);
+  shape.lineTo(half, rear);
+  shape.lineTo(half, sideFront);
+  // Two segments make centreFront an actual point on the apron. A single
+  // quadratic would only approach its control point, breaking floor-height
+  // agreement at the centre aisle.
+  shape.quadraticCurveTo(half * 0.48, centreFront, 0, centreFront);
+  shape.quadraticCurveTo(-half * 0.48, centreFront, -half, sideFront);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: height,
+    steps: 1,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    bevelSize: 0.05,
+    bevelThickness: 0.04,
+  });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+const acousticPanelGeometry = bevelledSolid(2.62, 4.65, 0.24, 0.16, 0.035);
+const upperPanelGeometry = bevelledSolid(2.62, 1.48, 0.25, 0.13, 0.028);
+const speakerCabinetGeometry = bevelledSolid(1.38, 1.82, 0.72, 0.11, 0.045);
+const seatCushionGeometry = bevelledSolid(0.72, 0.15, 0.58, 0.075, 0.04);
+const seatBackGeometry = bevelledSolid(0.74, 0.74, 0.17, 0.09, 0.035);
+const seatHeadGeometry = bevelledSolid(0.54, 0.2, 0.08, 0.06, 0.025);
+const mainStageGeometry = stageGeometry(0.58);
+const lowerStageGeometry = stageGeometry(0.2, 2.4);
+
+function transformGeometry(
+  source: THREE.BufferGeometry,
+  position: P3,
+  rotation: P3 = [0, 0, 0],
+  scale: P3 = [1, 1, 1],
+) {
+  let geometry = source.clone();
+  if (geometry.index) {
+    const expanded = geometry.toNonIndexed();
+    geometry.dispose();
+    geometry = expanded;
+  }
+  geometry.applyMatrix4(new THREE.Matrix4().compose(
+    new THREE.Vector3(...position),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation)),
+    new THREE.Vector3(...scale),
+  ));
+  return geometry;
+}
+
+function mergeParts(parts: Array<{
+  geometry: THREE.BufferGeometry;
+  position: P3;
+  rotation?: P3;
+  scale?: P3;
+}>) {
+  const geometries = parts.map((part) => transformGeometry(
+    part.geometry,
+    part.position,
+    part.rotation,
+    part.scale,
+  ));
+  const merged = mergeGeometries(geometries, false);
+  geometries.forEach((geometry) => geometry.dispose());
+  if (!merged) throw new Error('Failed to merge premium cinema seat geometry');
+  merged.computeBoundingSphere();
+  return merged;
+}
+
+// One chair renders as four material layers instead of twenty independent
+// meshes.  Every row reuses these buffers, keeping the close-up model detailed
+// without multiplying draw calls by every bolt and cup holder.
+const seatBox = new THREE.BoxGeometry(1, 1, 1);
+const seatCylinder = new THREE.CylinderGeometry(1, 1, 1, 14);
+const seatCapsule = new THREE.CapsuleGeometry(0.065, 0.38, 5, 10);
+const seatCupRing = new THREE.TorusGeometry(0.075, 0.014, 8, 18);
+const fixedBackTilt = -0.09;
+
+const seatFabricGeometry = mergeParts([
+  { geometry: seatCushionGeometry, position: [0, 0.48, 0.03] },
+  { geometry: seatBackGeometry, position: [0, 0.85, -0.31], rotation: [fixedBackTilt, 0, 0] },
+  { geometry: seatHeadGeometry, position: [0, 1.12, -0.136], rotation: [fixedBackTilt, 0, 0] },
+  { geometry: seatCapsule, position: [-0.43, 0.7, 0.02], rotation: [Math.PI / 2, 0, 0] },
+  { geometry: seatCapsule, position: [0.43, 0.7, 0.02], rotation: [Math.PI / 2, 0, 0] },
+]);
+const seatMetalGeometry = mergeParts([
+  { geometry: seatBox, position: [0, 0.035, -0.035], scale: [0.48, 0.07, 0.38] },
+  { geometry: seatBox, position: [-0.19, 0.2, -0.03], scale: [0.095, 0.34, 0.13] },
+  { geometry: seatBox, position: [0.19, 0.2, -0.03], scale: [0.095, 0.34, 0.13] },
+  { geometry: seatBox, position: [0, 0.34, -0.04], scale: [0.56, 0.09, 0.16] },
+  { geometry: seatBackGeometry, position: [0, 0.85, -0.365], rotation: [fixedBackTilt, 0, 0], scale: [1.08, 1.08, 1] },
+  { geometry: seatBox, position: [-0.43, 0.46, -0.06], scale: [0.095, 0.56, 0.49] },
+  { geometry: seatBox, position: [0.43, 0.46, -0.06], scale: [0.095, 0.56, 0.49] },
+  { geometry: seatBox, position: [-0.43, 0.31, -0.3], scale: [0.08, 0.43, 0.12] },
+  { geometry: seatBox, position: [0.43, 0.31, -0.3], scale: [0.08, 0.43, 0.12] },
+]);
+const seatTrimGeometry = mergeParts([
+  { geometry: seatCylinder, position: [-0.19, 0.39, -0.03], rotation: [0, 0, Math.PI / 2], scale: [0.07, 0.11, 0.07] },
+  { geometry: seatCylinder, position: [0.19, 0.39, -0.03], rotation: [0, 0, Math.PI / 2], scale: [0.07, 0.11, 0.07] },
+  { geometry: seatCylinder, position: [-0.19, 0.035, -0.03], scale: [0.028, 0.076, 0.028] },
+  { geometry: seatCylinder, position: [0.19, 0.035, -0.03], scale: [0.028, 0.076, 0.028] },
+  { geometry: seatBox, position: [0, 0.455, 0.325], scale: [0.57, 0.035, 0.035] },
+  { geometry: seatBox, position: [0, 0.692, -0.143], rotation: [fixedBackTilt, 0, 0], scale: [0.56, 0.028, 0.025] },
+  { geometry: seatCupRing, position: [-0.43, 0.73, 0.185], rotation: [Math.PI / 2, 0, 0] },
+  { geometry: seatCupRing, position: [0.43, 0.73, 0.185], rotation: [Math.PI / 2, 0, 0] },
+  { geometry: seatCylinder, position: [0.482, 0.5, -0.1], rotation: [0, 0, Math.PI / 2], scale: [0.035, 0.018, 0.035] },
+  { geometry: seatBox, position: [0.39, 0.54, -0.345], scale: [0.12, 0.085, 0.025] },
+]);
+const seatCupGeometry = mergeParts([
+  { geometry: seatCylinder, position: [-0.43, 0.703, 0.185], scale: [0.054, 0.052, 0.054] },
+  { geometry: seatCylinder, position: [0.43, 0.703, 0.185], scale: [0.054, 0.052, 0.054] },
+]);
+
+function SpeakerCabinet({ position, scale = 1, yaw = 0 }: {
+  position: P3;
+  scale?: number;
+  yaw?: number;
+}) {
+  return (
+    <group position={position} rotation={[0, yaw, 0]} scale={scale}>
+      <mesh geometry={speakerCabinetGeometry} material={paintedSteel} castShadow receiveShadow />
+      <mesh position={[0, 0, 0.374]} material={blackSteel}>
+        <boxGeometry args={[1.16, 1.56, 0.035]} />
+      </mesh>
+      {[-0.43, 0.43].map((y, i) => (
+        <group key={y} position={[0, y, 0.41]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} material={speakerCone} castShadow>
+            <cylinderGeometry args={[i ? 0.27 : 0.3, i ? 0.19 : 0.21, 0.085, 20, 1, false]} />
+          </mesh>
+          <mesh position={[0, 0, 0.052]} rotation={[Math.PI / 2, 0, 0]} material={speakerDustCap}>
+            <cylinderGeometry args={[0.1, 0.13, 0.035, 18]} />
+          </mesh>
+        </group>
+      ))}
+      {[-0.59, 0.59].map((x) => [-0.79, 0.79].map((y) => (
+        <mesh key={`${x}-${y}`} position={[x, y, 0.402]} material={brushedSteel}>
+          <cylinderGeometry args={[0.022, 0.022, 0.018, 8]} />
+        </mesh>
+      )))}
+    </group>
+  );
+}
+
+function LineArray({ side }: { side: -1 | 1 }) {
+  return (
+    <group>
+      {[2.35, 4.25, 6.15, 8.05, 9.95].map((y, index) => (
+        <SpeakerCabinet
+          key={y}
+          position={[side * (14.3 + index * 0.055), y, -13.82 + index * 0.055]}
+          yaw={side * (0.025 + index * 0.012)}
+          scale={index === 4 ? 0.88 : 1}
+        />
+      ))}
+      {/* Array suspension yoke and safety cable are physical, not floating boxes. */}
+      <mesh position={[side * 14.35, 11.45, -13.9]} material={brushedSteel} castShadow>
+        <boxGeometry args={[1.75, 0.16, 0.7]} />
+      </mesh>
+      {[-0.55, 0.55].map((offset) => (
+        <mesh key={offset} position={[side * 14.35 + offset, 11.95, -13.9]} material={blackSteel}>
+          <cylinderGeometry args={[0.025, 0.025, 1, 8]} />
+        </mesh>
+      ))}
+      <SpeakerCabinet position={[side * 14.15, 1.05, -13.15]} scale={1.18} />
+    </group>
+  );
+}
+
+function ScreenProscenium({ lightsOn }: { lightsOn: boolean }) {
+  const guide = lightsOn ? guideOn : guideOff;
+  return (
+    <group>
+      {/* Deep rear pocket: the MediaScreen sits 0.25 m in front of this face. */}
+      <mesh position={[0, 6.72, -14.74]} material={concrete} castShadow receiveShadow>
+        <boxGeometry args={[29.9, 12.95, 0.55]} />
+      </mesh>
+      <mesh position={[0, 6.8, -14.59]} material={blackSteel} receiveShadow>
+        <boxGeometry args={[25.15, 10.85, 0.42]} />
+      </mesh>
+
+      {/* Load-bearing proscenium and stepped inner reveal. */}
+      {[-13.15, 13.15].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 6.6, -14.14]} material={paintedSteel} castShadow receiveShadow>
+            <boxGeometry args={[0.94, 12.1, 1.08]} />
+          </mesh>
+          <mesh position={[x < 0 ? x + 0.47 : x - 0.47, 6.8, -13.9]} material={brushedSteel} castShadow>
+            <boxGeometry args={[0.16, 10.55, 0.38]} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, 12.66, -14.14]} material={paintedSteel} castShadow receiveShadow>
+        <boxGeometry args={[27.25, 0.95, 1.08]} />
+      </mesh>
+      <mesh position={[0, 12.1, -13.9]} material={brushedSteel} castShadow>
+        <boxGeometry args={[24.55, 0.16, 0.38]} />
+      </mesh>
+      <mesh position={[0, 1.5, -13.9]} material={brushedSteel} castShadow>
+        <boxGeometry args={[24.55, 0.18, 0.4]} />
+      </mesh>
+
+      {/* Motor track, velvet returns and individually modelled curtain pleats. */}
+      {[-1, 1].map((side) => (
+        <group key={side}>
+          <mesh position={[side * 12.68, 11.92, -13.68]} material={brushedSteel} castShadow>
+            <boxGeometry args={[1.24, 0.18, 0.46]} />
+          </mesh>
+          <mesh position={[side * 12.72, 6.78, -13.73]} material={curtainVelvet} castShadow receiveShadow>
+            <boxGeometry args={[1.28, 10.16, 0.2]} />
+          </mesh>
+          {Array.from({ length: 6 }, (_, i) => (
+            <mesh
+              key={i}
+              position={[side * (12.22 + i * 0.19), 6.78, -13.52 - (i % 2) * 0.045]}
+              material={curtainVelvet}
+              castShadow
+            >
+              <cylinderGeometry args={[0.105, 0.105, 10.08, 10]} />
+            </mesh>
+          ))}
+          {Array.from({ length: 5 }, (_, i) => (
+            <mesh key={`wheel-${i}`} position={[side * (12.28 + i * 0.22), 11.94, -13.48]} material={blackSteel}>
+              <cylinderGeometry args={[0.045, 0.045, 0.055, 10]} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* Bowed stage and its lower step have substantial carpeted volume. */}
+      <mesh geometry={mainStageGeometry} material={stageCarpet} castShadow receiveShadow />
+      <mesh geometry={lowerStageGeometry} material={cinemaCarpet} castShadow receiveShadow />
+      <mesh position={[0, 0.61, -11.35]} material={guide}>
+        <boxGeometry args={[18.2, 0.055, 0.075]} />
+      </mesh>
+      <mesh position={[0, 0.215, -10.52]} material={guide}>
+        <boxGeometry args={[12.8, 0.04, 0.07]} />
+      </mesh>
+
+      <LineArray side={-1} />
+      <LineArray side={1} />
+      {lightsOn && (
+        <>
+          <pointLight position={[-12.9, 3.2, -11.7]} color="#d73563" intensity={3.2} distance={9} decay={2} />
+          <pointLight position={[12.9, 3.2, -11.7]} color="#d73563" intensity={3.2} distance={9} decay={2} />
+        </>
+      )}
+    </group>
+  );
+}
+
+function AcousticWallBay({ side, z, index, lightsOn }: {
+  side: -1 | 1;
+  z: number;
+  index: number;
+  lightsOn: boolean;
+}) {
+  const panel = index % 3 === 1 ? burgundyFabric : wallFabric;
+  return (
+    <group position={[side * 16.54, 0, z]} rotation={[0, -side * Math.PI / 2, 0]}>
+      <mesh position={[0, 4.05, 0.04]} geometry={acousticPanelGeometry} material={paintedSteel} castShadow receiveShadow />
+      <mesh position={[0, 4.05, 0.205]} scale={[0.9, 0.92, 0.58]} geometry={acousticPanelGeometry} material={panel} castShadow receiveShadow />
+      {/* Lower impact rail and real timber diffuser fins. */}
+      <mesh position={[0, 1.25, 0.19]} material={walnut} castShadow>
+        <boxGeometry args={[2.72, 0.34, 0.2]} />
+      </mesh>
+      {[-0.94, -0.56, -0.18, 0.2, 0.58, 0.96].map((x, fin) => (
+        <mesh
+          key={x}
+          position={[x, 4.05 + ((fin + index) % 2) * 0.08, 0.39 + (fin % 3) * 0.018]}
+          material={fin % 2 ? walnut : brushedSteel}
+          castShadow
+        >
+          <boxGeometry args={[0.075, 3.95 - (fin % 3) * 0.18, 0.11]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 8.35, 0.05]} geometry={upperPanelGeometry} material={paintedSteel} castShadow receiveShadow />
+      <mesh position={[0, 8.35, 0.205]} scale={[0.9, 0.76, 0.6]} geometry={upperPanelGeometry} material={panel} castShadow />
+
+      {index % 2 === 0 && (
+        <group position={[0, 6.92, 0.52]}>
+          <mesh position={[0, 0, -0.14]} material={blackSteel} castShadow>
+            <boxGeometry args={[0.42, 0.72, 0.28]} />
+          </mesh>
+          <mesh position={[0, 0, 0.025]} material={lightsOn ? guideOn : guideOff}>
+            <boxGeometry args={[0.26, 0.5, 0.08]} />
+          </mesh>
+          {lightsOn && <pointLight position={[0, -0.15, 0.42]} color="#ff9164" intensity={1.6} distance={5.5} decay={2} />}
+        </group>
+      )}
+    </group>
+  );
+}
+
+function SideWallSystem({ lightsOn }: { lightsOn: boolean }) {
+  // The final bay shifts rearward to create a genuine service niche around
+  // the east-wall vending machine at z=10.8 instead of cutting through it.
+  const bays = [-10.4, -7.15, -3.9, -0.65, 2.6, 5.85, 9.1, 13];
+  return (
+    <group>
+      {([-1, 1] as const).map((side) => (
+        <group key={side}>
+          {/* Structural inner leaf and service plinth make the side wall thick. */}
+          <mesh position={[side * 16.72, 5.55, 0]} material={concrete} castShadow receiveShadow>
+            <boxGeometry args={[0.42, 11.1, 29.4]} />
+          </mesh>
+          <mesh position={[side * 16.4, 0.62, 0]} material={paintedSteel} castShadow receiveShadow>
+            <boxGeometry args={[0.3, 1.24, 28.9]} />
+          </mesh>
+          {bays.map((z, index) => (
+            <AcousticWallBay key={z} side={side} z={z} index={index} lightsOn={lightsOn} />
+          ))}
+          {/* Corner bass trap and overhead cable tray. */}
+          <mesh position={[side * 16.22, 5.3, -13.65]} rotation={[0, Math.PI / 4, 0]} material={burgundyFabric} castShadow>
+            <boxGeometry args={[0.72, 9.6, 0.72]} />
+          </mesh>
+          <mesh position={[side * 16.18, 10.65, 0]} material={blackSteel} castShadow>
+            <boxGeometry args={[0.45, 0.38, 28.2]} />
+          </mesh>
+          {[-10, -5, 0, 5, 10].map((z) => (
+            <mesh key={z} position={[side * 16.18, 10.39, z]} material={brushedSteel}>
+              <boxGeometry args={[0.65, 0.08, 0.08]} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function CeilingTruss({ z, lightsOn }: { z: number; lightsOn: boolean }) {
+  const spans = Array.from({ length: 8 }, (_, i) => -14 + i * 4);
+  return (
+    <group position={[0, 0, z]}>
+      {[-0.34, 0.34].map((depth) => (
+        <group key={depth} position={[0, 0, depth]}>
+          <mesh position={[0, 12.7, 0]} rotation={[0, 0, Math.PI / 2]} material={brushedSteel} castShadow>
+            <cylinderGeometry args={[0.055, 0.055, 31.7, 8]} />
+          </mesh>
+          <mesh position={[0, 12.14, 0]} rotation={[0, 0, Math.PI / 2]} material={brushedSteel} castShadow>
+            <cylinderGeometry args={[0.055, 0.055, 31.7, 8]} />
+          </mesh>
+          {spans.map((x, i) => (
+            <mesh
+              key={x}
+              position={[x + 2, 12.42, 0]}
+              rotation={[0, 0, i % 2 ? -0.139 : 0.139]}
+              material={blackSteel}
+              castShadow
+            >
+              <boxGeometry args={[4.04, 0.07, 0.07]} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {[-12, -4, 4, 12].map((x) => (
+        <mesh key={x} position={[x, 12.42, 0]} rotation={[Math.PI / 2, 0, 0]} material={brushedSteel}>
+          <cylinderGeometry args={[0.045, 0.045, 0.74, 8]} />
+        </mesh>
+      ))}
+      {[-10, 0, 10].map((x, i) => (
+        <group key={x} position={[x, 11.88, 0]}>
+          <mesh material={blackSteel} castShadow>
+            <cylinderGeometry args={[0.22, 0.29, 0.42, 12]} />
+          </mesh>
+          <mesh position={[0, -0.23, 0]} material={lightsOn ? guideOn : guideOff}>
+            <cylinderGeometry args={[0.13, 0.17, 0.06, 12]} />
+          </mesh>
+          {lightsOn && i !== 1 && <spotLight position={[0, -0.28, 0]} target-position={[0, -12, -z - 4]} color="#d45a64" intensity={24} angle={0.34} penumbra={0.65} distance={18} decay={2} />}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function ProjectionBooth({ lightsOn }: { lightsOn: boolean }) {
+  return (
+    <group>
+      <mesh position={[0, 11.15, 14.18]} material={concrete} castShadow receiveShadow>
+        <boxGeometry args={[8.8, 4.25, 1.48]} />
+      </mesh>
+      <mesh position={[0, 8.95, 13.55]} material={paintedSteel} castShadow>
+        <boxGeometry args={[9.25, 0.25, 0.5]} />
+      </mesh>
+      {[-2.15, 0, 2.15].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 11.25, 13.405]} material={brushedSteel} castShadow>
+            <boxGeometry args={[1.72, 1.32, 0.17]} />
+          </mesh>
+          <mesh position={[x, 11.25, 13.305]} material={darkGlass}>
+            <boxGeometry args={[1.47, 1.07, 0.08]} />
+          </mesh>
+        </group>
+      ))}
+      {/* Twin projector bodies, ventilation ribs, lenses and suspension feet. */}
+      {[-1.3, 1.3].map((x) => (
+        <group key={x} position={[x, 10.6, 12.9]}>
+          <mesh material={paintedSteel} castShadow receiveShadow>
+            <boxGeometry args={[0.9, 0.52, 1.05]} />
+          </mesh>
+          {[-0.28, -0.14, 0, 0.14, 0.28].map((rib) => (
+            <mesh key={rib} position={[rib, 0.18, 0]} material={brushedSteel}>
+              <boxGeometry args={[0.035, 0.08, 0.82]} />
+            </mesh>
+          ))}
+          <mesh position={[0, 0, -0.59]} rotation={[Math.PI / 2, 0, 0]} material={blackSteel} castShadow>
+            <cylinderGeometry args={[0.2, 0.27, 0.22, 18]} />
+          </mesh>
+          <mesh position={[0, 0, -0.72]} rotation={[Math.PI / 2, 0, 0]} material={lightsOn ? darkGlass : blackSteel}>
+            <cylinderGeometry args={[0.13, 0.16, 0.06, 18]} />
+          </mesh>
+          {[-0.3, 0.3].map((foot) => (
+            <mesh key={foot} position={[foot, -0.39, 0]} material={blackSteel}>
+              <cylinderGeometry args={[0.035, 0.035, 0.28, 8]} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function RearArchitecture({ lightsOn }: { lightsOn: boolean }) {
+  const exitMaterial = lightsOn ? exitOn : exitOff;
+  return (
+    <group>
+      {/* Rear wall returns leave a real central entrance opening. */}
+      {[-10.25, 10.25].map((x) => (
+        <mesh key={x} position={[x, 5.4, 14.74]} material={concrete} castShadow receiveShadow>
+          <boxGeometry args={[13.4, 10.8, 0.52]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 7.2, 14.72]} material={paintedSteel} castShadow>
+        <boxGeometry args={[7.1, 6.8, 0.65]} />
+      </mesh>
+      <mesh position={[-2.05, 1.45, 14.43]} material={paintedSteel} castShadow>
+        <boxGeometry args={[0.28, 2.9, 0.72]} />
+      </mesh>
+      <mesh position={[2.05, 1.45, 14.43]} material={paintedSteel} castShadow>
+        <boxGeometry args={[0.28, 2.9, 0.72]} />
+      </mesh>
+      <mesh position={[0, 3.03, 14.42]} material={paintedSteel} castShadow>
+        <boxGeometry args={[4.38, 0.26, 0.74]} />
+      </mesh>
+      <mesh position={[0, 3.45, 14.05]} material={exitMaterial}>
+        <boxGeometry args={[1.75, 0.32, 0.14]} />
+      </mesh>
+      <ProjectionBooth lightsOn={lightsOn} />
+    </group>
+  );
+}
+
+function AisleGuidance({ lightsOn }: { lightsOn: boolean }) {
+  const material = lightsOn ? guideOn : guideOff;
+  // Mirrors the six authoritative row bands in shared/src/layouts.ts. Lights
+  // are mounted on the current deck top, never buried at the base floor.
+  const aisleLights: Array<[number, number]> = [
+    [-8.8, 0], [-6.6, 0], [-4.4, 0],
+    [-3.2, 0.38], [-2, 0.38],
+    [-0.9, 0.76], [0.3, 0.76],
+    [1.5, 1.14], [2.7, 1.14],
+    [3.9, 1.52], [5.1, 1.52],
+    [6.4, 1.9], [7.6, 1.9], [8.75, 1.9],
+    [10.6, 0], [12.4, 0],
+  ];
+  return (
+    <group>
+      {/* Flush housings sit 25 mm above the carpet and remain readable without
+          pretending to replace layout-owned stair geometry. */}
+      {[-6.3, 6.3].flatMap((x) => aisleLights.map(([z, deckY]) => (
+        <group key={`${x}-${z}`} position={[x, deckY + 0.03, z]}>
+          <mesh material={blackSteel} receiveShadow>
+            <boxGeometry args={[0.38, 0.055, 0.22]} />
+          </mesh>
+          <mesh position={[0, 0.032, 0]} material={material}>
+            <boxGeometry args={[0.25, 0.018, 0.11]} />
+          </mesh>
+        </group>
+      )))}
+      {/* Outer escape route marker is wall-mounted at human ankle height. */}
+      {([-1, 1] as const).flatMap((side) => [-8, -4, 0, 4, 8, 12].map((z) => (
+        <group key={`${side}-${z}`} position={[side * 16.25, 0.42, z]} rotation={[0, -side * Math.PI / 2, 0]}>
+          <mesh material={blackSteel} castShadow><boxGeometry args={[0.46, 0.25, 0.14]} /></mesh>
+          <mesh position={[0, 0, 0.085]} material={material}><boxGeometry args={[0.31, 0.12, 0.045]} /></mesh>
+        </group>
+      )))}
+    </group>
+  );
+}
+
+/**
+ * Complete architectural layer for the rebuilt giant-screen auditorium.
+ * Mount once from Interior when spaceKey === 'cinema'.  The room shell and
+ * layout-owned seats/risers remain separate so collision and seat interaction
+ * stay authoritative in shared/src/layouts.ts.
+ */
+export function CinemaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
+  return (
+    <group>
+      <ScreenProscenium lightsOn={lightsOn} />
+      <SideWallSystem lightsOn={lightsOn} />
+      <RearArchitecture lightsOn={lightsOn} />
+      <AisleGuidance lightsOn={lightsOn} />
+
+      {/* Layered ceiling: side soffits, acoustic clouds, then supported trusses. */}
+      {([-1, 1] as const).map((side) => (
+        <mesh
+          key={side}
+          position={[side * 13.8, 12.25, 0]}
+          rotation={[0, 0, side * 0.11]}
+          material={wallFabric}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[5.6, 0.62, 28.8]} />
+        </mesh>
+      ))}
+      {[-7.2, 0, 7.2].map((z, index) => (
+        <mesh key={z} position={[0, 13.05 - (index % 2) * 0.12, z]} material={index === 1 ? burgundyFabric : wallFabric} castShadow receiveShadow>
+          <boxGeometry args={[13.6, 0.28, 4.3]} />
+        </mesh>
+      ))}
+      {[-9, -3, 3, 9].map((z) => <CeilingTruss key={z} z={z} lightsOn={lightsOn} />)}
+
+      {lightsOn && (
+        <>
+          <pointLight position={[0, 11.9, 8.5]} color="#ffd0a2" intensity={13} distance={18} decay={2} castShadow />
+          <pointLight position={[-13.6, 7.2, 3]} color="#b73d5d" intensity={4} distance={10} decay={2} />
+          <pointLight position={[13.6, 7.2, 3]} color="#5577b8" intensity={3.5} distance={10} decay={2} />
+        </>
+      )}
+    </group>
+  );
+}
+
+const seatFabrics = [
+  tinted('seatFabric', '#6b1d34'),
+  tinted('seatFabric', '#741f38'),
+  tinted('seatFabric', '#64192f'),
+];
+const seatMetal = tinted('metal', '#24252b');
+const seatTrim = tinted('brushedMetal', '#77727a');
+const cupInterior = tinted('darkGlass', '#090a0d');
+
+/**
+ * Grounded premium cinema chair.  `position.y` is the exact deck contact
+ * plane, matching seat snap points and height zones.  `variant` (or seat row
+ * index modulo three) provides restrained fabric/pillow variation.
+ */
+export function PremiumCinemaSeat({ position, rotation, variant = 0 }: {
+  position: P3;
+  rotation: number;
+  variant?: number;
+}) {
+  const fabric = seatFabrics[Math.abs(variant) % seatFabrics.length];
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      <mesh geometry={seatMetalGeometry} material={seatMetal} castShadow receiveShadow />
+      <mesh geometry={seatFabricGeometry} material={fabric} castShadow receiveShadow />
+      <mesh geometry={seatTrimGeometry} material={seatTrim} castShadow receiveShadow />
+      <mesh geometry={seatCupGeometry} material={cupInterior} castShadow receiveShadow />
+    </group>
+  );
+}

@@ -324,7 +324,7 @@ class Connection {
     const world = useWorld.getState();
     const chat = useChat.getState();
     const ui = useUI.getState();
-    hot.reset(init.selfId, init.spawn, init.spaceKey === 'plaza');
+    hot.reset(init.selfId, init.spawn, init.spaceKey === 'plaza', init.spaceKey);
     for (const p of init.players) if (p.id !== init.selfId) hot.upsertPlayer(p);
     hot.applySnapshot(Date.now() + hot.serverTimeOffset, init.snaps, init.objs);
     world.applyInit(init);

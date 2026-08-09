@@ -8,7 +8,8 @@ import { LAYOUTS } from '@nexuspark/shared';
 import type { SpaceLayout } from '@nexuspark/shared';
 import { useWorld, useSettings } from '../../state/stores';
 import { renderProp, renderInteractable } from './registry';
-import { ArenaExtras, CinemaExtras, NetcafeExtras } from '../prefabs/venueInteriors';
+import { ArenaHallArchitecture } from '../prefabs/arenaHall';
+import { CinemaHallArchitecture } from '../prefabs/cinemaHall';
 import { ClubExtras } from '../prefabs/clubInteriors';
 import { WindowFrame } from '../prefabs/interiors';
 import { plankTexture, tileTexture, marbleTexture, carpetTexture, gridGlowTexture } from './textures';
@@ -41,17 +42,17 @@ const CONFIGS: Record<string, InteriorConfig> = {
     windows: [{ side: 's', center: -4.5, w: 2 }, { side: 's', center: 4.5, w: 2 }, { side: 'w', center: 2.5, w: 2 }],
   },
   cinema: {
-    // 巨幕厅:放映面保持暗部，后区与通道用暖棕红保证舒适可读
-    wallColor: '#49373f', trimColor: '#2b2026', ceilingColor: '#241b21', height: 12,
-    floor: 'carpet', gaps: [{ side: 's', center: 0, width: 3.4 }],
+    // 34×30m 巨幕厅：深酒红吸音墙与暖金导视，保留可读暗部而非纯黑盒。
+    wallColor: '#342a31', trimColor: '#6b3b3d', ceilingColor: '#19171d', height: 13.5,
+    floor: 'carpet', gaps: [{ side: 's', center: 0, width: 4.2 }],
     lights: [
-      { x: -12, z: -4, color: '#d77868', intensity: 3.8 },
-      { x: 12, z: -4, color: '#d77868', intensity: 3.8 },
-      { x: -12, z: 4, color: '#d77868', intensity: 3.8 },
-      { x: 12, z: 4, color: '#d77868', intensity: 3.8 },
-      { x: 0, z: 10, color: '#ffc278', intensity: 6.5 },
-      { x: 10.5, z: 9, color: '#ffc278', intensity: 5.2 },
-      { x: -10.5, z: 9, color: '#ffcfa0', intensity: 4.8 },
+      { x: -14.6, z: -7, color: '#d66f67', intensity: 3.6 },
+      { x: 14.6, z: -7, color: '#d66f67', intensity: 3.6 },
+      { x: -14.6, z: 2.5, color: '#d66f67', intensity: 3.8 },
+      { x: 14.6, z: 2.5, color: '#d66f67', intensity: 3.8 },
+      { x: -14.6, z: 10.5, color: '#f0a764', intensity: 4.6 },
+      { x: 14.6, z: 10.5, color: '#f0a764', intensity: 4.6 },
+      { x: 0, z: 12.8, color: '#ffd19a', intensity: 6.8 },
     ],
   },
   arcade: {
@@ -86,18 +87,21 @@ const CONFIGS: Record<string, InteriorConfig> = {
     ],
     windows: [{ side: 's', center: -4.5, w: 2.4 }, { side: 's', center: 4.5, w: 2.4 }],
   },
-  // ── 电竞馆:清亮蓝灰 + 木暖前台，避免传统黑盒网吧的压迫感 ──
+  // ── 42×34m 电竞赛事馆：钢蓝结构、暗色看台和紫青赛事局部光 ──
   netcafe: {
-    wallColor: '#536276', trimColor: '#344155', ceilingColor: '#455266', height: 4.6,
-    floor: 'grid', gaps: [{ side: 's', center: 0, width: 2.2 }],
+    wallColor: '#263344', trimColor: '#52647a', ceilingColor: '#151a24', height: 13.2,
+    floor: 'grid', gaps: [{ side: 's', center: 0, width: 4.2 }],
     lightSwitchId: 'nc-lights',
     lights: [
-      { x: -5, z: -3.6, color: '#a9c9e8', intensity: 7.5 },
-      { x: 5, z: -3.6, color: '#a9c9e8', intensity: 7.5 },
-      { x: 0, z: 1.4, color: '#b7d6ec', intensity: 7.2 },
-      { x: 7.5, z: 5.8, color: '#ffd18a', intensity: 5.2 },
+      { x: -13.5, z: -8.2, color: '#53c9ff', intensity: 5.4 },
+      { x: 13.5, z: -8.2, color: '#b767ff', intensity: 5.4 },
+      { x: -13.5, z: 1.2, color: '#7b73ff', intensity: 5.2 },
+      { x: 13.5, z: 1.2, color: '#50d9dd', intensity: 5.2 },
+      { x: -16, z: 12.5, color: '#9ec7e7', intensity: 4.8 },
+      { x: 16, z: 12.5, color: '#ffc17d', intensity: 4.8 },
+      { x: 0, z: 10.5, color: '#d9e8ff', intensity: 5.8 },
     ],
-    windows: [{ side: 's', center: -6.2, w: 2.6 }, { side: 's', center: 6.2, w: 2.6 }],
+    windows: [{ side: 's', center: -13, w: 3.4 }, { side: 's', center: 13, w: 3.4 }],
     neon: false,
   },
   // ── 雀庄「东风阁」(P5,总纲 §4.4):暖木 + 木板地 + 暖橙灯笼光 ──────────
@@ -285,7 +289,7 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
             map={tex}
             roughness={cfg.floor === 'carpet' ? 0.95 : 0.6}
             emissive={cfg.floor === 'grid' && lightsOn ? '#2a3a8f' : '#000000'}
-            emissiveIntensity={cfg.floor === 'grid' && lightsOn ? 0.5 : 0}
+            emissiveIntensity={cfg.floor === 'grid' && lightsOn ? (spaceKey === 'netcafe' ? 0.14 : 0.5) : 0}
             emissiveMap={cfg.floor === 'grid' ? tex : undefined}
           />
         </mesh>
@@ -322,7 +326,12 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
         </group>
       ))}
       {/* soft fill so interiors read clearly at any hour */}
-      {lightsOn && <ambientLight intensity={0.48} color={cfg.neon ? '#a8add2' : '#fff2df'} />}
+      {lightsOn && (
+        <ambientLight
+          intensity={spaceKey === 'cinema' ? 0.2 : spaceKey === 'netcafe' ? 0.24 : spaceKey === 'gameroom' ? 0.4 : 0.48}
+          color={spaceKey === 'netcafe' ? '#8ea8c9' : cfg.neon ? '#a8add2' : '#fff2df'}
+        />
+      )}
       {!lightsOn && <pointLight position={[cx, 1.6, cz]} color="#3a4a6f" intensity={2.2} distance={16} />}
       {!lightsOn && <ambientLight intensity={0.08} color="#33415f" />}
 
@@ -343,9 +352,8 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
       )}
 
       {/* 场馆专属挂件(P5):网吧墙面灯带 / 雀庄障子窗 + 役种挂轴 */}
-      {spaceKey === 'cinema' && <CinemaExtras lightsOn={lightsOn} />}
-      {spaceKey === 'netcafe' && <NetcafeExtras lightsOn={lightsOn} />}
-      {spaceKey === 'netcafe' && <ArenaExtras lightsOn={lightsOn} />}
+      {spaceKey === 'cinema' && <CinemaHallArchitecture lightsOn={lightsOn} />}
+      {spaceKey === 'netcafe' && <ArenaHallArchitecture lightsOn={lightsOn} />}
       {spaceKey === 'gameroom' && <ClubExtras lightsOn={lightsOn} />}
 
       {layout.props.map((p, i) => renderProp(p, i))}

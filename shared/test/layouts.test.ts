@@ -146,10 +146,13 @@ describe('三个场馆室内基线', () => {
     const seats = cinema.props.filter((p) => p.type === 'cinema_seat');
     const seatSnaps = cinema.interactables.filter((i) => i.kind === 'seat' && /^cine-s\d+$/.test(i.id));
     const risers = cinema.props.filter((p) => p.type === 'cinema_riser');
-    expect(seats).toHaveLength(50);
-    expect(seatSnaps).toHaveLength(50);
-    expect(risers).toHaveLength(4);
-    expect(cinema.heightZones).toHaveLength(4);
+    expect(cinema.bounds).toEqual({ minX: -17, maxX: 17, minZ: -15, maxZ: 15 });
+    expect(seats).toHaveLength(72);
+    expect(seatSnaps).toHaveLength(72);
+    expect(risers).toHaveLength(5);
+    expect(cinema.heightZones).toHaveLength(15);
+    expect(floorHeightAt(cinema, 0, -12)).toBeCloseTo(0.58, 6);
+    expect(floorHeightAt(cinema, 0, -10.55)).toBeCloseTo(0.2, 6);
     seats.forEach((seat, index) => {
       expect(seatSnaps[index].pos[1] - seat.pos[1]).toBeCloseTo(0.47, 6);
       expect(floorHeightAt(cinema, seat.pos[0], seat.pos[2])).toBeCloseTo(seat.pos[1], 6);
@@ -162,13 +165,14 @@ describe('三个场馆室内基线', () => {
     });
   });
 
-  it('电竞观战馆保留 8 个机位、观战沙发和共享大屏', () => {
+  it('电竞观战馆扩建为 42 × 34 米赛事空间，保留 8 个机位和共享大屏', () => {
     const arena = LAYOUTS[SPACE.NETCAFE];
+    expect(arena.bounds).toEqual({ minX: -21, maxX: 21, minZ: -17, maxZ: 17 });
     expect(arena.mediaPolicy).toBe('everyone');
     expect(arena.props.filter((p) => p.type === 'nc_station')).toHaveLength(8);
     expect(arena.interactables.filter((i) => /^nc-s\d+$/.test(i.id))).toHaveLength(8);
-    expect(arena.interactables.filter((i) => i.id.startsWith('nc-sofa-'))).toHaveLength(2);
     expect(arena.interactables.find((i) => i.id === 'nc-wall')?.kind).toBe('screen');
+    expect(arena.heightZones).toHaveLength(1);
   });
 
   it('团子轰趴馆是温馨社团活动室，含象棋与飞行棋围坐区', () => {
@@ -178,7 +182,14 @@ describe('三个场馆室内基线', () => {
     expect(club.interactables.find((i) => i.id === 'gr-xq')?.kind).toBe('xiangqi');
     expect(club.interactables.filter((i) => i.id.startsWith('gr-flight-s'))).toHaveLength(4);
     expect(club.props.filter((p) => p.type === 'club_sofa')).toHaveLength(2);
-    for (const prop of ['club_rug', 'club_stage', 'club_flying_chess', 'club_trophy_wall']) {
+    for (const prop of [
+      'club_rug',
+      'club_stage',
+      'club_flying_chess',
+      'club_trophy_wall',
+      'club_storage',
+      'club_reading_nook',
+    ]) {
       expect(club.props.some((p) => p.type === prop), prop).toBe(true);
     }
   });

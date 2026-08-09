@@ -328,58 +328,86 @@ function buildCafe(): SpaceLayout {
 
 // ═════════════════════════════ CINEMA ═══════════════════════════════════════
 function buildCinema(): SpaceLayout {
-  // 巨幕厅:30×24 大厅、24×10 米银幕、5 排 50 座、双主过道和完整后撤区。
+  // 34×30m 高规格巨幕厅：银幕前墙、双侧过道、六级阶梯观众席和后部集散区。
+  // 业务 ID 沿用 cine-*，但旧 30×24 平面不再作为布局约束。
   const b = new B();
-  const bounds: Bounds = { minX: -15, maxX: 15, minZ: -12, maxZ: 12 };
+  const bounds: Bounds = { minX: -17, maxX: 17, minZ: -15, maxZ: 15 };
 
-  b.inter('cine-exit', 'door', 0, 0, 11.7, 0, '返回一番街', {
+  b.inter('cine-exit', 'door', 0, 0, 14.7, 0, '返回一番街', {
     target: SPACE.PLAZA, spawn: streetReturnFor('cinema'),
   });
-  // 巨幕:互动锚点在银幕下沿中线;视觉尺寸(24×10)在客户端 registry 里定义
-  b.inter('cine-screen', 'screen', 0, 5.8, -11.4, 0, '影院银幕');
+  b.inter('cine-screen', 'screen', 0, 6.8, -14.35, 0, '极光巨幕');
 
-  // 5 排 × 10 座(3-4-3 三段)：台阶、座椅原点和座位 Snap Point 共用 lift。
-  const seatX = [-8.6, -7.4, -6.2, -1.8, -0.6, 0.6, 1.8, 6.2, 7.4, 8.6];
+  // Architectural collision follows cinemaHall.tsx's actual inner faces.
+  // The front wall blocks the recessed screen/proscenium, side leaves protect
+  // acoustic panels and sconces, and rear returns preserve the 7.1m exit bay.
+  b.box(0, -14.28, 30.4, 1.0);
+  b.box(-16.55, 0, 1.1, 29.4);
+  b.box(16.55, 0, 1.1, 29.4);
+  b.box(-10.25, 14.55, 13.4, 0.5);
+  b.box(10.25, 14.55, 13.4, 0.5);
+  b.box(-2.05, 14.43, 0.28, 0.72);
+  b.box(2.05, 14.43, 0.28, 0.72);
+  // Subwoofer cabinets project beyond the proscenium wall onto the stage.
+  b.box(-14.15, -13.15, 1.75, 1.0);
+  b.box(14.15, -13.15, 1.75, 1.0);
+
+  // 六排 × 十二座，按 3-6-3 分区。双主过道中心位于 x=±6.3，和实体导视灯一致。
+  const seatX = [-12, -10.8, -9.6, -3, -1.8, -0.6, 0.6, 1.8, 3, 9.6, 10.8, 12];
   let seatIdx = 0;
-  for (let row = 0; row < 5; row++) {
-    const z = -3.4 + row * 2.4;
-    const lift = 0.24 * row;
+  for (let row = 0; row < 6; row++) {
+    const z = -5.2 + row * 2.55;
+    const lift = 0.38 * row;
     if (lift > 0) {
-      b.prop('cinema_riser', 0, 0, z, 0, { w: 21, d: 2.4, h: lift, row });
+      b.prop('cinema_riser', 0, 0, z, 0, { w: 29.2, d: 2.55, h: lift, row });
       b.heightZones.push({
-        minX: -10.5, maxX: 10.5, minZ: z - 1.2, maxZ: z + 1.2,
+        minX: -14.6, maxX: 14.6, minZ: z - 1.275, maxZ: z + 1.275,
         kind: 'deck', y: lift,
       });
     }
     for (const x of seatX) {
-      b.prop('cinema_seat', x, lift, z, Math.PI);
+      b.prop('cinema_seat', x, lift, z, Math.PI, { row, seatIdx });
       b.inter(`cine-s${seatIdx++}`, 'seat', x, 0.47 + lift, z, Math.PI, '坐下');
     }
-    b.box(-7.4, z, 3.2, 0.55);
-    b.box(0, z, 4.4, 0.55);
-    b.box(7.4, z, 3.2, 0.55);
+    b.box(-10.8, z, 4.2, 0.66);
+    b.box(0, z, 7.2, 0.66);
+    b.box(10.8, z, 4.2, 0.66);
   }
 
-  // 后部休息区:小卖部在东侧、沙发在西侧，中间 5m 保持集合/重连安全区。
-  b.prop('concession', 10.5, 0, 10, Math.PI);
-  b.box(10.5, 10, 3.4, 1.0);
-  b.inter('cine-vend', 'vending', 13.9, 0, 8, -Math.PI / 2, '零食贩卖机', { items: ['soda', 'pizza'] });
-  b.box(13.9, 8, 0.8, 0.9);
-  b.prop('sofa', -10.5, 0, 10.5, Math.PI); b.box(-10.5, 10.5, 2.1, 0.95);
-  b.inter('cine-sofa-s0', 'seat', -11.05, 0.44, 10.45, Math.PI, '坐下');
-  b.inter('cine-sofa-s1', 'seat', -9.95, 0.44, 10.45, Math.PI, '坐下');
-  b.prop('coffee_table', -10.5, 0, 9); b.circle(-10.5, 9, 0.5);
-  b.prop('rope_barrier', -6.8, 0, 10.6, 0);
-  b.prop('plant', -14.2, 0, 11.2); b.circle(-14.2, 11.2, 0.3);
-  b.prop('plant', 14.2, 0, 11.2); b.circle(14.2, 11.2, 0.3);
-  b.prop('plant', -14.2, 0, -10.8); b.circle(-14.2, -10.8, 0.3);
-  b.prop('plant', 14.2, 0, -10.8); b.circle(14.2, -10.8, 0.3);
+  // The bowed 0.58m stage is walkable so approaching the shared screen never
+  // sinks the avatar into visible geometry. Five bands approximate its curve
+  // closely without turning height lookup into mesh collision code.
+  for (const [minX, maxX, maxZ] of [
+    [-14, -10, -11.55], [-10, -5, -11.1], [-5, 5, -10.72],
+    [5, 10, -11.1], [10, 14, -11.55],
+  ] as const) {
+    b.heightZones.push({ minX, maxX, minZ: -14.7, maxZ, kind: 'deck', y: 0.58 });
+  }
+  for (const [minX, maxX, minZ, maxZ] of [
+    [-11.7, -10, -11.54, -11.2], [-10, -5, -11.09, -10.55],
+    [-5, 5, -10.71, -10.4], [5, 10, -11.09, -10.55],
+    [10, 11.7, -11.54, -11.2],
+  ] as const) {
+    b.heightZones.push({ minX, maxX, minZ, maxZ, kind: 'deck', y: 0.2 });
+  }
+
+  // 后部集散区与小卖部收在两侧，中轴保持 6m 净宽，进场镜头直接看向巨幕。
+  b.prop('concession', 13.4, 0, 12.8, Math.PI);
+  b.box(13.4, 12.8, 4.0, 1.1);
+  b.inter('cine-vend', 'vending', 16.2, 0, 10.8, -Math.PI / 2, '零食贩卖机', { items: ['soda', 'pizza'] });
+  b.box(16.2, 10.8, 0.8, 0.9);
+  b.prop('sofa', -13.3, 0, 12.8, Math.PI); b.box(-13.3, 12.8, 2.1, 0.95);
+  b.inter('cine-sofa-s0', 'seat', -13.85, 0.44, 12.75, Math.PI, '等候入场');
+  b.inter('cine-sofa-s1', 'seat', -12.75, 0.44, 12.75, Math.PI, '等候入场');
+  b.prop('coffee_table', -13.3, 0, 11.25); b.circle(-13.3, 11.25, 0.5);
+  b.prop('rope_barrier', -8.8, 0, 13.1, 0);
+  for (const [x, z] of [[-16.1, 14.1], [16.1, 14.1], [-16.1, -13.8], [16.1, -13.8]] as const) {
+    b.prop('plant', x, 0, z); b.circle(x, z, 0.3);
+  }
 
   return {
     key: SPACE.CINEMA, label: '极光影院·巨幕厅', indoor: true, bounds,
-    // Enter near the rear seating band rather than at the exit wall; the
-    // default third-person camera then has a clear axis toward the giant screen.
-    spawn: [0, 0, 4.8, Math.PI],
+    spawn: [0, 0, 10.6, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: b.heightZones, mediaPolicy: 'everyone',
   };
@@ -508,47 +536,51 @@ function buildLobby(): SpaceLayout {
 // ═════════════════════════ 网吧 NEXUS(新室内) ═════════════════════════════
 function buildNetcafe(): SpaceLayout {
   const b = new B();
-  const bounds: Bounds = { minX: -10, maxX: 10, minZ: -7.5, maxZ: 7.5 };
+  // 42×34m 大型赛事观战馆：旧 20×15m 网吧平面被完全替换。
+  const bounds: Bounds = { minX: -21, maxX: 21, minZ: -17, maxZ: 17 };
 
-  b.inter('nc-exit', 'door', 0, 0, 7.2, 0, '返回一番街', {
+  b.inter('nc-exit', 'door', 0, 0, 16.7, 0, '返回一番街', {
     target: SPACE.PLAZA, spawn: streetReturnFor('netcafe'),
   });
-  b.inter('nc-lights', 'switch', 1.7, 1.2, 7.35, 0, '电灯开关', { switchId: 'nc-lights' });
+  b.inter('nc-lights', 'switch', 2.1, 1.2, 16.85, 0, '赛事灯光', { switchId: 'nc-lights' });
 
-  // 墙上 7.2m 联赛大屏(北墙;共享画面/媒体都可投上来)
-  // 观战馆主屏横跨北墙，中心上移后底边不再压到地面，给中央赛台留出完整视线。
-  b.inter('nc-wall', 'screen', 0, 3.4, -7.35, 0, '联赛大屏');
+  b.inter('nc-wall', 'screen', 0, 7.2, -16.55, 0, '赛事主屏');
 
-  // 两排各 4 位:横向 4.2m 节奏，纵向留 4m 中央通道和完整后部休息带。
-  const cols = [-6.3, -2.1, 2.1, 6.3];
+  // 八个原有业务机位移入中央多层赛台；保留 nc-s0..7 和 seatIdx 协议。
+  const cols = [-6.6, -2.2, 2.2, 6.6];
   cols.forEach((x, i) => {
-    b.prop('nc_station', x, 0, -4.6, 0, { row: 0, seatIdx: i });
-    b.box(x, -4.6, 1.5, 0.7);
-    b.inter(`nc-s${i}`, 'seat', x, 0.47, -3.65, Math.PI, '坐下');
+    b.prop('nc_station', x, 0.6, -6.3, 0, { row: 0, seatIdx: i });
+    b.box(x, -6.3, 1.85, 0.9);
+    b.inter(`nc-s${i}`, 'seat', x, 1.07, -5.05, Math.PI, '进入选手席');
   });
   cols.forEach((x, i) => {
-    b.prop('nc_station', x, 0, 0.6, 0, { row: 1, seatIdx: 4 + i });
-    b.box(x, 0.6, 1.5, 0.7);
-    b.inter(`nc-s${4 + i}`, 'seat', x, 0.47, 1.55, Math.PI, '坐下');
+    b.prop('nc_station', x, 0.6, -1.6, Math.PI, { row: 1, seatIdx: 4 + i });
+    b.box(x, -1.6, 1.85, 0.9);
+    b.inter(`nc-s${4 + i}`, 'seat', x, 1.07, -2.85, 0, '进入选手席');
   });
 
-  // 后部休息带:西侧沙发/售货机，东侧前台，中线 4m 净空直达出口。
-  b.inter('nc-vend', 'vending', -9.3, 0, 4.7, Math.PI / 2, '饮料贩卖机', { items: ['soda'] });
-  b.box(-9.3, 4.7, 0.8, 0.9);
-  b.prop('sofa', -6.6, 0, 6.8, Math.PI); b.box(-6.6, 6.8, 2.1, 0.95);
-  b.inter('nc-sofa-s0', 'seat', -7.15, 0.44, 6.75, Math.PI, '坐下');
-  b.inter('nc-sofa-s1', 'seat', -6.05, 0.44, 6.75, Math.PI, '坐下');
-  b.prop('coffee_table', -6.6, 0, 5.25); b.circle(-6.6, 5.25, 0.5);
-  b.prop('nc_counter', 7.8, 0, 6.1, Math.PI); b.box(7.8, 6.1, 2.4, 0.9);
-  b.prop('plant', 9.1, 0, 3.8); b.circle(9.1, 3.8, 0.3);
+  b.heightZones.push({ minX: -10.1, maxX: 10.1, minZ: -9.6, maxZ: 1.55, kind: 'deck', y: 0.6 });
+
+  // 赛事建筑实体碰撞：与 ArenaHallArchitecture 的看台/后勤体块一一对应。
+  // 东西看台在 z=-1.0..1.7 留出 2.7m 横向疏散口，外侧保留维护通道。
+  for (const x of [-15.875, 15.875]) {
+    b.box(x, -4.55, 5.35, 7.1);
+    b.box(x, 6.05, 5.35, 8.7);
+  }
+  // 后看台与两侧解说/控制平台在实体上连续，左右各合并成一个碰撞体；
+  // 中央 x=-1.7..1.7 保留从入口通往赛台的 3.4m 主疏散轴。
+  b.box(-10.65, 13.0, 17.9, 5.3);
+  b.box(10.65, 13.0, 17.9, 5.3);
+  // 北端八角主持台使用紧包围盒；两侧仍各有 4.5m 通路前往主屏。
+  b.box(0, -12.15, 11.2, 6.4);
+
+  // 后场解说席、控制室和机柜由赛事建筑模块统一建模，中轴保持入口至赛台净空。
 
   return {
-    key: SPACE.NETCAFE, label: '镜界电竞馆 NEXUS', indoor: true, bounds,
-    // Start inside the central aisle so the first camera frame sees the
-    // stage, truss and tiered stands instead of clipping the south wall.
-    spawn: [0, 0, 2.8, Math.PI],
+    key: SPACE.NETCAFE, label: '镜界电竞观战馆·主赛场', indoor: true, bounds,
+    spawn: [0, 0, 11.8, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
-    npcs: [], heightZones: [], mediaPolicy: 'everyone',
+    npcs: [], heightZones: b.heightZones, mediaPolicy: 'everyone',
   };
 }
 
@@ -564,6 +596,7 @@ function buildGameroom(): SpaceLayout {
 
   // 主客厅：围坐沙发与软毯留出中央活动区，30 人也能从两侧绕行。
   b.prop('club_rug', -4.2, 0.012, 1.2, 0, { w: 8.2, d: 6.4 });
+  b.prop('club_rug', 6.45, 0.012, -0.25, 0, { w: 8.6, d: 8.2 });
   b.prop('club_sofa', -7.6, 0, 1.2, Math.PI / 2); b.box(-7.6, 1.2, 1.05, 3.8);
   b.inter('gr-sofa-w0', 'seat', -7.5, 0.44, 0.25, Math.PI / 2, '窝进沙发');
   b.inter('gr-sofa-w1', 'seat', -7.5, 0.44, 1.2, Math.PI / 2, '窝进沙发');
@@ -580,7 +613,7 @@ function buildGameroom(): SpaceLayout {
   for (const [x, z, ry, i] of [
     [5.4, 2.8, Math.PI / 2, 0], [7.6, 2.8, -Math.PI / 2, 1],
   ] as const) {
-    b.prop('chair', x, 0, z, ry);
+    b.prop('chair', x, 0, z, ry, { style: 'club', accent: i });
     b.inter(`gr-xq-s${i}`, 'seat', x, 0.47, z, ry, '坐下下棋');
   }
   b.prop('club_flying_chess', 6.5, 0, -3.4);
@@ -589,7 +622,7 @@ function buildGameroom(): SpaceLayout {
     [6.5, -2.05, Math.PI, 0], [7.85, -3.4, -Math.PI / 2, 1],
     [6.5, -4.75, 0, 2], [5.15, -3.4, Math.PI / 2, 3],
   ] as const) {
-    b.prop('chair', x, 0, z, ry);
+    b.prop('chair', x, 0, z, ry, { style: 'club', accent: i });
     b.inter(`gr-flight-s${i}`, 'seat', x, 0.47, z, ry, '围坐飞行棋');
   }
 
@@ -599,6 +632,10 @@ function buildGameroom(): SpaceLayout {
   b.box(-10.9, -5.7, 0.8, 0.6);
   b.prop('gr_tea', 10.9, 0, 5.7, -Math.PI / 2); b.box(10.9, 5.7, 0.8, 2.2);
   b.prop('club_trophy_wall', 11.85, 1.8, -0.2, -Math.PI / 2);
+  b.prop('club_storage', 6.8, 0, 7.95, Math.PI);
+  b.box(6.8, 7.95, 3.7, 0.72);
+  b.prop('club_reading_nook', -9.25, 0, 5.15, Math.PI / 2);
+  b.box(-9.25, 5.15, 1.3, 4.5);
   b.inter('gr-books', 'bookshelf', -11.55, 0, 5.8, Math.PI / 2, '社团书架');
   b.box(-11.55, 5.8, 0.45, 1.3);
   b.inter('gr-wb', 'whiteboard', 2.5, 1.55, -8.85, 0, '社团活动板', { boardId: 'gr-wb' });

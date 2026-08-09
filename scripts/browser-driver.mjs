@@ -184,7 +184,10 @@ export async function sitOnHighestSeat(page, spaceKey) {
     const layout = window.__nx.layouts[key];
     const highest = layout?.interactables
       .filter((candidate) => candidate.kind === 'seat')
-      .sort((a, b) => b.pos[1] - a.pos[1])[0];
+      // Verify the top physical tier while choosing its centre-most seat, so
+      // the journey approaches through a designed aisle instead of cutting
+      // across an entire row of colliders after large-hall layout changes.
+      .sort((a, b) => (b.pos[1] - a.pos[1]) || (Math.abs(a.pos[0]) - Math.abs(b.pos[0])))[0];
     if (!highest) throw new Error(`No seat in ${key}`);
     return { id: highest.id, x: highest.pos[0], y: highest.pos[1], z: highest.pos[2] };
   }, spaceKey);

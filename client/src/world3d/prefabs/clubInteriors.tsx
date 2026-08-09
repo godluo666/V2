@@ -71,6 +71,36 @@ export function ClubSofa({ position, ry }: { position: P3; ry: number }) {
   );
 }
 
+/** 社团室专用木椅：软垫、四腿、横撑和弧形靠背都是真实几何。 */
+export function ClubChair({ position, ry, accent = 0 }: { position: P3; ry: number; accent?: number }) {
+  const cushion = accent % 2 ? lavender : sage;
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <mesh position={[0, 0.48, 0]} castShadow material={wood}><boxGeometry args={[0.72, 0.11, 0.72]} /></mesh>
+      <mesh position={[0, 0.555, 0.03]} castShadow material={cushion}><boxGeometry args={[0.62, 0.08, 0.6]} /></mesh>
+      {[-0.28, 0.28].flatMap((x) => [-0.28, 0.28].map((z) => (
+        <mesh key={`${x}-${z}`} position={[x, 0.23, z]} material={darkWood} castShadow>
+          <cylinderGeometry args={[0.035, 0.045, 0.46, 8]} />
+        </mesh>
+      )))}
+      <mesh position={[0, 0.23, 0]} rotation={[0, 0, Math.PI / 2]} material={darkWood}>
+        <cylinderGeometry args={[0.025, 0.025, 0.56, 8]} />
+      </mesh>
+      <mesh position={[0, 0.88, -0.3]} rotation={[-0.08, 0, 0]} material={darkWood} castShadow>
+        <boxGeometry args={[0.72, 0.76, 0.08]} />
+      </mesh>
+      <mesh position={[0, 0.95, -0.25]} rotation={[-0.08, 0, 0]} material={cushion} castShadow>
+        <boxGeometry args={[0.58, 0.42, 0.09]} />
+      </mesh>
+      {[-0.31, 0.31].map((x) => (
+        <mesh key={x} position={[x, 0.86, -0.29]} material={darkWood}>
+          <cylinderGeometry args={[0.035, 0.035, 0.82, 8]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export function ClubStage({ position, ry }: { position: P3; ry: number }) {
   return (
     <group position={position} rotation={[0, ry, 0]}>
@@ -149,6 +179,82 @@ export function ClubTrophyWall({ position, ry }: { position: P3; ry: number }) {
           <mesh position={[0, 0.26, 0]} material={gold}><coneGeometry args={[0.11, 0.25, 8]} /></mesh>
         </group>
       ))}
+    </group>
+  );
+}
+
+/** 带门板、抽屉和金属把手的社团收纳柜；棋盒与零散用品有明确归属。 */
+export function ClubStorageCabinet({ position, ry }: { position: P3; ry: number }) {
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <mesh position={[0, 0.72, 0]} castShadow receiveShadow material={wood}>
+        <boxGeometry args={[3.6, 1.44, 0.62]} />
+      </mesh>
+      <mesh position={[0, 1.47, 0]} material={darkWood}><boxGeometry args={[3.74, 0.08, 0.7]} /></mesh>
+      {[-1.28, -0.43, 0.43, 1.28].map((x, i) => (
+        <group key={x} position={[x, 0.82, 0.326]}>
+          <mesh castShadow material={i % 2 ? cream : sage}><boxGeometry args={[0.76, 1.08, 0.055]} /></mesh>
+          <mesh position={[i % 2 ? -0.22 : 0.22, 0, 0.045]} material={gold}>
+            <cylinderGeometry args={[0.025, 0.025, 0.06, 10]} />
+          </mesh>
+          <mesh position={[0, -0.42, 0.04]} material={darkWood}><boxGeometry args={[0.58, 0.04, 0.025]} /></mesh>
+        </group>
+      ))}
+      {/* 象棋盒、飞行棋盒和标签夹都拥有实体厚度。 */}
+      {[[-1.15, red], [0, blue], [1.12, gold]].map(([x, material], i) => (
+        <group key={i} position={[x as number, 1.62, -0.02]} rotation={[0, 0.08 * (i - 1), 0]}>
+          <mesh castShadow material={material as THREE.Material}><boxGeometry args={[0.74, 0.18, 0.5]} /></mesh>
+          <mesh position={[0, 0.105, 0]} material={paper}><boxGeometry args={[0.52, 0.025, 0.3]} /></mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** 阅读角：厚书架、错落书脊、抽屉桌、台灯和软凳形成可读生活场景。 */
+export function ClubReadingNook({ position, ry }: { position: P3; ry: number }) {
+  const bookMats = [red, blue, green, lavender, gold, sage];
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <group position={[-1.45, 0, 0]}>
+        <mesh position={[0, 1.45, 0]} castShadow material={darkWood}><boxGeometry args={[2.1, 2.9, 0.62]} /></mesh>
+        <mesh position={[0, 1.46, 0.34]} material={wood}><boxGeometry args={[1.76, 2.55, 0.08]} /></mesh>
+        {[-0.75, 0, 0.75].map((y) => (
+          <mesh key={y} position={[0, 1.42 + y, 0.39]} material={darkWood}><boxGeometry args={[1.86, 0.08, 0.46]} /></mesh>
+        ))}
+        {Array.from({ length: 18 }, (_, i) => {
+          const row = Math.floor(i / 6);
+          const col = i % 6;
+          return (
+            <mesh
+              key={i}
+              position={[-0.72 + col * 0.29, 0.88 + row * 0.74 + (i % 3) * 0.025, 0.47]}
+              rotation={[0, 0, (i % 4 - 1.5) * 0.025]}
+              material={bookMats[i % bookMats.length]}
+            >
+              <boxGeometry args={[0.19 + (i % 2) * 0.035, 0.48 + (i % 3) * 0.055, 0.28]} />
+            </mesh>
+          );
+        })}
+      </group>
+      <group position={[1.0, 0, 0.1]}>
+        <mesh position={[0, 0.7, 0]} castShadow material={wood}><boxGeometry args={[2.5, 0.12, 1.05]} /></mesh>
+        {[-1.05, 1.05].flatMap((x) => [-0.38, 0.38].map((z) => (
+          <mesh key={`${x}-${z}`} position={[x, 0.34, z]} material={darkWood}>
+            <boxGeometry args={[0.12, 0.68, 0.12]} />
+          </mesh>
+        )))}
+        <mesh position={[0, 0.5, -0.5]} material={darkWood}><boxGeometry args={[0.86, 0.3, 0.06]} /></mesh>
+        <mesh position={[0, 0.43, -0.55]} material={sage}><boxGeometry args={[0.78, 0.16, 0.5]} /></mesh>
+        <group position={[0.78, 0.78, -0.18]}>
+          <mesh position={[0, 0.25, 0]} material={darkWood}><cylinderGeometry args={[0.022, 0.03, 0.5, 8]} /></mesh>
+          <mesh position={[0, 0.52, 0]} material={glowGold}><coneGeometry args={[0.2, 0.22, 16]} /></mesh>
+          <pointLight position={[0, 0.42, 0.12]} color="#ffd7a0" intensity={1.3} distance={3.6} decay={2} />
+        </group>
+        <mesh position={[-0.48, 0.79, 0.08]} rotation={[0, -0.16, 0]} material={paper}>
+          <boxGeometry args={[0.72, 0.035, 0.46]} />
+        </mesh>
+      </group>
     </group>
   );
 }
