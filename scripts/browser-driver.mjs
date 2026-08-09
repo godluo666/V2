@@ -611,7 +611,12 @@ export async function sitOnHighestSeat(page, spaceKey) {
       return true;
     };
     const start = { x: confirmed.x, z: confirmed.z };
-    const offsets = [[0, 2.25], [0, -2.25], [2.25, 0], [-2.25, 0]];
+    // Stop on the aisle side of the seat, close enough for the server's real
+    // four-metre interaction radius even after the final authoritative input
+    // snapshot rounds the player position.  The previous 2.25m offset plus a
+    // 0.65m walk stop could leave a player unnecessarily far from a corner
+    // seat on a slow SwiftShader frame.
+    const offsets = [[0, 1.55], [0, -1.55], [1.55, 0], [-1.55, 0]];
     for (const seat of topSeats) {
       const approaches = offsets
         .map(([dx, dz]) => ({ x: seat.pos[0] + dx, z: seat.pos[2] + dz }))
@@ -621,7 +626,7 @@ export async function sitOnHighestSeat(page, spaceKey) {
         if (segmentIsClear(start, approach)) {
           return {
             seat: { id: seat.id, x: seat.pos[0], y: seat.pos[1], z: seat.pos[2] },
-            route: [[approach.x, approach.z, 16_000, 0.65]],
+            route: [[approach.x, approach.z, 16_000, 0.3]],
           };
         }
         // If the direct diagonal clips a row, try the two axis-aligned doglegs
@@ -632,7 +637,7 @@ export async function sitOnHighestSeat(page, spaceKey) {
             && segmentIsClear(via, approach)) {
             return {
               seat: { id: seat.id, x: seat.pos[0], y: seat.pos[1], z: seat.pos[2] },
-              route: [[via.x, via.z, 16_000, 0.8], [approach.x, approach.z, 16_000, 0.65]],
+              route: [[via.x, via.z, 16_000, 0.45], [approach.x, approach.z, 16_000, 0.3]],
             };
           }
         }
@@ -649,19 +654,24 @@ export async function sitOnHighestSeat(page, spaceKey) {
   await page.evaluate((seatId) => {
     window.__nx.connection.send('sit', { seatId });
   }, target.seat.id);
-  let seated = false;
-  try {
-    await page.waitForFunction(
-      ({ id, y }) => {
-        const local = window.__nx.hot.local;
-        return local.seatId === id && Math.abs(local.y - y) < 0.03;
-      },
-      { id: target.seat.id, y: target.seat.y },
-      { timeout: 5_000, polling: 100 },
-    );
-    seated = true;
-  } catch {
-    // The caller reports the authoritative assertion with useful actual values.
+  const seatConfirmed = async () => page.waitForFunction(
+    ({ id, y }) => {
+      const local = window.__nx.hot.local;
+      return local.seatId === id && Math.abs(local.y - y) < 0.03;
+    },
+    { id: target.seat.id, y: target.seat.y },
+    { timeout: 4_000, polling: 100 },
+  ).then(() => true).catch(() => false);
+  let seated = await seatConfirmed();
+  if (!seated) {
+    // A detailed riser frame can consume the first interaction token just as
+    // the final movement snapshot arrives. Re-send the same public sit action
+    // after a short, real client wait; no position or seat state is injected.
+    await page.waitForTimeout(650);
+    await page.evaluate((seatId) => {
+      window.__nx.connection.send('sit', { seatId });
+    }, target.seat.id);
+    seated = await seatConfirmed();
   }
   return { ...target.seat, walked: true, seated };
 }
