@@ -355,21 +355,28 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   const { h } = b;
   const groundH = 3.2;
   const sideFloors = Math.max(2, Math.floor((h - groundH) / 2.65));
+  const hasHeroVenue = b.venue != null;
 
   // 上层主体(带前后进退,破"方盒感")
   // 上层不再是一整块长方体：三段错层体块用不同退进量形成真实施工缝。
   put(out.detail, b, ry, -w * 0.31, (groundH + h) / 2, -0.22, w * 0.38, h - groundH, d - 0.65, wall, { profile: 'facade' });
   put(out.detail, b, ry, 0, (groundH + h) / 2, 0.05, w * 0.28, h - groundH - 0.22, d - 0.42, wall.clone().offsetHSL(0, 0, 0.018), { profile: 'facade' });
   put(out.detail, b, ry, w * 0.31, (groundH + h) / 2 + 0.14, -0.08, w * 0.38, h - groundH - 0.48, d - 0.82, wall.clone().offsetHSL(0, 0, -0.018), { profile: 'facade' });
-  const reliefs = 1 + Math.floor(rnd() * 2);
+  // Venue hero modules own their public facade. Random legacy reliefs can land
+  // directly in a lobby opening, so keep them on ordinary shopfronts only.
+  const reliefs = hasHeroVenue ? 0 : 1 + Math.floor(rnd() * 2);
   for (let i = 0; i < reliefs; i++) {
     const rw = w * (0.2 + rnd() * 0.22);
     const rx = (rnd() - 0.5) * (w - rw) * 0.8;
     put(out.walls, b, ry, rx, (groundH + h) / 2 + 0.1, d / 2 - 0.06, rw, h - groundH - 0.4, 0.28, wall.clone().offsetHSL(0, 0, 0.02));
   }
-  // 一层骑楼:后墙 + 立柱 + 过梁
-  put(out.walls, b, ry, 0, groundH / 2, d / 2 - 0.5, w, groundH, 0.3, wallDark);
-  put(out.walls, b, ry, 0, groundH - 0.22, d / 2 - 0.05, w, 0.45, 0.6, wall.clone().offsetHSL(0, 0, -0.02));
+  // 一层骑楼:后墙 + 立柱 + 过梁。三座场馆的英雄门厅需要真正的
+  // 0.8-1.2m进深；把旧通长后墙与过梁退到内侧，避免和新玻璃/门框
+  // 只差几厘米而形成贴片感或深度闪烁。普通店铺继续使用原骑楼结构。
+  const arcadeBack = hasHeroVenue ? d / 2 - 1.28 : d / 2 - 0.5;
+  const arcadeHeader = hasHeroVenue ? d / 2 - 0.82 : d / 2 - 0.05;
+  put(out.walls, b, ry, 0, groundH / 2, arcadeBack, hasHeroVenue ? w - 0.5 : w, groundH, 0.3, wallDark);
+  put(out.walls, b, ry, 0, groundH - 0.22, arcadeHeader, w, 0.45, hasHeroVenue ? 0.34 : 0.6, wall.clone().offsetHSL(0, 0, -0.02));
   put(out.walls, b, ry, 0, 0.1, d / 2 - 0.3, w, 0.2, 0.9, shade(ENV.sidewalk, -0.03)); // 门前台基
   put(out.walls, b, ry, 0, 0.11, -d / 2 + 0.03, w + 0.18, 0.22, 0.26, wallDark);
 
@@ -382,30 +389,32 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
     const lx = v ? w2lx(b, ry, v.x, v.z) : 0;
     doorBay = Math.max(0, Math.min(nBays - 1, Math.floor((lx + (w - 0.8) / 2) / bayW)));
   }
-  for (let i = 0; i < nBays; i++) {
-    const bx = -(w - 0.8) / 2 + (i + 0.5) * bayW;
-    // 开间立柱
-    put(out.walls, b, ry, bx - bayW / 2, groundH / 2, d / 2 - 0.12, 0.34, groundH, 0.45, wall);
-    if (i === nBays - 1) put(out.walls, b, ry, bx + bayW / 2, groundH / 2, d / 2 - 0.12, 0.34, groundH, 0.45, wall);
-    if (i === doorBay) {
-      // venue 门洞:留空 + 深色门廊(实际门/传送由 layout interactable 提供)
-      put(out.walls, b, ry, bx, 2.72, d / 2 - 0.2, bayW - 0.4, 0.5, 0.24, wallDark);
-      put(out.walls, b, ry, bx - (bayW - 0.5) / 2, 1.25, d / 2 - 0.2, 0.16, 2.5, 0.24, wallDark);
-      put(out.walls, b, ry, bx + (bayW - 0.5) / 2, 1.25, d / 2 - 0.2, 0.16, 2.5, 0.24, wallDark);
-      // 门内暖光(店还开着)
-      putPlane(out.warm, b, ry, bx, 1.3, d / 2 - 0.42, bayW - 0.7, 2.3, shade(ACCENT.windowWarm, -0.04));
-    } else if (rnd() < 0.5) {
-      // 卷帘门(打烊)
-      put(out.shutters, b, ry, bx, 1.28, d / 2 - 0.24, bayW - 0.42, 2.56, 0.07, jitterColor(ENV.wallC, rnd));
-    } else {
-      // 玻璃橱窗:暗色玻璃,少数里头亮着
-      put(out.glass, b, ry, bx, 1.42, d / 2 - 0.26, bayW - 0.42, 2.3, 0.08, glass);
-      put(out.walls, b, ry, bx, 0.14, d / 2 - 0.24, bayW - 0.42, 0.28, 0.12, wallDark);
-      if (rnd() < 0.3) putPlane(out.warm, b, ry, bx, 1.35, d / 2 - 0.34, bayW - 0.8, 1.7, shade(ACCENT.windowWarm, -0.08));
+  if (!hasHeroVenue) {
+    for (let i = 0; i < nBays; i++) {
+      const bx = -(w - 0.8) / 2 + (i + 0.5) * bayW;
+      // 开间立柱
+      put(out.walls, b, ry, bx - bayW / 2, groundH / 2, d / 2 - 0.12, 0.34, groundH, 0.45, wall);
+      if (i === nBays - 1) put(out.walls, b, ry, bx + bayW / 2, groundH / 2, d / 2 - 0.12, 0.34, groundH, 0.45, wall);
+      if (i === doorBay) {
+        // venue 门洞:留空 + 深色门廊(实际门/传送由 layout interactable 提供)
+        put(out.walls, b, ry, bx, 2.72, d / 2 - 0.2, bayW - 0.4, 0.5, 0.24, wallDark);
+        put(out.walls, b, ry, bx - (bayW - 0.5) / 2, 1.25, d / 2 - 0.2, 0.16, 2.5, 0.24, wallDark);
+        put(out.walls, b, ry, bx + (bayW - 0.5) / 2, 1.25, d / 2 - 0.2, 0.16, 2.5, 0.24, wallDark);
+        // 门内暖光(店还开着)
+        putPlane(out.warm, b, ry, bx, 1.3, d / 2 - 0.42, bayW - 0.7, 2.3, shade(ACCENT.windowWarm, -0.04));
+      } else if (rnd() < 0.5) {
+        // 卷帘门(打烊)
+        put(out.shutters, b, ry, bx, 1.28, d / 2 - 0.24, bayW - 0.42, 2.56, 0.07, jitterColor(ENV.wallC, rnd));
+      } else {
+        // 玻璃橱窗:暗色玻璃,少数里头亮着
+        put(out.glass, b, ry, bx, 1.42, d / 2 - 0.26, bayW - 0.42, 2.3, 0.08, glass);
+        put(out.walls, b, ry, bx, 0.14, d / 2 - 0.24, bayW - 0.42, 0.28, 0.12, wallDark);
+        if (rnd() < 0.3) putPlane(out.warm, b, ry, bx, 1.35, d / 2 - 0.34, bayW - 0.8, 1.7, shade(ACCENT.windowWarm, -0.08));
+      }
     }
   }
   // 门棚(雨棚)
-  if (b.venue || rnd() < 0.6) {
+  if (!hasHeroVenue && rnd() < 0.6) {
     const ac = AWNING_COLORS[Math.floor(rnd() * AWNING_COLORS.length)]();
     put(out.walls, b, ry, 0, groundH - 0.05, d / 2 + 0.42, w * 0.92, 0.06, 0.95, ac, { rx: -0.22 });
   }
@@ -479,12 +488,8 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
       }
     }
   }
-  // 影院与电竞馆门头增加横向灯箱和斜切遮檐，入口从远处即可辨认。
-  if (b.venue) {
-    const venueColor = b.venue === 'cinema' ? ACCENT.cinemaSign : ACCENT.netcafeSign;
-    put(out.walls, b, ry, 0, groundH + 0.25, d / 2 + 0.42, w * 0.82, 0.12, 0.12, venueColor);
-    put(out.walls, b, ry, -w * 0.34, groundH + 0.62, d / 2 + 0.5, 0.16, 1.1, 0.16, venueColor, { rx: -0.18 });
-  }
+  // Venue-specific portals now own the structural canopy and entrance accent;
+  // do not lay the old full-width light strip across those deep openings.
   // 数据驱动的多层招牌：贴墙大牌与垂直刀牌共用 cityplan，不在组件里散落坐标。
   appendFacadeSigns(b, out.signs, ry, w, d);
   // venue 横招牌(门头)

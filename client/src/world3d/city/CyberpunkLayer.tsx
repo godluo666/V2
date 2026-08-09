@@ -10,8 +10,6 @@ const cyan = toonMat('#40e8ff', { emissive: '#40e8ff', emissiveIntensity: 1.15 }
 const pink = toonMat('#ff3f83', { emissive: '#ff3f83', emissiveIntensity: 1.0 });
 const yellow = toonMat('#ffd34f', { emissive: '#ffb52e', emissiveIntensity: 0.9 });
 const violet = toonMat('#7a5fff', { emissive: '#7a5fff', emissiveIntensity: 0.85 });
-const glass = surfaceMaterial('darkGlass');
-glass.transparent = true; glass.opacity = 0.88;
 
 function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; color?: string; radius?: number }) {
   const geo = useMemo(() => {
@@ -23,22 +21,19 @@ function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; co
 }
 
 /**
- * 赛博街头层：不是 HUD，而是可被相机看到并参与透视的实体构件——高架连廊、
- * 电缆、消防梯、设备平台和受控局部灯光。它们只占现有街区，不扩张可玩地图。
+ * 赛博街头层：不是 HUD，而是可被相机看到并参与透视的实体构件——立面检修平台、
+ * 电缆、消防梯和受控局部灯光。它们只占现有街区，不扩张可玩地图或横切地标。
  */
 export default function CyberpunkLayer() {
   return (
     <group name="cyberpunk-street-layer">
-      {/* 跨街高架连廊：把十字路口的上半部也填满，形成真正的都市街谷。 */}
-      <group position={[-8, 8.4, -6.4]}>
-        <mesh material={metal} castShadow><boxGeometry args={[31, 1.05, 1.55]} /></mesh>
-        <mesh position={[0, 0.18, 0.82]} material={glass} castShadow receiveShadow><boxGeometry args={[29.2, 0.72, 0.06]} /></mesh>
-        <mesh position={[0, -0.5, 0.78]} material={cyan} castShadow><boxGeometry args={[29, 0.06, 0.08]} /></mesh>
-        <mesh position={[0, -0.5, -0.78]} material={pink} castShadow><boxGeometry args={[29, 0.06, 0.08]} /></mesh>
-        {[-14, -7, 0, 7, 14].map((x) => (
-          <mesh key={x} position={[x, -0.82, 0]} material={metal} castShadow receiveShadow><boxGeometry args={[0.32, 1.55, 1.9]} /></mesh>
-        ))}
-      </group>
+      {/*
+       * Keep the media-tower sightline open. The former 31m bridge occupied the
+       * same depth and height as the tower screen, physically cutting through
+       * both its display and casing. Facade fire escapes and connected cable
+       * runs below provide the elevated service layer without spanning the
+       * landmark or dropping another large box across the crossroads.
+       */}
 
       {/* 建筑侧面的实体消防梯与冷凝机组，给平整的高墙增加可辨识的尺度参照。 */}
       {[-1, 1].map((side) => (
@@ -59,7 +54,7 @@ export default function CyberpunkLayer() {
       ))}
 
       {/* 交通与机电电缆：用轻量 TubeGeometry 画出头顶的真实连接关系。 */}
-      <Cable points={[[-25, 11.8, -5.8], [-12, 13.2, -5.3], [3, 12.0, -6.0], [23, 13.7, -5.2]]} />
+      <Cable points={[[-25, 12.8, -5.8], [-12, 14.2, -5.3], [3, 15.0, -5.7], [23, 14.6, -5.2]]} />
       <Cable points={[[-20, 9.4, 5.5], [-10, 11.1, 1.0], [5, 10.1, -1.8], [20, 11.5, -5.3]]} />
       <Cable points={[[-2, 10.4, -20], [-4, 11.7, -10], [-8, 10.8, 0], [-12, 12.1, 16]]} color="#243343" radius={0.045} />
 

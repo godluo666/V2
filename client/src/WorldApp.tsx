@@ -14,6 +14,7 @@ const cityMap = { crosswalks: CROSSWALKS, sidewalks: SIDEWALKS, venues: VENUES }
 // Debug/automation handle (used by the headless smoke test).
 declare global {
   interface Window {
+    __nxRenderFrame?: number;
     __nx?: {
       hot: typeof hot;
       connection: typeof connection;
@@ -64,7 +65,10 @@ export default function WorldApp() {
             dpr={dpr}
             camera={{ fov: 42, near: 0.1, far: 600, position: [0, 3, 8] }}
             gl={{ antialias: true, powerPreference: 'high-performance' }}
-            onCreated={({ scene }) => { (window as unknown as { __nxScene?: unknown }).__nxScene = scene; }}
+            onCreated={({ scene }) => {
+              (window as unknown as { __nxScene?: unknown }).__nxScene = scene;
+              window.__nxRenderFrame = 0;
+            }}
           >
             <Scene />
           </Canvas>

@@ -119,23 +119,11 @@ jobs:
             echo "::endgroup::"
           done
 
-          required_evidence=(
-            street-crossroads-desktop.png
-            street-cinema-facade-desktop.png
-            street-crossroads-mobile.png
-            cinema-hall-wide-desktop.png
-            cinema-highest-row-desktop.png
-            arena-desktop.png
-            arena-stage-close-desktop.png
-            party-hall-wide-desktop.png
-            party-hall-desktop.png
-          )
-          for evidence in "${required_evidence[@]}"; do
-            if [ ! -s "$OUT_DIR/$evidence" ]; then
-              echo "Missing required visual evidence: $evidence"
-              journey_failures=1
-            fi
-          done
+          echo "::group::Validating visual evidence PNG structure"
+          if ! node scripts/validate-evidence.mjs "$OUT_DIR"; then
+            journey_failures=1
+          fi
+          echo "::endgroup::"
           exit "$journey_failures"
 
       - name: Upload browser evidence

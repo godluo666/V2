@@ -562,7 +562,21 @@ function buildNetcafe(): SpaceLayout {
     b.inter(`nc-s${4 + i}`, 'seat', x, 1.07, -2.85, 0, '进入选手席');
   });
 
-  b.heightZones.push({ minX: -10.1, maxX: 10.1, minZ: -9.6, maxZ: 1.55, kind: 'deck', y: 0.6 });
+  // CompetitionFloor 的真实可行走顶面。floorHeightAt 按声明顺序命中，
+  // 因此从高到低登记重叠体块，始终得到画面中实际露出的最高表面。
+  // index 0 固定为主赛台 0.60m 完成面；云端近景路线以此推导台口。
+  b.heightZones.push({ minX: -9.3, maxX: 9.3, minZ: -8.875, maxZ: 0.375, kind: 'deck', y: 0.6 });
+  b.heightZones.push({ minX: -9.75, maxX: 9.75, minZ: -9.275, maxZ: 0.775, kind: 'deck', y: 0.55 });
+  for (const x of [-5.4, 0, 5.4]) {
+    b.heightZones.push({ minX: x - 1.4, maxX: x + 1.4, minZ: 0.6, maxZ: 1.22, kind: 'deck', y: 0.51 });
+  }
+  b.heightZones.push({ minX: -10.1, maxX: 10.1, minZ: -9.6, maxZ: 1.1, kind: 'deck', y: 0.4 });
+  for (const x of [-5.4, 0, 5.4]) {
+    b.heightZones.push({ minX: x - 1.6, maxX: x + 1.6, minZ: 0.87, maxZ: 1.49, kind: 'deck', y: 0.36 });
+  }
+  for (const x of [-5.4, 0, 5.4]) {
+    b.heightZones.push({ minX: x - 1.8, maxX: x + 1.8, minZ: 1.125, maxZ: 1.775, kind: 'deck', y: 0.24 });
+  }
 
   // 赛事建筑实体碰撞：与 ArenaHallArchitecture 的看台/后勤体块一一对应。
   // 东西看台在 z=-1.0..1.7 留出 2.7m 横向疏散口，外侧保留维护通道。
@@ -577,11 +591,23 @@ function buildNetcafe(): SpaceLayout {
   // 北端八角主持台使用紧包围盒；两侧仍各有 4.5m 通路前往主屏。
   b.box(0, -12.15, 11.2, 6.4);
 
+  // 主屏墙仅封闭 0.28m 厚的背壳；与主持台之间保留 1.35m 实体净距，
+  // 玩家可由两侧绕到屏前，并在 nc-wall 的 5m 服务端互动范围内停留。
+  b.box(0, -16.84, 24.6, 0.28);
+  for (const x of [-12.15, 12.15]) b.box(x, -16.72, 0.7, 1.05);
+  // 折角侧屏只为落地检修柱生成旋转后的紧 AABB，不封死屏幕下方空间。
+  for (const x of [-15.86, 15.86]) b.box(x, -14.83, 0.6, 0.96);
+  // CompetitionFloor 两侧的实体设备机柜。
+  for (const x of [-10.6, 10.6]) b.box(x, -7.1, 1.45, 2.1);
+
   // 后场解说席、控制室和机柜由赛事建筑模块统一建模，中轴保持入口至赛台净空。
 
   return {
     key: SPACE.NETCAFE, label: '镜界电竞观战馆·主赛场', indoor: true, bounds,
-    spawn: [0, 0, 11.8, Math.PI],
+    // Enter one bay inside the rear concourse.  The central 3.4m aisle remains
+    // clear, while the real third-person lens sits in front of the portal frame
+    // and establishes the full stage/screen/stand volume on arrival.
+    spawn: [0, 0, 10.4, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: b.heightZones, mediaPolicy: 'everyone',
   };
@@ -597,36 +623,46 @@ function buildGameroom(): SpaceLayout {
   });
   b.inter('gr-lights', 'switch', 1.7, 1.2, 8.85, 0, '活动室灯光', { switchId: 'gr-lights' });
 
-  // 主客厅：围坐沙发与软毯留出中央活动区，30 人也能从两侧绕行。
-  b.prop('club_rug', -4.2, 0.012, 1.2, 0, { w: 8.2, d: 6.4 });
-  b.prop('club_rug', 6.45, 0.012, -0.25, 0, { w: 8.6, d: 8.2 });
-  b.prop('club_sofa', -7.6, 0, 1.2, Math.PI / 2); b.box(-7.6, 1.2, 1.05, 3.8);
-  b.inter('gr-sofa-w0', 'seat', -7.5, 0.44, 0.25, Math.PI / 2, '窝进沙发');
-  b.inter('gr-sofa-w1', 'seat', -7.5, 0.44, 1.2, Math.PI / 2, '窝进沙发');
-  b.inter('gr-sofa-w2', 'seat', -7.5, 0.44, 2.15, Math.PI / 2, '窝进沙发');
-  b.prop('club_sofa', -4.2, 0, -1.8, 0); b.box(-4.2, -1.8, 3.8, 1.05);
-  b.inter('gr-sofa-n0', 'seat', -5.15, 0.44, -1.72, 0, '窝进沙发');
-  b.inter('gr-sofa-n1', 'seat', -4.2, 0.44, -1.72, 0, '窝进沙发');
-  b.inter('gr-sofa-n2', 'seat', -3.25, 0.44, -1.72, 0, '窝进沙发');
-  b.prop('coffee_table', -4.2, 0, 1.1); b.circle(-4.2, 1.1, 0.55);
+  // 主客厅与桌游区向中轴收拢，家具自身围出约 3m 的连续主通道；
+  // 不再依赖两块超大空地毯制造“宽敞”，入场便能同时读到围坐区和桌游区。
+  b.prop('club_rug', -3.55, 0.012, 1.05, 0, { w: 6.9, d: 5.9 });
+  b.prop('club_rug', 4.25, 0.012, -0.15, 0, { w: 6.6, d: 7.35 });
+  b.prop('club_sofa', -6.35, 0, 1.05, Math.PI / 2); b.box(-6.35, 1.05, 1.05, 3.8);
+  b.inter('gr-sofa-w0', 'seat', -6.25, 0.44, 0.1, Math.PI / 2, '窝进沙发');
+  b.inter('gr-sofa-w1', 'seat', -6.25, 0.44, 1.05, Math.PI / 2, '窝进沙发');
+  b.inter('gr-sofa-w2', 'seat', -6.25, 0.44, 2.0, Math.PI / 2, '窝进沙发');
+  b.prop('club_sofa', -3.35, 0, -1.55, 0); b.box(-3.35, -1.55, 3.8, 1.05);
+  b.inter('gr-sofa-n0', 'seat', -4.3, 0.44, -1.47, 0, '窝进沙发');
+  b.inter('gr-sofa-n1', 'seat', -3.35, 0.44, -1.47, 0, '窝进沙发');
+  b.inter('gr-sofa-n2', 'seat', -2.4, 0.44, -1.47, 0, '窝进沙发');
+  b.prop('coffee_table', -3.45, 0, 1.0); b.circle(-3.45, 1.0, 0.55);
 
   // 社团棋桌：象棋为现有服务端权威玩法；飞行棋为可围坐实体桌游陈设。
-  b.inter('gr-xq', 'xiangqi', 6.5, 0, 2.8, 0, '社团象棋桌');
-  b.box(6.5, 2.8, 1.0, 1.0);
+  b.inter('gr-xq', 'xiangqi', 4.35, 0, 2.45, 0, '社团象棋桌');
+  b.box(4.35, 2.45, 1.0, 1.0);
   for (const [x, z, ry, i] of [
-    [5.4, 2.8, Math.PI / 2, 0], [7.6, 2.8, -Math.PI / 2, 1],
+    [3.25, 2.45, Math.PI / 2, 0], [5.45, 2.45, -Math.PI / 2, 1],
   ] as const) {
     b.prop('chair', x, 0, z, ry, { style: 'club', accent: i });
     b.inter(`gr-xq-s${i}`, 'seat', x, 0.47, z, ry, '坐下下棋');
   }
-  b.prop('club_flying_chess', 6.5, 0, -3.4);
-  b.box(6.5, -3.4, 1.25, 1.25);
+  b.prop('club_flying_chess', 4.35, 0, -2.75);
+  b.box(4.35, -2.75, 1.25, 1.25);
   for (const [x, z, ry, i] of [
-    [6.5, -2.05, Math.PI, 0], [7.85, -3.4, -Math.PI / 2, 1],
-    [6.5, -4.75, 0, 2], [5.15, -3.4, Math.PI / 2, 3],
+    [4.35, -1.4, Math.PI, 0], [5.7, -2.75, -Math.PI / 2, 1],
+    [4.35, -4.1, 0, 2], [3.0, -2.75, Math.PI / 2, 3],
   ] as const) {
     b.prop('chair', x, 0, z, ry, { style: 'club', accent: i });
     b.inter(`gr-flight-s${i}`, 'seat', x, 0.47, z, ry, '围坐飞行棋');
+  }
+
+  // 中央后段的社团筹备桌把两个功能区串成一体；桌体阻挡与实体一致，
+  // 左右仍各保留超过 1.5m 的绕行空间，不堵入口主轴。
+  b.prop('club_craft_table', 0.35, 0, -5.05, 0);
+  b.box(0.35, -5.05, 1.9, 1.05);
+  for (const [x, ry, i] of [[-1.0, Math.PI / 2, 0], [1.7, -Math.PI / 2, 1]] as const) {
+    b.prop('chair', x, 0, -5.05, ry, { style: 'club', accent: i + 2 });
+    b.inter(`gr-craft-s${i}`, 'seat', x, 0.47, -5.05, ry, '一起筹备活动');
   }
 
   // 小舞台、点歌机、茶水零食台、社团墙与安静阅读角。
@@ -650,9 +686,9 @@ function buildGameroom(): SpaceLayout {
 
   return {
     key: SPACE.GAMEROOM, label: '团子轰趴馆·社团活动室', indoor: true, bounds,
-    // Enter in the central activity zone so the first frame exposes the
-    // game tables, lounge seating and the warm club wall together.
-    spawn: [0, 0, 1.6, Math.PI],
+    // Slightly right-biased real entry composition includes both game tables
+    // and the lounge; the central worktable splits circulation into two clear aisles.
+    spawn: [0.35, 0, 2.2, Math.PI - 0.08],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: [],
   };

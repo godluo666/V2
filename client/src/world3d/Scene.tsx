@@ -46,6 +46,14 @@ function Drivers() {
   return null;
 }
 
+/** Read-only automation heartbeat: increments only inside R3F's render loop. */
+function RenderHeartbeat() {
+  useFrame(() => {
+    window.__nxRenderFrame = (window.__nxRenderFrame ?? 0) + 1;
+  }, -1000);
+  return null;
+}
+
 /**
  * 玩家轮廓光(§3.3):0.35 强度冷青 rim,方向与主光相对、跟随玩家,
  * 让团子从大暗部里"浮"出来。仅户外挂载(室内有自己的灯)。
@@ -118,9 +126,15 @@ export default function Scene() {
   return (
     <>
       <Drivers />
+      <RenderHeartbeat />
       <SkySystem indoor={indoor} />
       <Suspense fallback={null}>
-        <SpaceRenderer spaceKey={spaceKey} />
+        {/* A named, Suspense-bound root lets cloud evidence distinguish the
+            requested space from the persistent Canvas scene. It carries no
+            test-only behavior and does not alter world coordinates. */}
+        <group name={`nx-space-${spaceKey}`}>
+          <SpaceRenderer spaceKey={spaceKey} />
+        </group>
       </Suspense>
       {!indoor && (
         <>

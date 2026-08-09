@@ -117,7 +117,12 @@ export function CinemaRiser({
   d: number;
   h: number;
 }) {
-  const carpet = useMemo(() => surfaceMaterial('cinemaCarpet'), []);
+  const carpet = useMemo(() => {
+    const material = surfaceMaterial('cinemaCarpet');
+    material.color.set('#4a303d');
+    material.roughness = 0.96;
+    return material;
+  }, []);
   const edge = useMemo(() => {
     const m = surfaceMaterial('brushedMetal');
     m.color.set('#ef9a62'); m.emissive.set('#ef7653'); m.emissiveIntensity = 0.42;

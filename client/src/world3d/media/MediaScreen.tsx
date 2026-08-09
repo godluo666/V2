@@ -20,32 +20,48 @@ export { mediaTargetPosition } from './players';
 /** CSS pixel width of the single screen overlay (MediaLayer 使用同一常量). */
 export const PX = 720;
 
+const idleTextureCache = new Map<'cinema' | 'standard', THREE.CanvasTexture>();
+
 function idleTexture(cinema = false): THREE.CanvasTexture {
+  const cacheKey = cinema ? 'cinema' : 'standard';
+  const cached = idleTextureCache.get(cacheKey);
+  if (cached) return cached;
   const c = document.createElement('canvas');
   c.width = 512; c.height = 288;
   const ctx = c.getContext('2d')!;
   const grad = ctx.createLinearGradient(0, 0, 512, 288);
-  grad.addColorStop(0, cinema ? '#24111e' : '#101828');
-  grad.addColorStop(1, cinema ? '#0b1628' : '#1a1030');
+  grad.addColorStop(0, cinema ? '#35202f' : '#101828');
+  grad.addColorStop(0.52, cinema ? '#211d29' : '#15142c');
+  grad.addColorStop(1, cinema ? '#142131' : '#1a1030');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 512, 288);
   if (cinema) {
-    ctx.fillStyle = '#ff3f6c';
+    ctx.fillStyle = '#85314f';
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(190, 0); ctx.lineTo(92, 288); ctx.lineTo(0, 288); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#40e8ff';
+    ctx.fillStyle = '#75a8c8';
     ctx.fillRect(0, 270, 512, 5);
     ctx.strokeStyle = 'rgba(255,235,207,0.8)';
     ctx.lineWidth = 3;
     ctx.strokeRect(18, 18, 476, 252);
+    ctx.strokeStyle = 'rgba(255,220,166,0.24)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(29, 29, 454, 230);
+    ctx.fillStyle = 'rgba(246,222,188,0.68)';
+    ctx.font = '700 11px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('HOUSE 01  /  GRAND FORMAT  /  READY', 304, 66);
   }
-  ctx.fillStyle = cinema ? '#fff0dd' : '#5b8cff';
+  ctx.fillStyle = cinema ? '#f5e0c6' : '#5b8cff';
   ctx.font = cinema ? '800 42px "Segoe UI", sans-serif' : '700 34px "Segoe UI", sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(cinema ? 'AURORA SCREEN' : '团子影像', 256, 130);
-  ctx.fillStyle = cinema ? '#ffd84f' : '#9aa7bd';
+  ctx.fillStyle = cinema ? '#ddb375' : '#9aa7bd';
   ctx.font = '18px "Segoe UI", sans-serif';
   ctx.fillText(cinema ? '巨幕厅 · 等待下一场放映' : '走近按 E,把网页或视频放上屏幕', 256, 172);
-  return new THREE.CanvasTexture(c);
+  const texture = new THREE.CanvasTexture(c);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  idleTextureCache.set(cacheKey, texture);
+  return texture;
 }
 
 // ── drei Html transform 的同款 CSS3D 数学(与 @react-three/drei web/Html.js 一致)──
@@ -76,7 +92,6 @@ export default function MediaScreen({ position, rotation, width, height, frame =
   const fsOpen = useFullscreenMedia((s) => s.open);
   const active = !!media && (!!media.url || media.kind === 'share');
   const idle = useMemo(() => idleTexture(width >= 12), [width]);
-  const glowRef = useRef<THREE.PointLight>(null);
   const anchorRef = useRef<THREE.Group>(null);
   const id = useMemo(() => `scr_${position.join(',')}_${width}`, [position, width]);
   // 渲染像素密度按屏宽走:巨幕(≥12m)用 1440px 面,近看不发虚;
@@ -95,10 +110,7 @@ export default function MediaScreen({ position, rotation, width, height, frame =
     };
   }, [id, width]);
 
-  useFrame(({ clock, camera, size }) => {
-    if (glowRef.current) {
-      glowRef.current.intensity = active ? 3.0 + Math.sin(clock.elapsedTime * 1.7) * 0.5 : 0.7;
-    }
+  useFrame(({ camera, size }) => {
     if (!mediaRuntime.isOwner(id)) return;
     if (!active || fsOpen) {
       // 全屏/无媒体时不驱动世界内图层(MediaLayer 自己处理全屏样式)
@@ -134,13 +146,19 @@ export default function MediaScreen({ position, rotation, width, height, frame =
       {frame && (
         <mesh castShadow>
           <boxGeometry args={[width + 0.22, height + 0.22, 0.09]} />
-          <meshStandardMaterial color="#14171d" roughness={0.4} metalness={0.4} />
+          <meshStandardMaterial color="#292c35" roughness={0.56} metalness={0.28} />
         </mesh>
       )}
       {!active && (
         <mesh position={[0, 0, 0.012]}>
           <planeGeometry args={[width, height]} />
-          <meshStandardMaterial map={idle} emissive="#ffffff" emissiveMap={idle} emissiveIntensity={0.5} roughness={0.4} />
+          <meshStandardMaterial
+            map={idle}
+            emissive="#ffffff"
+            emissiveMap={idle}
+            emissiveIntensity={0.62}
+            roughness={0.48}
+          />
         </mesh>
       )}
       {active && (
@@ -148,12 +166,18 @@ export default function MediaScreen({ position, rotation, width, height, frame =
            全屏/非持有屏时看到的就是它) */
         <mesh position={[0, 0, 0.012]}>
           <planeGeometry args={[width, height]} />
-          <meshStandardMaterial color="#05070c" roughness={0.6} />
+          <meshStandardMaterial
+            map={idle}
+            color="#8b919d"
+            emissive="#4b505c"
+            emissiveMap={idle}
+            emissiveIntensity={0.24}
+            roughness={0.62}
+          />
         </mesh>
       )}
       {/* 播放层锚点:scale 使 px 个 CSS 像素 = width 米(drei distanceFactor=400 等价) */}
       <group ref={anchorRef} position={[0, 0, 0.03]} scale={width / px} />
-      <pointLight ref={glowRef} position={[0, 0, 1.4]} color="#aac4e8" intensity={0.7} distance={7} decay={2} />
     </group>
   );
 }

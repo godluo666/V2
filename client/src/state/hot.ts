@@ -91,14 +91,15 @@ class HotState {
     // 由 LocalPlayer 抬到招牌层。玩家模型不缩放，室内仍沿用家具视角。
     this.camera.pitch = outdoor
       ? -0.02
-      : spaceKey === 'cinema' ? -0.1
-        : spaceKey === 'netcafe' ? -0.06
-          : 0.32;
+      : spaceKey === 'cinema' ? -0.05
+        : spaceKey === 'netcafe' ? 0.08
+          : spaceKey === 'gameroom' ? 0.2
+            : 0.32;
     this.camera.dist = outdoor
       ? 8.2
       : spaceKey === 'cinema' ? 8.4
-        : spaceKey === 'netcafe' ? 9.2
-          : spaceKey === 'gameroom' ? 5.8
+        : spaceKey === 'netcafe' ? 10.6
+          : spaceKey === 'gameroom' ? 6.2
             : 5.2;
   }
 

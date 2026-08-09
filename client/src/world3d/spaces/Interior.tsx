@@ -14,6 +14,7 @@ import { ClubExtras } from '../prefabs/clubInteriors';
 import { WindowFrame } from '../prefabs/interiors';
 import { plankTexture, tileTexture, marbleTexture, carpetTexture, gridGlowTexture } from './textures';
 import { surfaceMaterial } from '../city/materials';
+import { TIER_BUDGET } from '../city/quality';
 
 interface Gap { side: 'n' | 's' | 'e' | 'w'; center: number; width: number; }
 interface InteriorConfig {
@@ -119,6 +120,87 @@ const CONFIGS: Record<string, InteriorConfig> = {
   },
 };
 
+interface VenueLightPlan {
+  ceiling: number;
+  windows: number;
+  architecture: number;
+}
+
+/**
+ * Reserve a strict Point/Spot budget for the three rebuilt venues. Fixtures
+ * outside this allocation remain visible as emissive geometry, so lowering a
+ * quality tier does not remove any architectural or material detail.
+ */
+function venueLightPlan(
+  spaceKey: string,
+  maxRealLights: number,
+  ceilingTotal: number,
+  windowTotal: number,
+): VenueLightPlan {
+  if (spaceKey === 'cinema') {
+    const architecture = maxRealLights >= 10 ? 5 : maxRealLights >= 8 ? 4 : maxRealLights >= 5 ? 2 : 1;
+    return {
+      ceiling: Math.min(ceilingTotal, Math.max(0, maxRealLights - architecture)),
+      windows: 0,
+      architecture,
+    };
+  }
+  if (spaceKey === 'netcafe') {
+    const architecture = maxRealLights >= 8 ? 4 : maxRealLights >= 5 ? 2 : 1;
+    const windows = Math.min(windowTotal, maxRealLights >= 10 ? 2 : 0);
+    return {
+      ceiling: Math.min(ceilingTotal, Math.max(0, maxRealLights - architecture - windows)),
+      windows,
+      architecture,
+    };
+  }
+  if (spaceKey === 'gameroom') {
+    const architecture = maxRealLights >= 10 ? 4 : maxRealLights >= 8 ? 2 : 1;
+    const windows = Math.min(windowTotal, maxRealLights >= 8 ? 2 : 0);
+    return {
+      ceiling: Math.min(ceilingTotal, Math.max(0, maxRealLights - architecture - windows)),
+      windows,
+      architecture,
+    };
+  }
+  return { ceiling: ceilingTotal, windows: windowTotal, architecture: 0 };
+}
+
+/** Pick a balanced subset while keeping every fixture in the scene. */
+function distributedIndices(total: number, count: number): Set<number> {
+  const safeCount = Math.max(0, Math.min(total, count));
+  if (safeCount === 0) return new Set();
+  if (safeCount === 1) return new Set([Math.floor(total / 2)]);
+  if (safeCount === total) return new Set(Array.from({ length: total }, (_, index) => index));
+  return new Set(Array.from(
+    { length: safeCount },
+    (_, index) => Math.round(index * (total - 1) / (safeCount - 1)),
+  ));
+}
+
+/**
+ * Venue ceiling arrays are authored in spatial pairs rather than scan order.
+ * Explicit balanced subsets prevent a four-light tier from illuminating only
+ * the left half of the auditorium simply because paired fixtures are adjacent
+ * in CONFIGS.
+ */
+function venueCeilingIndices(spaceKey: string, total: number, count: number): Set<number> {
+  const patterns: Record<string, number[][]> = {
+    cinema: [
+      [], [6], [0, 1], [0, 1, 6], [0, 1, 4, 5],
+      [0, 1, 4, 5, 6], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5, 6],
+    ],
+    netcafe: [
+      [], [6], [2, 3], [2, 3, 6], [0, 1, 4, 5],
+      [0, 1, 4, 5, 6], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5, 6],
+    ],
+    gameroom: [[], [2], [0, 1], [0, 1, 2], [0, 1, 2, 3]],
+  };
+  const pattern = patterns[spaceKey]?.[count];
+  if (!pattern || pattern.some((index) => index >= total)) return distributedIndices(total, count);
+  return new Set(pattern);
+}
+
 function floorTex(kind: InteriorConfig['floor']) {
   switch (kind) {
     case 'planks': return plankTexture();
@@ -207,7 +289,15 @@ export function Walls({ layout, cfg }: { layout: SpaceLayout; cfg: InteriorConfi
 }
 
 /** 暖日光窗:窗框提供建筑细节，小范围暖光只负责把窗边座位从墙面中分离。 */
-function InteriorWindows({ layout, cfg }: { layout: SpaceLayout; cfg: InteriorConfig }) {
+function InteriorWindows({
+  layout,
+  cfg,
+  realLightIndices,
+}: {
+  layout: SpaceLayout;
+  cfg: InteriorConfig;
+  realLightIndices: ReadonlySet<number>;
+}) {
   if (!cfg.windows?.length) return null;
   return (
     <group>
@@ -233,7 +323,9 @@ function InteriorWindows({ layout, cfg }: { layout: SpaceLayout; cfg: InteriorCo
         return (
           <group key={`${win.side}-${win.center}-${i}`}>
             <WindowFrame position={position} rotation={rotation} w={win.w ?? 2.2} h={1.55} />
-            <pointLight position={inward} color="#ffe3b2" intensity={4.2} distance={8} decay={2} />
+            {realLightIndices.has(i) && (
+              <pointLight position={inward} color="#ffe3b2" intensity={4.2} distance={8} decay={2} />
+            )}
           </group>
         );
       })}
@@ -253,12 +345,62 @@ function DimmableCeilingLight({ color, intensity, dimTarget, reach }: { color: s
   return <pointLight ref={ref} position={[0, -0.5, 0]} color={color} intensity={intensity} distance={reach} decay={1.7} />;
 }
 
+/**
+ * One controlled shadow pass gives the rebuilt venues grounded furniture and
+ * readable contact without reintroducing the cinema's former six-face point
+ * shadow. The target is a real scene object, so its direction is deterministic.
+ */
+function VenueShadowKey({ layout, height, spaceKey, quality }: {
+  layout: SpaceLayout;
+  height: number;
+  spaceKey: string;
+  quality: keyof typeof TIER_BUDGET;
+}) {
+  const cx = (layout.bounds.minX + layout.bounds.maxX) / 2;
+  const cz = (layout.bounds.minZ + layout.bounds.maxZ) / 2;
+  const span = Math.max(
+    layout.bounds.maxX - layout.bounds.minX,
+    layout.bounds.maxZ - layout.bounds.minZ,
+  ) / 2 + 1;
+  const target = useMemo(() => {
+    const object = new THREE.Object3D();
+    object.position.set(cx, spaceKey === 'cinema' ? 1.2 : 0.75, cz - 1.5);
+    return object;
+  }, [cx, cz, spaceKey]);
+  const intensity = spaceKey === 'cinema' ? 0.52 : spaceKey === 'netcafe' ? 0.62 : 0.82;
+  const color = spaceKey === 'netcafe' ? '#b9c9da' : spaceKey === 'cinema' ? '#d7c8c6' : '#ffe0b8';
+  const mapSize = quality === 'ultra' || quality === 'high' ? 1024 : 512;
+  return (
+    <>
+      <directionalLight
+        position={[cx + span * 0.34, height - 0.35, cz + span * 0.42]}
+        target={target}
+        color={color}
+        intensity={intensity}
+        castShadow
+        shadow-mapSize={[mapSize, mapSize]}
+        shadow-camera-left={-span}
+        shadow-camera-right={span}
+        shadow-camera-top={span}
+        shadow-camera-bottom={-span}
+        shadow-camera-near={0.5}
+        shadow-camera-far={height + span * 2.2}
+        shadow-bias={-0.00035}
+        shadow-normalBias={0.025}
+      />
+      <primitive object={target} />
+    </>
+  );
+}
+
 export default function Interior({ spaceKey }: { spaceKey: string }) {
   const layout = LAYOUTS[spaceKey];
   const cfg = CONFIGS[spaceKey];
   const switches = useWorld((s) => s.switches);
   const media = useWorld((s) => s.media);
   const reflections = useSettings((s) => s.reflections);
+  const quality = useSettings((s) => s.quality);
+  const shadows = useSettings((s) => s.shadows);
   const lightsOn = cfg.lightSwitchId ? (switches[cfg.lightSwitchId] ?? true) : true;
   // 影院:开播灯光压到 22%,暂停回到 55%,无片全亮(任务书 §二十二 影厅体验)
   const playingNow = !!media && (!!media.url || media.kind === 'share');
@@ -270,6 +412,23 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
   const d = layout.bounds.maxZ - layout.bounds.minZ;
   const cx = (layout.bounds.maxX + layout.bounds.minX) / 2;
   const cz = (layout.bounds.maxZ + layout.bounds.minZ) / 2;
+  // Persisted settings predate the quality tiers on some clients; keep a
+  // defensive high-tier fallback instead of letting a stale value break entry.
+  const maxRealLights = TIER_BUDGET[quality]?.maxRealLights ?? TIER_BUDGET.high.maxRealLights;
+  const lightPlan = useMemo(() => venueLightPlan(
+    spaceKey,
+    maxRealLights,
+    cfg.lights.length,
+    cfg.windows?.length ?? 0,
+  ), [cfg.lights.length, cfg.windows?.length, maxRealLights, spaceKey]);
+  const ceilingLightIndices = useMemo(
+    () => venueCeilingIndices(spaceKey, cfg.lights.length, lightPlan.ceiling),
+    [cfg.lights.length, lightPlan.ceiling, spaceKey],
+  );
+  const windowLightIndices = useMemo(
+    () => distributedIndices(cfg.windows?.length ?? 0, lightPlan.windows),
+    [cfg.windows?.length, lightPlan.windows],
+  );
 
   return (
     <group>
@@ -300,7 +459,7 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
         <meshStandardMaterial color={cfg.ceilingColor} roughness={0.95} />
       </mesh>
       <Walls layout={layout} cfg={cfg} />
-      <InteriorWindows layout={layout} cfg={cfg} />
+      <InteriorWindows layout={layout} cfg={cfg} realLightIndices={windowLightIndices} />
 
       {/* ceiling light fixtures */}
       {cfg.lights.map((l, i) => (
@@ -314,7 +473,7 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
               roughness={0.5}
             />
           </mesh>
-          {lightsOn && (
+          {lightsOn && ceilingLightIndices.has(i) && (
             // 高顶棚(巨幕厅 12m)需要更强更远的灯才能照到地面
             <DimmableCeilingLight
               color={l.color}
@@ -328,9 +487,12 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
       {/* soft fill so interiors read clearly at any hour */}
       {lightsOn && (
         <ambientLight
-          intensity={spaceKey === 'cinema' ? 0.09 : spaceKey === 'netcafe' ? 0.24 : spaceKey === 'gameroom' ? 0.4 : 0.48}
-          color={spaceKey === 'netcafe' ? '#8ea8c9' : cfg.neon ? '#a8add2' : '#fff2df'}
+          intensity={spaceKey === 'cinema' ? 0.16 : spaceKey === 'netcafe' ? 0.3 : spaceKey === 'gameroom' ? 0.4 : 0.48}
+          color={spaceKey === 'cinema' ? '#c8b7bc' : spaceKey === 'netcafe' ? '#8ea8c9' : cfg.neon ? '#a8add2' : '#fff2df'}
         />
+      )}
+      {lightsOn && shadows && ['cinema', 'netcafe', 'gameroom'].includes(spaceKey) && (
+        <VenueShadowKey layout={layout} height={cfg.height} spaceKey={spaceKey} quality={quality} />
       )}
       {!lightsOn && <pointLight position={[cx, 1.6, cz]} color="#3a4a6f" intensity={2.2} distance={16} />}
       {!lightsOn && <ambientLight intensity={0.08} color="#33415f" />}
@@ -352,9 +514,15 @@ export default function Interior({ spaceKey }: { spaceKey: string }) {
       )}
 
       {/* 场馆专属挂件(P5):网吧墙面灯带 / 雀庄障子窗 + 役种挂轴 */}
-      {spaceKey === 'cinema' && <CinemaHallArchitecture lightsOn={lightsOn} />}
-      {spaceKey === 'netcafe' && <ArenaHallArchitecture lightsOn={lightsOn} />}
-      {spaceKey === 'gameroom' && <ClubExtras lightsOn={lightsOn} />}
+      {spaceKey === 'cinema' && (
+        <CinemaHallArchitecture lightsOn={lightsOn} lightBudget={lightPlan.architecture} />
+      )}
+      {spaceKey === 'netcafe' && (
+        <ArenaHallArchitecture lightsOn={lightsOn} lightBudget={lightPlan.architecture} />
+      )}
+      {spaceKey === 'gameroom' && (
+        <ClubExtras lightsOn={lightsOn} lightBudget={lightPlan.architecture} />
+      )}
 
       {layout.props.map((p, i) => renderProp(p, i))}
       {layout.interactables.map((it) => renderInteractable(it, it.id))}

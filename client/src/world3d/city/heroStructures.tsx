@@ -356,12 +356,12 @@ function cinemaStructure(palette: HeroMaterials): THREE.Group {
     { x: -1.86, w: 0.72 },
   ];
   for (const pane of lobbyPanes) {
-    batch.box('darkGlass', pane.x, 2.2, facadeZ - 0.32, pane.w, 3.55, 0.14);
-    batch.box('inkMetal', pane.x, 0.43, facadeZ - 0.2, pane.w + 0.12, 0.13, 0.28);
-    batch.box('inkMetal', pane.x, 3.97, facadeZ - 0.2, pane.w + 0.12, 0.13, 0.28);
+    batch.box('darkGlass', pane.x, 2.2, facadeZ - 0.1, pane.w, 3.55, 0.14);
+    batch.box('inkMetal', pane.x, 0.43, facadeZ + 0.02, pane.w + 0.12, 0.13, 0.28);
+    batch.box('inkMetal', pane.x, 3.97, facadeZ + 0.02, pane.w + 0.12, 0.13, 0.28);
   }
   for (const x of [-6.62, -5.43, -4.2, -2.35, -1.47]) {
-    batch.box('brightMetal', x, 2.2, facadeZ - 0.15, 0.12, 3.7, 0.24);
+    batch.box('brightMetal', x, 2.2, facadeZ + 0.08, 0.12, 3.7, 0.24);
   }
   batch.box('brightMetal', doorX, 3.78, 8.78, 3.5, 0.11, 0.2);
 
@@ -379,19 +379,60 @@ function cinemaStructure(palette: HeroMaterials): THREE.Group {
 
   // Second-storey balcony and deep mullions make the foyer height readable.
   batch.box('brightMetal', portalX, 5.7, facadeZ + 0.16, 5.25, 0.16, 0.62);
-  batch.box('darkGlass', portalX, 7.5, facadeZ - 0.28, 4.95, 2.78, 0.14);
+  batch.box('darkGlass', portalX, 7.5, facadeZ - 0.04, 4.95, 2.78, 0.14);
   for (const x of [-6.4, -5.25, -4.1, -2.95, -1.8]) {
-    batch.box('inkMetal', x, 7.5, facadeZ - 0.04, 0.1, 2.95, 0.28);
+    batch.box('inkMetal', x, 7.5, facadeZ + 0.1, 0.1, 2.95, 0.28);
   }
 
-  // The opposite half is a stepped acoustic/circulation tower rather than a
-  // continuation of the same flat facade.
-  batch.box('concrete', 2.15, 7.2, facadeZ - 0.36, 3.8, 13.8, 1.05);
-  batch.box('paleConcrete', 3.0, 15.1, facadeZ - 0.58, 2.15, 2.35, 1.55);
-  batch.box('inkMetal', 0.18, 8.2, facadeZ + 0.1, 0.3, 15.6, 0.48);
-  batch.box('inkMetal', 4.16, 8.0, facadeZ - 0.06, 0.34, 14.7, 0.52);
-  for (const y of [6.1, 9.1, 12.1]) {
-    batch.box('cinemaAccent', 2.15, y, facadeZ + 0.22, 3.35, 0.18, 0.34);
+  // The opposite half is a three-storey circulation lantern, built from
+  // extruded post-and-beam frames rather than one 3.8 x 13.8m concrete box.
+  // Alternating facade depths expose real side returns; the dark openings sit
+  // behind their frames and the middle bay is a louvred service floor.
+  const serviceCoreX = 2.15;
+  const serviceFrame = portalGeometry(3.72, 4.08, 2.56, 0.56, 0.78);
+  for (let level = 0; level < 3; level++) {
+    const baseY = 0.14 + level * 4.28;
+    const levelZ = facadeZ - (level === 1 ? 0.62 : 0.38);
+    batch.geometry(
+      level === 1 ? 'paleConcrete' : 'concrete',
+      serviceFrame,
+      new THREE.Vector3(serviceCoreX, baseY, levelZ),
+    );
+    batch.box(
+      level === 1 ? 'inkMetal' : 'darkGlass',
+      serviceCoreX,
+      baseY + 1.92,
+      levelZ - 0.52,
+      2.42,
+      3.08,
+      0.16,
+    );
+    batch.box('brightMetal', serviceCoreX, baseY + 0.28, levelZ + 0.08, 2.72, 0.14, 0.42);
+    if (level === 1) {
+      for (let louvre = 0; louvre < 6; louvre++) {
+        batch.box('brightMetal', serviceCoreX, baseY + 0.8 + louvre * 0.46, levelZ - 0.38, 2.48, 0.08, 0.28);
+      }
+    }
+  }
+  batch.box('inkMetal', 0.18, 7.35, facadeZ - 0.12, 0.34, 14.5, 1.08);
+  batch.box('inkMetal', 4.18, 7.75, facadeZ - 0.02, 0.4, 15.3, 1.48);
+  batch.box('brightMetal', serviceCoreX, 13.24, facadeZ - 0.22, 3.88, 0.34, 1.18);
+  batch.box('paleConcrete', 3.0, 15.1, facadeZ - 0.7, 2.15, 2.35, 1.8);
+  batch.box('brightMetal', 3.0, 16.32, facadeZ - 0.42, 2.42, 0.12, 1.34);
+
+  // A recessed maintenance entrance completes the remaining frontage instead
+  // of exposing the legacy inner wall as an unmodelled dark gap. Its jambs,
+  // lintel, threshold and vented door all sit at different depths.
+  const serviceDoorX = 5.72;
+  batch.box('brick', serviceDoorX, 2.0, facadeZ - 0.88, 2.55, 3.9, 0.38);
+  batch.box('inkMetal', serviceDoorX, 1.86, facadeZ - 0.58, 1.7, 3.18, 0.18);
+  for (const x of [serviceDoorX - 1.12, serviceDoorX + 1.12]) {
+    batch.box('paleConcrete', x, 2.05, facadeZ - 0.28, 0.28, 4.1, 1.02);
+  }
+  batch.box('paleConcrete', serviceDoorX, 4.02, facadeZ - 0.24, 2.52, 0.3, 1.08);
+  batch.box('brightMetal', serviceDoorX, 0.32, facadeZ - 0.08, 2.12, 0.18, 0.72);
+  for (let vent = 0; vent < 5; vent++) {
+    batch.box('brightMetal', serviceDoorX, 1.02 + vent * 0.38, facadeZ - 0.43, 1.42, 0.07, 0.24);
   }
 
   // Cinema crown and projection-room silhouette. The existing cinema shell is

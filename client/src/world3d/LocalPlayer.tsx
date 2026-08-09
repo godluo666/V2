@@ -22,18 +22,22 @@ import { audio } from '../audio/engine';
 
 /** Interior ceiling heights for camera containment (rooms default to 3.0). */
 // Keep the large public venues framed as spaces rather than letting the camera
-// clip down into a low ceiling.  The arena has a 4.6m shell and a suspended
-// truss; clamping either venue to the old low-room ceiling made the first frame
+// clip down into a low ceiling.  The arena has a 13.2m shell and suspended
+// trusses; clamping either venue to the old low-room ceiling made the first frame
 // show wall paint instead of the screen, stage, and stands.
 const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 13.5, arcade: 3.6, shop: 3.4, lobby: 4.2, netcafe: 13.2, gameroom: 4.2 };
 const STREET_CINEMA = VENUES.find((venue) => venue.key === 'cinema');
+const STREET_LAYOUT = LAYOUTS[SPACE.PLAZA];
+const STREET_SPAWN_CAMERA_YAW = STREET_LAYOUT.spawn[3] + Math.PI;
+const ARENA_LAYOUT = LAYOUTS[SPACE.NETCAFE];
+const ARENA_SPAWN_CAMERA_YAW = ARENA_LAYOUT.spawn[3] + Math.PI;
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export default function LocalPlayer() {
   const avatarRef = useRef<AvatarHandle>(null);
   const groupRef = useRef<THREE.Group>(null);
-  const { gl, camera } = useThree();
+  const { gl, camera, size } = useThree();
   const spaceKey = useWorld((s) => s.spaceKey);
   const room = useWorld((s) => s.room);
   const self = useSession((s) => s.self);
@@ -344,6 +348,28 @@ export default function LocalPlayer() {
     // ── Camera rig(third/first 双模式,0.25s 平滑过渡)──
     const cam = hot.camera;
     const streetView = spaceKey === SPACE.PLAZA;
+    // A portrait viewport has less than one third of the desktop horizontal
+    // field of view at the same 42° vertical FOV. Near the shared street spawn,
+    // shift the *real* third-person composition toward the media-screen face
+    // and slightly upward instead of letting its centre sit on the right crop.
+    // The blend fades with movement or a deliberate camera turn, so normal
+    // exploration and every venue-return camera remain under player control.
+    let portraitStreetFrame = 0;
+    if (streetView) {
+      const aspect = size.width / Math.max(1, size.height);
+      const portrait = 1 - THREE.MathUtils.smoothstep(aspect, 0.62, 0.96);
+      const spawnDistance = Math.hypot(
+        l.x - STREET_LAYOUT.spawn[0],
+        l.z - STREET_LAYOUT.spawn[2],
+      );
+      const proximity = 1 - THREE.MathUtils.smoothstep(spawnDistance, 1.8, 7.5);
+      const yawDelta = Math.atan2(
+        Math.sin(cam.yaw - STREET_SPAWN_CAMERA_YAW),
+        Math.cos(cam.yaw - STREET_SPAWN_CAMERA_YAW),
+      );
+      const facing = 1 - THREE.MathUtils.smoothstep(Math.abs(yawDelta), 0.16, 0.72);
+      portraitStreetFrame = portrait * proximity * facing;
+    }
     // The cinema door is close to a tall facade, so the generic follow rig can
     // only frame its threshold. When the player deliberately faces the lobby
     // from its shared approach, ease the same player camera backward and lift
@@ -362,19 +388,54 @@ export default function LocalPlayer() {
       const facing = 1 - THREE.MathUtils.smoothstep(Math.abs(yawDelta), 0.32, 0.82);
       cinemaFacadeFrame = proximity * facing;
     }
+    // The arena's south portal and rear concourse are real deep geometry.  A
+    // generic camera aimed only at the avatar leaves that structure between the
+    // lens and the event floor.  Near the shared spawn, while the player keeps
+    // the intended north-facing yaw, aim the normal player camera down the main
+    // aisle.  Movement or a deliberate turn smoothly restores the free rig.
+    let arenaHeroFrame = 0;
+    if (spaceKey === SPACE.NETCAFE) {
+      const spawnDistance = Math.hypot(
+        l.x - ARENA_LAYOUT.spawn[0],
+        l.z - ARENA_LAYOUT.spawn[2],
+      );
+      const yawDelta = Math.atan2(
+        Math.sin(cam.yaw - ARENA_SPAWN_CAMERA_YAW),
+        Math.cos(cam.yaw - ARENA_SPAWN_CAMERA_YAW),
+      );
+      const proximity = 1 - THREE.MathUtils.smoothstep(spawnDistance, 1.8, 7.2);
+      const facing = 1 - THREE.MathUtils.smoothstep(Math.abs(yawDelta), 0.14, 0.68);
+      arenaHeroFrame = proximity * facing;
+    }
+    if (camera instanceof THREE.PerspectiveCamera) {
+      const targetFov = THREE.MathUtils.lerp(42, 54, arenaHeroFrame);
+      const nextFov = THREE.MathUtils.lerp(camera.fov, targetFov, Math.min(1, dt * 8));
+      if (Math.abs(nextFov - camera.fov) > 0.005) {
+        camera.fov = nextFov;
+        camera.updateProjectionMatrix();
+      }
+    }
     // 玩家仍是原来的团子尺寸；户外把摄影目标抬到二层店招高度，让角色落在
     // 画面下三分之一，同时保留略向上的都市峡谷视角。
+    const streetCompositionLift = THREE.MathUtils.lerp(1.72, 3.75, portraitStreetFrame);
     const compositionLift = streetView
-      ? THREE.MathUtils.lerp(1.72, 5.1, cinemaFacadeFrame)
-      : spaceKey === SPACE.CINEMA ? 1.65
-        : spaceKey === SPACE.NETCAFE ? 1.9
+      ? THREE.MathUtils.lerp(streetCompositionLift, 5.1, cinemaFacadeFrame)
+      : spaceKey === SPACE.CINEMA ? 2.25
+        : spaceKey === SPACE.NETCAFE ? THREE.MathUtils.lerp(1.9, 3.85, arenaHeroFrame)
           : 0.8;
     const headY = l.y + compositionLift;
+    const streetPosterDistance = THREE.MathUtils.lerp(
+      cam.dist,
+      Math.max(cam.dist, 10.2),
+      portraitStreetFrame,
+    );
     const viewDistance = streetView
       // 11.5m frames the 9.7m portal while keeping the lens north of the
       // opposite apartment's projecting balcony line at world z≈7.3.
-      ? THREE.MathUtils.lerp(cam.dist, Math.max(cam.dist, 11.5), cinemaFacadeFrame)
-      : cam.dist;
+      ? THREE.MathUtils.lerp(streetPosterDistance, Math.max(streetPosterDistance, 11.5), cinemaFacadeFrame)
+      : spaceKey === SPACE.NETCAFE
+        ? THREE.MathUtils.lerp(cam.dist, Math.max(cam.dist, 12.4), arenaHeroFrame)
+        : cam.dist;
     // A slight eastward shoulder view reveals the vestibule depth and keeps the
     // pulled-back lens clear of the phone booth at (16.3, 7.15).
     const facadeShoulder = cinemaFacadeFrame * 1.8;
@@ -389,7 +450,9 @@ export default function LocalPlayer() {
       // The rebuilt cinema has 0.5-1.1m thick acoustic/rear-wall assemblies.
       // Its old 0.35m camera inset placed the lens inside the z=14.7 sliding
       // door/header, producing a near-clipped black evidence frame.
-      const wallInset = spaceKey === SPACE.CINEMA ? 1.45 : 0.35;
+      const wallInset = spaceKey === SPACE.CINEMA
+        ? 1.45
+        : spaceKey === SPACE.NETCAFE ? 1.4 : 0.35;
       cx = Math.min(Math.max(cx, bounds.minX + wallInset), bounds.maxX - wallInset);
       cz = Math.min(Math.max(cz, bounds.minZ + wallInset), bounds.maxZ - wallInset);
       cy = Math.min(cy, ceiling - 0.25);
@@ -419,10 +482,18 @@ export default function LocalPlayer() {
     camera.position.x += (px - camera.position.x) * kPos;
     camera.position.y += (py - camera.position.y) * kPos;
     camera.position.z += (pz - camera.position.z) * kPos;
+    const portraitAimRight = portraitStreetFrame * 1.5;
+    const arenaAimForward = arenaHeroFrame * 10.2;
+    const thirdLookX = l.x + Math.cos(cam.yaw) * portraitAimRight
+      - Math.sin(cam.yaw) * arenaAimForward;
+    const thirdLookY = headY - (streetView ? 0.08 : 0.22)
+      + portraitStreetFrame * 0.3 + arenaHeroFrame * 0.18;
+    const thirdLookZ = l.z - Math.sin(cam.yaw) * portraitAimRight
+      - Math.cos(cam.yaw) * arenaAimForward;
     camera.lookAt(
-      l.x * (1 - fb) + (l.x + lfx) * fb,
-      (headY - (streetView ? 0.08 : 0.22)) * (1 - fb) + (eyeY.current + lfy) * fb,
-      l.z * (1 - fb) + (l.z + lfz) * fb
+      thirdLookX * (1 - fb) + (l.x + lfx) * fb,
+      thirdLookY * (1 - fb) + (eyeY.current + lfy) * fb,
+      thirdLookZ * (1 - fb) + (l.z + lfz) * fb
     );
 
     // ── Avatar visuals ──

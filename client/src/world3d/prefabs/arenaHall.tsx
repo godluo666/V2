@@ -31,16 +31,19 @@ function illuminated(kind: SurfaceKind, color: string, intensity: number): THREE
 }
 
 const MATERIAL = {
-  concrete: finish('oldConcrete', '#242a36'),
-  painted: finish('paintedConcrete', '#343c4b'),
-  blackMetal: finish('metal', '#111722'),
-  steel: finish('brushedMetal', '#606b79'),
-  darkSteel: finish('brushedMetal', '#2a3342'),
-  glass: finish('darkGlass', '#101d2b'),
-  deck: finish('cinemaCarpet', '#191b2b'),
-  acoustic: finish('acousticFabric', '#29253c'),
-  seat: finish('seatFabric', '#333750'),
-  seatAccent: finish('seatFabric', '#582f69'),
+  // Calibrated for the real low-tier cloud path (no shadows/post FX).  These
+  // remain dark arena finishes, but their albedo steps are far enough apart for
+  // truss, rail, equipment shell and riser silhouettes to survive without Bloom.
+  concrete: finish('oldConcrete', '#343d4b'),
+  painted: finish('paintedConcrete', '#48566a'),
+  blackMetal: finish('metal', '#1d2938'),
+  steel: finish('brushedMetal', '#8796aa'),
+  darkSteel: finish('brushedMetal', '#3d4b60'),
+  glass: finish('darkGlass', '#172b40'),
+  deck: finish('cinemaCarpet', '#292d46'),
+  acoustic: finish('acousticFabric', '#403a58'),
+  seat: finish('seatFabric', '#505976'),
+  seatAccent: finish('seatFabric', '#704482'),
   cyan: illuminated('plasticLightbox', '#39d9f2', 0.82),
   cyanDim: illuminated('plasticLightbox', '#26758a', 0.28),
   violet: illuminated('plasticLightbox', '#7656ef', 0.78),
@@ -72,6 +75,7 @@ function Part({
 }: PartProps) {
   return (
     <mesh
+      dispose={null}
       geometry={BOX}
       position={position}
       scale={scale}
@@ -91,6 +95,7 @@ function CylinderPart({
 }: Omit<PartProps, 'castShadow' | 'receiveShadow'>) {
   return (
     <mesh
+      dispose={null}
       geometry={CYLINDER}
       position={position}
       scale={scale}
@@ -128,6 +133,7 @@ function InstancedParts({ specs, material }: { specs: InstanceSpec[]; material: 
 
   return (
     <instancedMesh
+      dispose={null}
       ref={ref}
       args={[BOX, material, specs.length]}
       castShadow
@@ -271,7 +277,7 @@ export function ArenaPlayerStation({
     : (stationLightsOn ? MATERIAL.violet : MATERIAL.violetDim);
 
   return (
-    <group position={position} rotation={[0, ry, 0]} dispose={null}>
+    <group position={position} rotation={[0, ry, 0]}>
       {/* 具有前后折面的桌体和贯通式金属底架。 */}
       <Part position={[0, 0.76, 0]} scale={[1.78, 0.1, 0.8]} material={MATERIAL.blackMetal} />
       <Part position={[0, 0.81, 0.33]} scale={[1.66, 0.035, 0.09]} material={teamMaterial} castShadow={false} />
@@ -571,7 +577,11 @@ function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
   const violet = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
   return (
     <group>
-      {/* 20 × 10m 主赛台：承重基座、浮筑层、设备沟和三段入口台阶。 */}
+      {/*
+       * 20 × 10m 主赛台：承重基座、浮筑层、设备沟和三段入口台阶。
+       * 可行走顶面由 shared/layouts 精确镜像：主体依次为 0.40 / 0.55 /
+       * 0.60m，三组入口踏步依次为 0.24 / 0.36 / 0.51m。
+       */}
       <Part position={[0, 0.2, -4.25]} scale={[20.2, 0.4, 10.7]} material={MATERIAL.concrete} />
       <Part position={[0, 0.46, -4.25]} scale={[19.5, 0.18, 10.05]} material={MATERIAL.deck} />
       <Part position={[0, 0.575, -4.25]} scale={[18.6, 0.05, 9.25]} material={MATERIAL.acoustic} />
@@ -639,7 +649,8 @@ function MainScreenStructure({ lightsOn }: { lightsOn: boolean }) {
         <group key={x}>
           <Part position={[x, 7.1, -16.46]} scale={[0.42, 8.8, 0.38]} material={MATERIAL.steel} />
           <Part position={[x, 7.1, -16.2]} scale={[0.09, 8.0, 0.08]} material={x < 0 ? cyan : violet} castShadow={false} />
-          <Part position={[x, 5.8, -16.72]} scale={[0.7, 9.8, 1.05]} material={MATERIAL.concrete} />
+          {/* 侧向承重柱落到地坪，避免主屏框架在近景中悬空。 */}
+          <Part position={[x, 5.35, -16.72]} scale={[0.7, 10.7, 1.05]} material={MATERIAL.concrete} />
         </group>
       ))}
 
@@ -663,7 +674,8 @@ function MainScreenStructure({ lightsOn }: { lightsOn: boolean }) {
           <Part position={[0, 0, 0]} scale={[4.4, 6.2, 0.5]} material={MATERIAL.blackMetal} />
           <Part position={[0, 0, 0.28]} scale={[3.92, 5.65, 0.07]} material={MATERIAL.glass} />
           <Part position={[0, 3.18, 0.28]} scale={[4.05, 0.08, 0.08]} material={side < 0 ? cyan : violet} castShadow={false} />
-          <Part position={[0, 0, -0.62]} scale={[0.3, 7.5, 0.9]} material={MATERIAL.steel} />
+          {/* 落地检修柱连接侧屏全高；共享碰撞只包住这根实体柱。 */}
+          <Part position={[0, -1.95, -0.62]} scale={[0.3, 10.1, 0.9]} material={MATERIAL.steel} />
           <Part position={[side * -1.4, 0, -0.86]} scale={[3.0, 0.22, 0.22]} rotation={[0, side * 0.28, 0]} material={MATERIAL.darkSteel} />
         </group>
       ))}
@@ -783,13 +795,6 @@ function OverheadRig({ lightsOn }: { lightsOn: boolean }) {
         </group>
       ))}
 
-      {lightsOn && (
-        <>
-          <pointLight position={[-7.5, 7.6, -5]} color="#42ddf4" intensity={11} distance={15} decay={2} />
-          <pointLight position={[7.5, 7.6, -5]} color="#805cf2" intensity={10} distance={15} decay={2} />
-          <pointLight position={[0, 8.8, -12]} color="#e74bb6" intensity={7} distance={13} decay={2} />
-        </>
-      )}
     </group>
   );
 }
@@ -918,9 +923,15 @@ function WallArchitecture({ lightsOn }: { lightsOn: boolean }) {
  * 电竞观战馆主体。目标布局：bounds x[-21,21] / z[-17,17]，顶棚约 13m；
  * 主屏 MediaScreen 在北墙独立挂载，八个 ArenaPlayerStation 由 layout props 挂载。
  */
-export function ArenaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
+export function ArenaHallArchitecture({
+  lightsOn,
+  lightBudget = 4,
+}: {
+  lightsOn: boolean;
+  lightBudget?: number;
+}) {
   return (
-    <group dispose={null}>
+    <group>
       <CompetitionFloor lightsOn={lightsOn} />
       <MainScreenStructure lightsOn={lightsOn} />
       <TieredStands lightsOn={lightsOn} />
@@ -933,24 +944,30 @@ export function ArenaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
        * 只把深色钢架、看台踏步和主屏外壳从黑背景中分离出来。
        */}
       <hemisphereLight
-        color="#91aac4"
-        groundColor="#171522"
-        intensity={lightsOn ? 0.42 : 0.12}
+        color="#a9c0d7"
+        groundColor="#201d2b"
+        intensity={lightsOn ? 0.62 : 0.14}
       />
       <directionalLight
-        position={[8, 12, 10]}
-        color="#d9e8f5"
-        intensity={lightsOn ? 0.7 : 0.16}
+        position={[10, 14, 8]}
+        color="#e4edf5"
+        intensity={lightsOn ? 1.18 : 0.18}
         castShadow={false}
       />
 
       {/* 非霓虹主照明：比赛区、观众区与后场均保留可读暗部。 */}
-      {lightsOn && (
+      {lightsOn && lightBudget > 0 && (
         <>
-          <pointLight position={[0, 8.5, -3.8]} color="#b8d0df" intensity={15} distance={24} decay={1.8} />
-          <pointLight position={[-14.5, 6.0, 3]} color="#7895b1" intensity={8} distance={17} decay={2} />
-          <pointLight position={[14.5, 6.0, 3]} color="#7895b1" intensity={8} distance={17} decay={2} />
-          <pointLight position={[0, 8.0, 12.5]} color="#d7c9b7" intensity={7} distance={15} decay={2} />
+          <pointLight position={[0, 9.2, -3.0]} color="#cbdbe9" intensity={21} distance={30} decay={1.65} />
+          {(lightBudget === 2 || lightBudget >= 4) && (
+            <pointLight position={[0, 8.0, 12.0]} color="#ddcfbf" intensity={9} distance={18} decay={1.9} />
+          )}
+          {lightBudget >= 3 && (
+            <>
+              <pointLight position={[-14.5, 6.0, 2]} color="#83a8c4" intensity={10} distance={19} decay={1.9} />
+              <pointLight position={[14.5, 6.0, 2]} color="#9891c9" intensity={10} distance={19} decay={1.9} />
+            </>
+          )}
         </>
       )}
     </group>

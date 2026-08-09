@@ -9,6 +9,7 @@
  *   rear / entry z ~= 13 / 15
  *   ceiling      y ~= 13.5
  */
+import { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { surfaceMaterial, type SurfaceKind } from '../city/materials';
@@ -44,6 +45,16 @@ const stageCarpet = tinted('cinemaCarpet', '#59283d');
 const walnut = tinted('wood', '#6b493b');
 const speakerCone = tinted('seatFabric', '#302b34');
 const speakerDustCap = tinted('darkGlass', '#06070a');
+
+// Indoor metallic surfaces have no environment map to reflect. Keep painted
+// housings partially dielectric so their broad faces retain diffuse form in
+// SwiftShader instead of collapsing to black between specular highlights.
+paintedSteel.metalness = 0.34;
+paintedSteel.roughness = 0.64;
+blackSteel.metalness = 0.38;
+blackSteel.roughness = 0.66;
+brushedSteel.metalness = 0.58;
+brushedSteel.roughness = 0.46;
 
 const screenSheen = new THREE.MeshStandardMaterial({
   color: '#334154', emissive: '#364a65', emissiveIntensity: 0.2,
@@ -132,6 +143,7 @@ const speakerCabinetGeometry = bevelledSolid(1.38, 1.82, 0.72, 0.11, 0.045);
 const seatCushionGeometry = bevelledSolid(0.72, 0.15, 0.58, 0.075, 0.04);
 const seatBackGeometry = bevelledSolid(0.74, 0.74, 0.17, 0.09, 0.035);
 const seatHeadGeometry = bevelledSolid(0.54, 0.2, 0.08, 0.06, 0.025);
+const seatRearInsertGeometry = bevelledSolid(0.58, 0.55, 0.055, 0.07, 0.018);
 const mainStageGeometry = stageGeometry(0.58);
 const lowerStageGeometry = stageGeometry(0.2, 2.4);
 
@@ -187,6 +199,9 @@ const seatFabricGeometry = mergeParts([
   { geometry: seatCushionGeometry, position: [0, 0.48, 0.03] },
   { geometry: seatBackGeometry, position: [0, 0.85, -0.31], rotation: [fixedBackTilt, 0, 0] },
   { geometry: seatHeadGeometry, position: [0, 1.12, -0.136], rotation: [fixedBackTilt, 0, 0] },
+  // A real rear upholstery insert sits proud of the painted back shell. It is
+  // what the normal auditorium camera sees, leaving a solid metal perimeter.
+  { geometry: seatRearInsertGeometry, position: [0, 0.85, -0.475], rotation: [fixedBackTilt, 0, 0] },
   { geometry: seatCapsule, position: [-0.43, 0.7, 0.02], rotation: [Math.PI / 2, 0, 0] },
   { geometry: seatCapsule, position: [0.43, 0.7, 0.02], rotation: [Math.PI / 2, 0, 0] },
 ]);
@@ -208,6 +223,7 @@ const seatTrimGeometry = mergeParts([
   { geometry: seatCylinder, position: [0.19, 0.035, -0.03], scale: [0.028, 0.076, 0.028] },
   { geometry: seatBox, position: [0, 0.455, 0.325], scale: [0.57, 0.035, 0.035] },
   { geometry: seatBox, position: [0, 0.692, -0.143], rotation: [fixedBackTilt, 0, 0], scale: [0.56, 0.028, 0.025] },
+  { geometry: seatBox, position: [0, 0.855, -0.51], rotation: [fixedBackTilt, 0, 0], scale: [0.42, 0.026, 0.018] },
   { geometry: seatCupRing, position: [-0.43, 0.73, 0.185], rotation: [Math.PI / 2, 0, 0] },
   { geometry: seatCupRing, position: [0.43, 0.73, 0.185], rotation: [Math.PI / 2, 0, 0] },
   { geometry: seatCylinder, position: [0.482, 0.5, -0.1], rotation: [0, 0, Math.PI / 2], scale: [0.035, 0.018, 0.035] },
@@ -351,12 +367,6 @@ function ScreenProscenium({ lightsOn }: { lightsOn: boolean }) {
 
       <LineArray side={-1} />
       <LineArray side={1} />
-      {lightsOn && (
-        <>
-          <pointLight position={[-12.9, 3.2, -11.7]} color="#d73563" intensity={3.2} distance={9} decay={2} />
-          <pointLight position={[12.9, 3.2, -11.7]} color="#d73563" intensity={3.2} distance={9} decay={2} />
-        </>
-      )}
     </group>
   );
 }
@@ -397,7 +407,6 @@ function AcousticWallBay({ side, z, index, lightsOn }: {
           <mesh position={[0, 0, 0.025]} material={lightsOn ? guideOn : guideOff}>
             <boxGeometry args={[0.26, 0.5, 0.08]} />
           </mesh>
-          {lightsOn && <pointLight position={[0, -0.15, 0.42]} color="#ff9a70" intensity={5.5} distance={8} decay={1.85} />}
         </group>
       )}
     </group>
@@ -470,7 +479,7 @@ function CeilingTruss({ z, lightsOn }: { z: number; lightsOn: boolean }) {
           <cylinderGeometry args={[0.045, 0.045, 0.74, 8]} />
         </mesh>
       ))}
-      {[-10, 0, 10].map((x, i) => (
+      {[-10, 0, 10].map((x) => (
         <group key={x} position={[x, 11.88, 0]}>
           <mesh material={blackSteel} castShadow>
             <cylinderGeometry args={[0.22, 0.29, 0.42, 12]} />
@@ -478,10 +487,59 @@ function CeilingTruss({ z, lightsOn }: { z: number; lightsOn: boolean }) {
           <mesh position={[0, -0.23, 0]} material={lightsOn ? guideOn : guideOff}>
             <cylinderGeometry args={[0.13, 0.17, 0.06, 12]} />
           </mesh>
-          {lightsOn && i !== 1 && <spotLight position={[0, -0.28, 0]} target-position={[0, -12, -z - 4]} color="#d45a64" intensity={24} angle={0.34} penumbra={0.65} distance={18} decay={2} />}
         </group>
       ))}
     </group>
+  );
+}
+
+/**
+ * R3F's dashed `target-position` updates the target's local position, but a
+ * Three SpotLight target must be in the scene graph for matrixWorld updates.
+ * This small wrapper makes every retained house light direction deterministic.
+ */
+function DirectedSpotLight({
+  position,
+  target,
+  color,
+  intensity,
+  angle,
+  penumbra,
+  distance,
+  decay,
+}: {
+  position: P3;
+  target: P3;
+  color: string;
+  intensity: number;
+  angle: number;
+  penumbra: number;
+  distance: number;
+  decay: number;
+}) {
+  const lightRef = useRef<THREE.SpotLight>(null);
+  const targetRef = useRef<THREE.Object3D>(null);
+  useLayoutEffect(() => {
+    const light = lightRef.current;
+    const targetObject = targetRef.current;
+    if (!light || !targetObject) return;
+    light.target = targetObject;
+    targetObject.updateMatrixWorld(true);
+  }, []);
+  return (
+    <>
+      <spotLight
+        ref={lightRef}
+        position={position}
+        color={color}
+        intensity={intensity}
+        angle={angle}
+        penumbra={penumbra}
+        distance={distance}
+        decay={decay}
+      />
+      <object3D ref={targetRef} position={target} />
+    </>
   );
 }
 
@@ -606,7 +664,13 @@ function AisleGuidance({ lightsOn }: { lightsOn: boolean }) {
  * layout-owned seats/risers remain separate so collision and seat interaction
  * stay authoritative in shared/src/layouts.ts.
  */
-export function CinemaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
+export function CinemaHallArchitecture({
+  lightsOn,
+  lightBudget = 4,
+}: {
+  lightsOn: boolean;
+  lightBudget?: number;
+}) {
   return (
     <group>
       <ScreenProscenium lightsOn={lightsOn} />
@@ -634,43 +698,47 @@ export function CinemaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
       ))}
       {[-9, -3, 3, 9].map((z) => <CeilingTruss key={z} z={z} lightsOn={lightsOn} />)}
 
-      {lightsOn && (
+      {lightsOn && lightBudget > 0 && (
         <>
-          {/* Screen bounce: broad cool source gives the seat fronts and stage a
-              readable value without lifting the whole room through ambient. */}
-          <rectAreaLight
-            position={[0, 7.1, -13.15]}
-            rotation={[0, Math.PI, 0]}
-            color="#b8cbe0"
-            intensity={4.8}
-            width={21}
-            height={8.2}
-          />
-          <spotLight
-            position={[0, 9.2, -12.7]}
-            target-position={[0, 1.35, 3.8]}
-            color="#9eb8d4"
-            intensity={72}
-            angle={0.83}
-            penumbra={0.82}
-            distance={28}
-            decay={1.65}
-          />
-          {/* Rear house light reveals upholstery backs and stepped depth; the
-              narrow cone leaves the side walls and ceiling in controlled dark. */}
-          <spotLight
+          {/* Rear house key survives every tier and reveals the stepped seating
+              and screen in a single broad, directional composition. */}
+          <DirectedSpotLight
             position={[0, 9.8, 12.2]}
-            target-position={[0, 1.4, 0.5]}
+            target={[0, 1.4, -1.5]}
             color="#ffd0a6"
-            intensity={82}
-            angle={0.72}
-            penumbra={0.78}
-            distance={25}
+            intensity={118}
+            angle={0.76}
+            penumbra={0.8}
+            distance={27}
             decay={1.7}
           />
-          <pointLight position={[0, 11.9, 8.5]} color="#ffd0a2" intensity={24} distance={21} decay={1.85} castShadow />
-          <pointLight position={[-14.2, 6.3, 1.5]} color="#d06a77" intensity={11} distance={12} decay={1.85} />
-          <pointLight position={[14.2, 6.3, 1.5]} color="#718db9" intensity={10} distance={12} decay={1.85} />
+          {lightBudget >= 2 && (
+            <DirectedSpotLight
+              position={[0, 9.2, -12.7]}
+              target={[0, 1.35, 3.8]}
+              color="#9eb8d4"
+              intensity={92}
+              angle={0.83}
+              penumbra={0.82}
+              distance={28}
+              decay={1.65}
+            />
+          )}
+          {/* At four lights use a balanced side pair. At three, a single
+              overhead fill avoids an asymmetric half-pair. No local light
+              casts a six-face point shadow. */}
+          {lightBudget === 3 && (
+            <pointLight position={[0, 11.9, 7.2]} color="#ffd0a2" intensity={18} distance={20} decay={1.9} />
+          )}
+          {lightBudget >= 4 && (
+            <>
+              <pointLight position={[-14.2, 6.3, 1.5]} color="#d06a77" intensity={11} distance={12} decay={1.85} />
+              <pointLight position={[14.2, 6.3, 1.5]} color="#718db9" intensity={10} distance={12} decay={1.85} />
+            </>
+          )}
+          {lightBudget >= 5 && (
+            <pointLight position={[0, 11.9, 7.2]} color="#ffd0a2" intensity={18} distance={20} decay={1.9} />
+          )}
         </>
       )}
     </group>
@@ -678,13 +746,24 @@ export function CinemaHallArchitecture({ lightsOn }: { lightsOn: boolean }) {
 }
 
 const seatFabrics = [
-  tinted('seatFabric', '#8d2b49'),
-  tinted('seatFabric', '#99324f'),
-  tinted('seatFabric', '#81243f'),
+  tinted('seatFabric', '#b34865'),
+  tinted('seatFabric', '#a83d5b'),
+  tinted('seatFabric', '#963650'),
 ];
-const seatMetal = tinted('metal', '#3b3e47');
-const seatTrim = tinted('brushedMetal', '#9c969e');
-const cupInterior = tinted('darkGlass', '#151a21');
+seatFabrics.forEach((material) => {
+  material.emissive.set('#280913');
+  material.emissiveIntensity = 0.12;
+  material.roughness = 0.91;
+});
+const seatMetal = tinted('metal', '#555b68');
+seatMetal.metalness = 0.28;
+seatMetal.roughness = 0.66;
+const seatTrim = tinted('brushedMetal', '#aaa6ad');
+seatTrim.metalness = 0.5;
+seatTrim.roughness = 0.48;
+const cupInterior = tinted('darkGlass', '#313844');
+cupInterior.metalness = 0.16;
+cupInterior.roughness = 0.42;
 
 /**
  * Grounded premium cinema chair.  `position.y` is the exact deck contact
@@ -698,7 +777,7 @@ export function PremiumCinemaSeat({ position, rotation, variant = 0 }: {
 }) {
   const fabric = seatFabrics[Math.abs(variant) % seatFabrics.length];
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
+    <group position={position} rotation={[0, rotation, 0]} dispose={null}>
       <mesh geometry={seatMetalGeometry} material={seatMetal} castShadow receiveShadow />
       <mesh geometry={seatFabricGeometry} material={fabric} castShadow receiveShadow />
       <mesh geometry={seatTrimGeometry} material={seatTrim} castShadow receiveShadow />

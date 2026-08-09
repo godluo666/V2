@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 import {
   JOURNEY_CHROMIUM_ARGS, enterStreetVenue, exitToStreet,
   interactWhenPrompt, prepareWorldInput, sitOnHighestSeat,
-  walkFromVenueDoorToSpawn, walkTo, walkToVenueDoor,
+  waitForRenderedWorld, walkFromVenueDoorToSpawn, walkTo, walkToVenueDoor,
 } from './browser-driver.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
@@ -20,8 +20,11 @@ const check = (label, ok) => {
   if (!ok) failures++;
 };
 
-async function captureEvidence(page, fileName, label) {
+async function captureEvidence(page, fileName, label, expectedSpace) {
   try {
+    if (!await waitForRenderedWorld(page, expectedSpace, 60_000)) {
+      throw new Error(`expected rendered space ${expectedSpace}`);
+    }
     await page.screenshot({
       path: `${OUT}/${fileName}`,
       // SwiftShader can take longer than a normal desktop GPU for the first
@@ -31,9 +34,11 @@ async function captureEvidence(page, fileName, label) {
       animations: 'disabled',
     });
     check(`${label} cloud screenshot captured`, true);
+    return true;
   } catch (error) {
     console.log(`  ${label} screenshot failed: ${error instanceof Error ? error.message : String(error)}`);
     check(`${label} cloud screenshot captured`, false);
+    return false;
   }
 }
 
@@ -55,7 +60,7 @@ async function apiToken(name) {
   return (await response.json()).token;
 }
 
-async function newPlayer(browser, name) {
+async function newPlayer(browser, name, { visualEvidence = false } = {}) {
   const token = await apiToken(name);
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
@@ -65,11 +70,15 @@ async function newPlayer(browser, name) {
   page.on('pageerror', (error) => errors.push(`[${name}] PAGEERROR ${error.message}`));
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.evaluate((value) => {
-    localStorage.setItem('np_token', value);
+    localStorage.setItem('np_token', value.token);
     localStorage.setItem('np_help_seen', '1');
     localStorage.setItem('np_settings', JSON.stringify({
-      quality: 'low',
-      shadows: false,
+      // The evidence player uses the production medium shadow path so the
+      // uploaded images actually validate contact shadows and material form.
+      // Companion clients remain low-cost; post effects/reflections stay off
+      // on both so the cloud run measures geometry rather than Bloom.
+      quality: value.visualEvidence ? 'medium' : 'low',
+      shadows: value.visualEvidence,
       postfx: false,
       reflections: false,
       particles: false,
@@ -81,22 +90,29 @@ async function newPlayer(browser, name) {
       mediaVolume: 0,
       invertY: false,
     }));
-  }, token);
+  }, { token, visualEvidence });
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(
-    () => !!document.querySelector('canvas') && !!window.__nx,
-    undefined,
-    { timeout: 60_000, polling: 500 },
-  );
-  await page.waitForTimeout(800);
+  if (!await waitForRenderedWorld(page, 'plaza', 60_000)) {
+    throw new Error(`player ${name} did not render the initial plaza frame`);
+  }
   await prepareWorldInput(page);
   return page;
 }
 
-const launchBrowser = () => chromium.launch({
-  ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
-  args: JOURNEY_CHROMIUM_ARGS,
-});
+const openBrowsers = new Set();
+const launchBrowser = async () => {
+  const browser = await chromium.launch({
+    ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
+    args: JOURNEY_CHROMIUM_ARGS,
+  });
+  openBrowsers.add(browser);
+  return browser;
+};
+const closeBrowser = async (browser) => {
+  if (!browser || !openBrowsers.has(browser)) return;
+  await browser.close();
+  openBrowsers.delete(browser);
+};
 
 const state = (page) => page.evaluate(() => ({
   space: window.__nx.world.getState().spaceKey,
@@ -109,22 +125,31 @@ const state = (page) => page.evaluate(() => ({
 async function enterPartyHall(page) {
   const entered = await enterStreetVenue(page, 'gameroom');
   if (!entered) console.log('  party-hall interaction failed', JSON.stringify(await state(page)));
+  return entered;
 }
 
 async function enterCinema(page) {
   const entered = await enterStreetVenue(page, 'cinema');
   if (!entered) console.log('  cinema interaction failed', JSON.stringify(await state(page)));
+  return entered;
 }
 
+async function runJourney() {
+  try {
 const p1Browser = await launchBrowser();
-const p1 = await newPlayer(p1Browser, `smoke_p1_${RUN}`);
+const p1 = await newPlayer(p1Browser, `smoke_p1_${RUN}`, { visualEvidence: true });
 check('WebGL context available', await p1.evaluate(() => {
   const canvas = document.querySelector('canvas');
   return !!(canvas?.getContext('webgl2') || canvas?.getContext('webgl'));
 }));
-await captureEvidence(p1, 'street-crossroads-desktop.png', 'compact crossroads desktop');
-await walkToVenueDoor(p1, 'cinema');
-await captureEvidence(p1, 'street-cinema-facade-desktop.png', 'cinema facade close view');
+await captureEvidence(p1, 'street-crossroads-desktop.png', 'compact crossroads desktop', 'plaza');
+const reachedCinemaFacade = await walkToVenueDoor(p1, 'cinema');
+check('cinema facade close-view route reached its shared approach', reachedCinemaFacade);
+if (reachedCinemaFacade) {
+  await captureEvidence(p1, 'street-cinema-facade-desktop.png', 'cinema facade close view', 'plaza');
+} else {
+  check('cinema facade close view cloud screenshot captured', false);
+}
 check('facade close-view route returns to street spawn', await walkFromVenueDoorToSpawn(p1, 'cinema'));
 
 let p2Browser = await launchBrowser();
@@ -139,19 +164,42 @@ check('cross-client chat synchronized', await p1.evaluate(() =>
   ),
 ));
 
-for (const page of [p1, p2]) await enterPartyHall(page);
+const partyEntries = [];
+for (const page of [p1, p2]) partyEntries.push(await enterPartyHall(page));
+const p1InPartyHall = partyEntries[0] && (await state(p1)).space === 'gameroom';
+const bothInPartyHall = partyEntries.every(Boolean)
+  && p1InPartyHall
+  && (await state(p2)).space === 'gameroom';
 check(
   'both players entered the Dango party hall',
-  (await state(p1)).space === 'gameroom' && (await state(p2)).space === 'gameroom',
+  bothInPartyHall,
 );
 check('party hall uses the activity-room label', (await state(p1)).label.includes('社团活动室'));
-await captureEvidence(p1, 'party-hall-wide-desktop.png', 'party hall wide view');
-
-for (const page of [p1, p2]) {
-  await walkTo(page, 4.7, 5.5, 12_000);
-  await walkTo(page, 5.7, 2.8, 10_000);
-  await page.evaluate(() => window.__nx.connection.send('game_join', { machineId: 'gr-xq' }));
+if (p1InPartyHall) {
+  await captureEvidence(p1, 'party-hall-wide-desktop.png', 'party hall wide view', 'gameroom');
+} else {
+  check('party hall wide view cloud screenshot captured', false);
 }
+
+const partyApproaches = await p1.evaluate(() => {
+  const interactables = window.__nx.layouts.gameroom?.interactables ?? [];
+  const xqSeat = interactables.find((candidate) => candidate.id === 'gr-xq-s0');
+  const flightSeat = interactables.find((candidate) => candidate.id === 'gr-flight-s0');
+  if (!xqSeat || !flightSeat) throw new Error('Missing shared party-hall game-table seats');
+  return {
+    xq: { x: xqSeat.pos[0], z: xqSeat.pos[2] },
+    flight: { x: flightSeat.pos[0], z: flightSeat.pos[2] },
+  };
+});
+let xqRoutesReached = true;
+for (const page of [p1, p2]) {
+  const reached = await walkTo(page, partyApproaches.xq.x, partyApproaches.xq.z, 12_000, 0.75);
+  xqRoutesReached = xqRoutesReached && reached;
+  if (reached) {
+    await page.evaluate(() => window.__nx.connection.send('game_join', { machineId: 'gr-xq' }));
+  }
+}
+check('both players physically reached the shared Xiangqi seating area', xqRoutesReached);
 // The cloud runner can deliver the second join over a few WebSocket ticks;
 // wait for the authoritative two-player state before asking the table to move.
 await p1.waitForFunction(
@@ -173,69 +221,147 @@ const xq = await p2.evaluate(() => {
 check('party-hall Xiangqi move reached the other player', xq.pawn === 'P' && xq.turn === 1);
 
 await p1.evaluate(() => window.__nx.connection.send('game_leave', { machineId: 'gr-xq' }));
-await walkTo(p1, 6.5, -2.05, 12_000);
-await interactWhenPrompt(p1, '飞行棋', 6.5, -2.05);
-check('flying-chess table has a usable surrounding seat', (await state(p1)).seatId?.startsWith('gr-flight-s'));
+const reachedFlyingChess = await walkTo(p1, partyApproaches.flight.x, partyApproaches.flight.z, 12_000, 0.75);
+const usedFlyingChessSeat = reachedFlyingChess && await interactWhenPrompt(
+  p1, '飞行棋', partyApproaches.flight.x, partyApproaches.flight.z,
+);
+check(
+  'flying-chess table has a physically reached usable surrounding seat',
+  reachedFlyingChess && usedFlyingChessSeat && (await state(p1)).seatId?.startsWith('gr-flight-s'),
+);
 await p1.keyboard.press('Space');
 await p1.waitForTimeout(300);
-await p2Browser.close();
-await captureEvidence(p1, 'party-hall-desktop.png', 'party hall desktop');
-
-if (!await exitToStreet(p1)) {
-  console.log('  street-exit interaction failed', JSON.stringify(await state(p1)));
+await closeBrowser(p2Browser);
+if ((await state(p1)).space === 'gameroom') {
+  await captureEvidence(p1, 'party-hall-desktop.png', 'party hall desktop', 'gameroom');
+} else {
+  check('party hall desktop cloud screenshot captured', false);
 }
-check('party-hall return follows the shared route back to spawn', await walkFromVenueDoorToSpawn(p1, 'gameroom'));
+
+let partyAtStreet = (await state(p1)).space === 'plaza';
+if ((await state(p1)).space === 'gameroom') {
+  partyAtStreet = await exitToStreet(p1);
+  if (!partyAtStreet) console.log('  street-exit interaction failed', JSON.stringify(await state(p1)));
+}
+const partyReturned = partyAtStreet && await walkFromVenueDoorToSpawn(p1, 'gameroom');
+check('party-hall return follows the shared route back to spawn', partyReturned);
 p2Browser = await launchBrowser();
 p2 = await newPlayer(p2Browser, `sm2r_${RUN}`);
 check('both players returned to the compact street', (await state(p1)).space === 'plaza' && (await state(p2)).space === 'plaza');
 
-for (const page of [p1, p2]) await enterCinema(page);
-const bothInCinema = (await state(p1)).space === 'cinema' && (await state(p2)).space === 'cinema';
+const cinemaEntries = [];
+for (const page of [p1, p2]) cinemaEntries.push(await enterCinema(page));
+const p1InCinema = cinemaEntries[0] && (await state(p1)).space === 'cinema';
+const bothInCinema = cinemaEntries.every(Boolean)
+  && p1InCinema
+  && (await state(p2)).space === 'cinema';
 check('both players entered the cinema', bothInCinema);
-if (bothInCinema) await captureEvidence(p1, 'cinema-hall-wide-desktop.png', 'cinema hall wide view');
+if (p1InCinema) {
+  await captureEvidence(p1, 'cinema-hall-wide-desktop.png', 'cinema hall wide view', 'cinema');
+} else {
+  check('cinema hall wide view cloud screenshot captured', false);
+}
 
-await p2Browser.close();
-if (bothInCinema) {
+await closeBrowser(p2Browser);
+if (p1InCinema) {
   const highestSeat = await sitOnHighestSeat(p1, 'cinema');
   const topSeat = await state(p1);
-  check(
-    `highest-row cinema seat is grounded at y=${highestSeat.y.toFixed(2)} (actual ${topSeat.y.toFixed(2)})`,
-    topSeat.seatId === highestSeat.id && Math.abs(topSeat.y - highestSeat.y) < 0.03,
+  const highestSeatGrounded = Boolean(
+    highestSeat?.walked
+      && highestSeat.seated
+      && topSeat.seatId === highestSeat.id
+      && Math.abs(topSeat.y - highestSeat.y) < 0.03,
   );
-  await captureEvidence(p1, 'cinema-highest-row-desktop.png', 'cinema highest row');
-  await p1.keyboard.press('Space');
-  await p1.waitForTimeout(500);
-  check('cinema player can stand before leaving for the arena', (await state(p1)).seatId == null);
+  const targetHeight = highestSeat ? highestSeat.y.toFixed(2) : 'unavailable';
+  check(
+    `highest-row cinema seat is reached through a clear route and grounded at y=${targetHeight} (actual ${topSeat.y.toFixed(2)})`,
+    highestSeatGrounded,
+  );
+  if (highestSeatGrounded) {
+    await captureEvidence(p1, 'cinema-highest-row-desktop.png', 'cinema highest row', 'cinema');
+    const stoodForArena = await prepareWorldInput(p1);
+    check('cinema player can stand before leaving for the arena', stoodForArena && (await state(p1)).seatId == null);
+  } else {
+    check('cinema highest row cloud screenshot captured', false);
+    check('cinema player can stand before leaving for the arena', false);
+  }
 } else {
   check('highest-row cinema seat is grounded', false);
   check('cinema highest row cloud screenshot captured', false);
+  check('cinema player can stand before leaving for the arena', false);
 }
 
-// Keep two explicit cloud evidence frames for the large esports arena as well;
-// this is intentionally after the cinema journey so it reuses the same player
-// session and does not alter any shared venue or seat logic.
+// Recover the existing player with the real interior exit and reversed shared
+// street route. If that journey is unhealthy, a fresh authenticated player is
+// used for arena evidence; it still walks from the server plaza spawn and enters
+// through the public door, so arena coverage never depends on cinema success and
+// never uses a teleport/test-only bypass.
+const cinemaSpaceBeforeReturn = (await state(p1)).space;
+let cinemaAtStreet = cinemaSpaceBeforeReturn === 'plaza';
+if (cinemaSpaceBeforeReturn === 'cinema') {
+  cinemaAtStreet = await exitToStreet(p1);
+  if (!cinemaAtStreet) console.log('  cinema street-exit interaction failed', JSON.stringify(await state(p1)));
+}
+const cinemaReturned = cinemaAtStreet && await walkFromVenueDoorToSpawn(p1, 'cinema');
+check('cinema return follows its real exit and shared street route', cinemaReturned);
+
+let arenaBrowser = null;
+let arenaPage = p1;
+if (!cinemaReturned || (await state(p1)).space !== 'plaza') {
+  arenaBrowser = await launchBrowser();
+    arenaPage = await newPlayer(arenaBrowser, `arena_${RUN}`, { visualEvidence: true });
+}
+
 let arenaEvidenceCaptured = false;
-if (bothInCinema && await exitToStreet(p1)) {
-  const enteredArena = await enterStreetVenue(p1, 'netcafe');
-  if (enteredArena && (await state(p1)).space === 'netcafe') {
-    await captureEvidence(p1, 'arena-desktop.png', 'esports arena desktop');
-    const arenaApron = await p1.evaluate(() => {
+const enteredArena = await enterStreetVenue(arenaPage, 'netcafe');
+check('player entered the esports arena through the shared street route', enteredArena);
+if (enteredArena && (await state(arenaPage)).space === 'netcafe') {
+  const arenaWideCaptured = await captureEvidence(
+    arenaPage, 'arena-desktop.png', 'esports arena desktop', 'netcafe',
+  );
+  const arenaApron = await arenaPage.evaluate(() => {
       const stage = window.__nx.layouts.netcafe?.heightZones?.[0];
       return stage
         ? { x: (stage.minX + stage.maxX) / 2, z: stage.maxZ + 1.5 }
         : { x: 0, z: 3.05 };
-    });
-    await walkTo(p1, arenaApron.x, arenaApron.z, 16_000, 0.8);
-    await captureEvidence(p1, 'arena-stage-close-desktop.png', 'esports stage close view');
-    arenaEvidenceCaptured = true;
+  });
+  const reachedArenaApron = await walkTo(arenaPage, arenaApron.x, arenaApron.z, 16_000, 0.8);
+  check('esports stage close-view route reached the shared arena apron', reachedArenaApron);
+  let arenaCloseCaptured = false;
+  if (reachedArenaApron) {
+    arenaCloseCaptured = await captureEvidence(
+      arenaPage, 'arena-stage-close-desktop.png', 'esports stage close view', 'netcafe',
+    );
   } else {
-    console.log('  esports arena evidence skipped', JSON.stringify(await state(p1)));
+    check('esports stage close view cloud screenshot captured', false);
   }
+  arenaEvidenceCaptured = arenaWideCaptured && reachedArenaApron && arenaCloseCaptured;
+} else {
+  console.log('  esports arena evidence skipped', JSON.stringify(await state(arenaPage)));
+  check('esports arena desktop cloud screenshot captured', false);
+  check('esports stage close view cloud screenshot captured', false);
 }
 check('esports arena wide and close evidence captured', arenaEvidenceCaptured);
+if (arenaBrowser) await closeBrowser(arenaBrowser);
 
+check('no browser console errors or uncaught page exceptions', errors.length === 0);
 console.log(`CONSOLE ERRORS: ${errors.length}`);
 for (const error of errors.slice(0, 8)) console.log(' ', error.slice(0, 180));
 console.log(failures === 0 ? '✓ compact-street multiplayer smoke passed' : `✗ ${failures} checks failed`);
-await p1Browser.close();
-process.exit(failures ? 1 : 0);
+  } finally {
+    const cleanup = await Promise.allSettled([...openBrowsers].map((browser) => closeBrowser(browser)));
+    for (const result of cleanup) {
+      if (result.status !== 'rejected') continue;
+      console.error(`Browser cleanup failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+      failures++;
+    }
+  }
+  return failures ? 1 : 0;
+}
+
+try {
+  process.exitCode = await runJourney();
+} catch (error) {
+  console.error(`Smoke journey failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
+  process.exitCode = 1;
+}

@@ -120,7 +120,7 @@ export function ClubRug({ position, ry, w, d }: {
 
 export function ClubSofa({ position, ry }: { position: P3; ry: number }) {
   return (
-    <group position={position} rotation={[0, ry, 0]} dispose={null}>
+    <group position={position} rotation={[0, ry, 0]}>
       {/* 内缩木底座、软包承托和离地脚共同建立真实家具层次。 */}
       <SculptedPart position={[0, 0.22, 0]} scale={[3.42, 0.34, 0.86]} material={red} soft />
       <SculptedPart position={[0, 0.095, 0.02]} scale={[3.12, 0.16, 0.7]} material={darkWood} />
@@ -170,7 +170,7 @@ export function ClubSofa({ position, ry }: { position: P3; ry: number }) {
 export function ClubChair({ position, ry, accent = 0 }: { position: P3; ry: number; accent?: number }) {
   const cushion = accent % 2 ? lavenderFabric : sageFabric;
   return (
-    <group position={position} rotation={[0, ry, 0]} dispose={null}>
+    <group position={position} rotation={[0, ry, 0]}>
       <SculptedPart position={[0, 0.47, 0]} scale={[0.72, 0.12, 0.72]} material={wood} />
       <SculptedPart position={[0, 0.555, 0.035]} scale={[0.62, 0.11, 0.6]} material={cushion} soft />
       {/* 四条略收分的木腿与前后横撑，人体尺度在近景中清楚可读。 */}
@@ -200,7 +200,7 @@ export function ClubChair({ position, ry, accent = 0 }: { position: P3; ry: numb
 
 export function ClubStage({ position, ry }: { position: P3; ry: number }) {
   return (
-    <group position={position} rotation={[0, ry, 0]} dispose={null}>
+    <group position={position} rotation={[0, ry, 0]}>
       <SculptedPart position={[0, 0.18, 0]} scale={[7.2, 0.36, 2]} material={wood} />
       <mesh position={[0, 0.38, 0.92]} material={glowGold}><boxGeometry args={[7.2, 0.04, 0.07]} /></mesh>
       <mesh position={[0, 1.75, -0.96]} material={red}><boxGeometry args={[7.2, 2.8, 0.08]} /></mesh>
@@ -230,7 +230,6 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
           <boxGeometry args={[0.34, 0.04, 0.04]} />
         </mesh>
       ))}
-      <pointLight position={[0, 2.4, 0.2]} color="#ffd590" intensity={2.4} distance={6} />
     </group>
   );
 }
@@ -238,7 +237,7 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
 export function FlyingChessTable({ position, ry }: { position: P3; ry: number }) {
   const colors = [red, blue, gold, green];
   return (
-    <group position={position} rotation={[0, ry, 0]} dispose={null}>
+    <group position={position} rotation={[0, ry, 0]}>
       <SculptedPart position={[0, 0.66, 0]} scale={[1.34, 0.13, 1.34]} material={wood} />
       <SculptedPart position={[0, 0.735, 0]} scale={[1.18, 0.04, 1.18]} material={cream} />
       {/* 桌裙使桌面与四腿形成完整木作，而不是一块板悬在腿上。 */}
@@ -280,6 +279,41 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
   );
 }
 
+/** Shared craft / campaign-prep table that closes the dead centre of the room. */
+export function ClubCraftTable({ position, ry }: { position: P3; ry: number }) {
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <SculptedPart position={[0, 0.7, 0]} scale={[1.9, 0.15, 1.02]} material={wood} />
+      <SculptedPart position={[0, 0.59, 0]} scale={[1.62, 0.18, 0.78]} material={darkWood} />
+      {([-0.72, 0.72] as const).flatMap((x) => ([-0.35, 0.35] as const).map((z) => (
+        <mesh key={`${x}-${z}`} position={[x, 0.31, z]} rotation={[z * 0.045, 0, -x * 0.035]} material={darkWood} castShadow>
+          <cylinderGeometry args={[0.04, 0.052, 0.6, 8]} />
+        </mesh>
+      )))}
+      <SculptedPart position={[0, 0.22, 0]} scale={[1.38, 0.08, 0.68]} material={wood} />
+
+      {/* Campaign folders, board-game boxes and a real pencil cup on the worktop. */}
+      {[-0.54, -0.12].map((x, index) => (
+        <group key={x} position={[x, 0.815, -0.12]} rotation={[0, index ? -0.08 : 0.06, 0]}>
+          <SculptedPart position={[0, 0, 0]} scale={[0.38, 0.08, 0.48]} material={index ? lavender : sage} />
+          <SculptedPart position={[0, 0.055, 0]} scale={[0.34, 0.035, 0.44]} material={paper} />
+          <SculptedPart position={[0, 0.018, 0.245]} scale={[0.11, 0.045, 0.025]} material={gold} castShadow={false} />
+        </group>
+      ))}
+      <group position={[0.6, 0.87, 0.18]}>
+        <mesh material={red} castShadow><cylinderGeometry args={[0.12, 0.1, 0.28, 12]} /></mesh>
+        {[-0.055, 0, 0.055].map((x, index) => (
+          <mesh key={x} position={[x, 0.2 + index * 0.025, 0]} rotation={[0, 0, (index - 1) * 0.12]} material={index === 1 ? blue : gold}>
+            <cylinderGeometry args={[0.012, 0.012, 0.36, 6]} />
+          </mesh>
+        ))}
+      </group>
+      <SculptedPart position={[0.28, 0.79, -0.12]} scale={[0.46, 0.035, 0.32]} rotation={[0, -0.12, 0]} material={paper} />
+      <SculptedPart position={[0.31, 0.81, -0.11]} scale={[0.28, 0.018, 0.025]} rotation={[0, -0.12, 0]} material={pink} castShadow={false} />
+    </group>
+  );
+}
+
 export function ClubTrophyWall({ position, ry }: { position: P3; ry: number }) {
   return (
     <group position={position} rotation={[0, ry, 0]}>
@@ -304,7 +338,7 @@ export function ClubTrophyWall({ position, ry }: { position: P3; ry: number }) {
 /** 带门板、抽屉和金属把手的社团收纳柜；棋盒与零散用品有明确归属。 */
 export function ClubStorageCabinet({ position, ry }: { position: P3; ry: number }) {
   return (
-    <group position={position} rotation={[0, ry, 0]} dispose={null}>
+    <group position={position} rotation={[0, ry, 0]}>
       {/* 倒角柜体、内缩踢脚线和离地短脚先建立木作轮廓。 */}
       <SculptedPart position={[0, 0.76, 0]} scale={[3.6, 1.38, 0.62]} material={wood} />
       <SculptedPart position={[0, 1.49, 0]} scale={[3.76, 0.11, 0.7]} material={darkWood} />
@@ -355,7 +389,7 @@ export function ClubStorageCabinet({ position, ry }: { position: P3; ry: number 
 export function ClubReadingNook({ position, ry }: { position: P3; ry: number }) {
   const bookMats = [red, blue, green, lavender, gold, sage];
   return (
-    <group position={position} rotation={[0, ry, 0]} dispose={null}>
+    <group position={position} rotation={[0, ry, 0]}>
       <group position={[-1.45, 0, 0]}>
         <mesh position={[0, 1.45, 0]} castShadow material={darkWood}><boxGeometry args={[2.1, 2.9, 0.62]} /></mesh>
         <mesh position={[0, 1.46, 0.34]} material={wood}><boxGeometry args={[1.76, 2.55, 0.08]} /></mesh>
@@ -392,7 +426,6 @@ export function ClubReadingNook({ position, ry }: { position: P3; ry: number }) 
         <group position={[0.78, 0.78, -0.18]}>
           <mesh position={[0, 0.25, 0]} material={darkWood}><cylinderGeometry args={[0.022, 0.03, 0.5, 8]} /></mesh>
           <mesh position={[0, 0.52, 0]} material={glowGold}><coneGeometry args={[0.2, 0.22, 16]} /></mesh>
-          <pointLight position={[0, 0.42, 0.12]} color="#ffd7a0" intensity={1.3} distance={3.6} decay={2} />
         </group>
         <mesh position={[-0.48, 0.79, 0.08]} rotation={[0, -0.16, 0]} material={paper}>
           <boxGeometry args={[0.72, 0.035, 0.46]} />
@@ -412,7 +445,7 @@ export function ClubReadingNook({ position, ry }: { position: P3; ry: number }) 
 function ClubWallDetails() {
   const panelMats = [sage, lavender, paper, pink];
   return (
-    <group dispose={null}>
+    <group>
       {([-1, 1] as const).flatMap((side) => (
         [-8, -4, 4, 8].map((x, i) => (
           <group key={`wall-panel-${side}-${x}`} position={[x, 0, side * 8.72]}>
@@ -483,10 +516,27 @@ function ClubWallDetails() {
   );
 }
 
-export function ClubExtras({ lightsOn }: { lightsOn: boolean }) {
+function pendantLightIndices(count: number): ReadonlySet<number> {
+  const clamped = Math.max(0, Math.min(5, count));
+  if (clamped === 0) return new Set();
+  if (clamped === 1) return new Set([2]);
+  if (clamped === 2) return new Set([1, 3]);
+  if (clamped === 3) return new Set([0, 2, 4]);
+  if (clamped === 4) return new Set([0, 1, 3, 4]);
+  return new Set([0, 1, 2, 3, 4]);
+}
+
+export function ClubExtras({
+  lightsOn,
+  lightBudget = 2,
+}: {
+  lightsOn: boolean;
+  lightBudget?: number;
+}) {
   const strip = lightsOn ? glowGold : darkWood;
+  const realPendantLights = pendantLightIndices(lightBudget);
   return (
-    <group dispose={null}>
+    <group>
       <ClubWallDetails />
       {/* 天花木梁与串灯：把活动室的高度和温馨感做出来。 */}
       {[-8, -4, 0, 4, 8].map((x) => (
@@ -496,7 +546,9 @@ export function ClubExtras({ lightsOn }: { lightsOn: boolean }) {
         <group key={`pendant-${x}`} position={[x, 3.74, -1.1 + (i % 2) * 2.4]}>
           <mesh position={[0, 0.2, 0]} material={darkWood}><cylinderGeometry args={[0.018, 0.018, 0.35, 6]} /></mesh>
           <mesh material={lightsOn ? glowGold : darkWood}><coneGeometry args={[0.18, 0.16, 12]} /></mesh>
-          {lightsOn && <pointLight color="#ffd590" intensity={1.25} distance={4.5} decay={2} />}
+          {lightsOn && realPendantLights.has(i) && (
+            <pointLight color="#ffd590" intensity={1.25} distance={4.5} decay={2} />
+          )}
         </group>
       ))}
       <mesh position={[0, 3.85, -8.88]} material={strip}><boxGeometry args={[9.5, 0.08, 0.06]} /></mesh>

@@ -501,21 +501,26 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
       {settings.clouds && !indoor && <Clouds tintRef={cloudTint} coverRef={cloudCover} />}
       {!indoor && <Rain activeRef={rainActive} />}
       <hemisphereLight ref={hemiRef} intensity={0.6} />
-      <directionalLight
-        ref={sunRef}
-        intensity={2}
-        castShadow={settings.shadows && !indoor}
-        shadow-mapSize={[shadowSize, shadowSize]}
-        shadow-camera-left={-42}
-        shadow-camera-right={42}
-        shadow-camera-top={42}
-        shadow-camera-bottom={-42}
-        shadow-camera-near={1}
-        shadow-camera-far={220}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.02}
-      />
-      <directionalLight ref={moonRef} intensity={0} color="#7d92c8" />
+      {/* Zero-intensity lights still participate in Three's light hash and
+          shader variants. Interior venues own their directional/shadow key, so
+          remove the outdoor sun/moon objects entirely while indoors. */}
+      {!indoor && (
+        <directionalLight
+          ref={sunRef}
+          intensity={2}
+          castShadow={settings.shadows}
+          shadow-mapSize={[shadowSize, shadowSize]}
+          shadow-camera-left={-42}
+          shadow-camera-right={42}
+          shadow-camera-top={42}
+          shadow-camera-bottom={-42}
+          shadow-camera-near={1}
+          shadow-camera-far={220}
+          shadow-bias={-0.0004}
+          shadow-normalBias={0.02}
+        />
+      )}
+      {!indoor && <directionalLight ref={moonRef} intensity={0} color="#7d92c8" />}
     </>
   );
 }

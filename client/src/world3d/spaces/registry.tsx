@@ -28,7 +28,7 @@ import { ArenaPlayerStation } from '../prefabs/arenaHall';
 import { PremiumCinemaSeat } from '../prefabs/cinemaHall';
 import {
   ClubRug, ClubSofa, ClubStage, FlyingChessTable, ClubTrophyWall,
-  ClubStorageCabinet, ClubReadingNook, ClubChair,
+  ClubStorageCabinet, ClubReadingNook, ClubChair, ClubCraftTable,
 } from '../prefabs/clubInteriors';
 import {
   CLamp, CVend, CBench, CFence, CBike, CTrash, CPoster, CAc, CWires, CSignal,
@@ -98,6 +98,7 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'club_sofa': return <ClubSofa key={key} position={pos} ry={p.ry} />;
     case 'club_stage': return <ClubStage key={key} position={pos} ry={p.ry} />;
     case 'club_flying_chess': return <FlyingChessTable key={key} position={pos} ry={p.ry} />;
+    case 'club_craft_table': return <ClubCraftTable key={key} position={pos} ry={p.ry} />;
     case 'club_trophy_wall': return <ClubTrophyWall key={key} position={pos} ry={p.ry} />;
     case 'club_storage': return <ClubStorageCabinet key={key} position={pos} ry={p.ry} />;
     case 'club_reading_nook': return <ClubReadingNook key={key} position={pos} ry={p.ry} />;

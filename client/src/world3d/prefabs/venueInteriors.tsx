@@ -640,8 +640,7 @@ export function GrLantern({ position }: { position: P3 }) {
       <mesh position={[0, -0.32, 0]} material={tasselMat}>
         <cylinderGeometry args={[0.02, 0.035, 0.14, 6]} />
       </mesh>
-      {/* 本体局部暖光(小半径,总量克制) */}
-      <pointLight color={ACCENT.mahjongLantern} intensity={1.6} distance={4.5} decay={2} />
+      {/* 暖光由灯笼材质本身表达；真实 PointLight 统一由场馆预算分配。 */}
     </group>
   );
 }
