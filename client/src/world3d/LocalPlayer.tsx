@@ -482,7 +482,7 @@ export default function LocalPlayer() {
     const headY = l.y + compositionLift;
     const streetPosterDistance = THREE.MathUtils.lerp(
       cam.dist,
-      Math.max(cam.dist, 12.2),
+      Math.max(cam.dist, 10.2),
       portraitStreetFrame,
     );
     const viewDistance = streetView
@@ -542,17 +542,23 @@ export default function LocalPlayer() {
     camera.position.y += (py - camera.position.y) * kPos;
     camera.position.z += (pz - camera.position.z) * kPos;
     const portraitAimRight = portraitStreetFrame * 1.0;
+    // In a portrait viewport the near-player target leaves only asphalt in
+    // the narrow vertical cone. Aim down the actual northbound street so the
+    // media tower, crosswalk and layered facades remain the first visual read.
+    const portraitAimForward = portraitStreetFrame * 8.4;
     const cinemaAimForward = cinemaHeroFrame * 18;
     const cinemaAimDown = cinemaHeroFrame * 3.25;
     const arenaAimForward = arenaHeroFrame * 10.2;
     const thirdLookX = l.x + cinemaFacadeAimX
       + Math.cos(cam.yaw) * portraitAimRight
+      - Math.sin(cam.yaw) * portraitAimForward
       - Math.sin(cam.yaw) * arenaAimForward;
     const thirdLookY = headY - (streetView ? 0.08 : 0.22)
       + portraitStreetFrame * 0.3 + arenaHeroFrame * 0.18
       - cinemaAimDown;
     const thirdLookZ = l.z + cinemaFacadeAimZ
       - Math.sin(cam.yaw) * portraitAimRight
+      - Math.cos(cam.yaw) * portraitAimForward
       - Math.cos(cam.yaw) * cinemaAimForward
       - Math.cos(cam.yaw) * arenaAimForward;
     camera.lookAt(
