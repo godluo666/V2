@@ -397,11 +397,19 @@ export default function LocalPlayer() {
     if (!streetView) cinemaFacadeFrameRef.current = 0;
     else cinemaFacadeFrameRef.current += (cinemaFacadeTarget - cinemaFacadeFrameRef.current) * cameraBlendK;
     const cinemaFacadeFrame = cinemaFacadeFrameRef.current;
+    // Aim just west of the door rather than at its exact centre. The entrance
+    // then sits on the right visual third and the dense continuing facade fills
+    // the frame; the east street termination no longer consumes a third of the
+    // evidence/player view as empty sky and black road. Derive the lateral
+    // offset from the venue rotation so the framing remains data-aligned.
+    const cinemaFacadeAimOffset = -2.0 * cinemaFacadeFrame;
     const cinemaFacadeAimX = STREET_CINEMA
       ? (STREET_CINEMA.x - l.x) * cinemaFacadeFrame
+        + Math.cos(STREET_CINEMA.ry) * cinemaFacadeAimOffset
       : 0;
     const cinemaFacadeAimZ = STREET_CINEMA
       ? (STREET_CINEMA.z - l.z) * cinemaFacadeFrame
+        - Math.sin(STREET_CINEMA.ry) * cinemaFacadeAimOffset
       : 0;
     // The cinema entrance opens at the rear of the highest seating tier.  Its
     // ordinary low follow camera therefore sees seat backs rather than the
@@ -450,7 +458,13 @@ export default function LocalPlayer() {
     }
     if (camera instanceof THREE.PerspectiveCamera) {
       const venueWideFrame = Math.max(cinemaHeroFrame, arenaHeroFrame);
-      const targetFov = THREE.MathUtils.lerp(42, 54, venueWideFrame);
+      // Portrait needs a modestly wider vertical lens as well as a longer arm;
+      // otherwise its ~10 degree horizontal half-angle reduces the crossroads
+      // to one billboard. Venue establishing shots retain their wider 54° cap.
+      const targetFov = Math.max(
+        THREE.MathUtils.lerp(42, 54, venueWideFrame),
+        THREE.MathUtils.lerp(42, 50, portraitStreetFrame),
+      );
       const nextFov = THREE.MathUtils.lerp(camera.fov, targetFov, Math.min(1, dt * 8));
       if (Math.abs(nextFov - camera.fov) > 0.005) {
         camera.fov = nextFov;
@@ -468,7 +482,7 @@ export default function LocalPlayer() {
     const headY = l.y + compositionLift;
     const streetPosterDistance = THREE.MathUtils.lerp(
       cam.dist,
-      Math.max(cam.dist, 10.2),
+      Math.max(cam.dist, 12.2),
       portraitStreetFrame,
     );
     const viewDistance = streetView
@@ -527,7 +541,7 @@ export default function LocalPlayer() {
     camera.position.x += (px - camera.position.x) * kPos;
     camera.position.y += (py - camera.position.y) * kPos;
     camera.position.z += (pz - camera.position.z) * kPos;
-    const portraitAimRight = portraitStreetFrame * 1.5;
+    const portraitAimRight = portraitStreetFrame * 1.0;
     const cinemaAimForward = cinemaHeroFrame * 18;
     const cinemaAimDown = cinemaHeroFrame * 3.25;
     const arenaAimForward = arenaHeroFrame * 10.2;

@@ -345,29 +345,31 @@ export async function prepareWorldInput(page) {
         stoodUp: true,
         seatId,
         beforeSnapAt: beforeSnap?.t ?? null,
-        beforeSnapX: beforeSnap?.x ?? nx.hot.local.x,
-        beforeSnapZ: beforeSnap?.z ?? nx.hot.local.z,
       };
     }
     return {
       stoodUp: false,
       seatId: null,
       beforeSnapAt: null,
-      beforeSnapX: null,
-      beforeSnapZ: null,
     };
   });
   if (standRequest.stoodUp) {
     try {
       await page.waitForFunction(
-        ({ seatId, beforeSnapAt, beforeSnapX, beforeSnapZ }) => {
+        ({ seatId, beforeSnapAt }) => {
           const nx = window.__nx;
           const released = nx.hot.local.seatId == null
             && nx.world.getState().seats[seatId] !== nx.hot.selfId;
           const snap = nx.hot.selfSnap;
+          // Bits 0-5 are the shared Anim channel; Sit is 4.  After the flight-
+          // chess chair's authoritative table-collider correction, the 2-decimal
+          // server snapshot reports exactly 0.20m of displacement.  The former
+          // strict >0.2m check therefore rejected a real stand.  A newer non-Sit
+          // server snapshot, together with the server-broadcast seat release
+          // above, proves the transition without assuming a minimum distance.
           const authoritativeStandArrived = snap != null
             && (beforeSnapAt == null || snap.t > beforeSnapAt)
-            && Math.hypot(snap.x - beforeSnapX, snap.z - beforeSnapZ) > 0.2;
+            && (snap.st & 63) !== 4;
           return released && authoritativeStandArrived;
         },
         standRequest,

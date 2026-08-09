@@ -229,8 +229,14 @@ check(
   'flying-chess table has a physically reached usable surrounding seat',
   reachedFlyingChess && usedFlyingChessSeat && (await state(p1)).seatId?.startsWith('gr-flight-s'),
 );
-await p1.keyboard.press('Space');
-await p1.waitForTimeout(300);
+// Exercise the same authoritative stand confirmation used by venue exits. A
+// raw one-frame Space press can be missed by low-FPS SwiftShader and leaves the
+// close evidence showing the avatar embedded in the occupied chair.
+const stoodAfterFlyingChess = await prepareWorldInput(p1);
+check(
+  'flying-chess player stands through an authoritative non-Sit snapshot',
+  stoodAfterFlyingChess && (await state(p1)).seatId == null,
+);
 await closeBrowser(p2Browser);
 if ((await state(p1)).space === 'gameroom') {
   await captureEvidence(p1, 'party-hall-desktop.png', 'party hall desktop', 'gameroom');
@@ -249,23 +255,33 @@ p2Browser = await launchBrowser();
 p2 = await newPlayer(p2Browser, `sm2r_${RUN}`);
 check('both players returned to the compact street', (await state(p1)).space === 'plaza' && (await state(p2)).space === 'plaza');
 
+// End the party-hall segment here. Its real exit remains an asserted red light,
+// but a failed exit must not suppress the cinema geometry evidence. Start the
+// cinema segment with a fresh authenticated evidence player at the real server
+// plaza spawn; it still walks the shared street route and uses the public door.
+// Closing the old browser first also keeps the cloud runner at two concurrent
+// SwiftShader contexts instead of masking the original failure with GPU load.
+await closeBrowser(p1Browser);
+const cinemaBrowser = await launchBrowser();
+const cinemaPage = await newPlayer(cinemaBrowser, `cinema_${RUN}`, { visualEvidence: true });
+
 const cinemaEntries = [];
-for (const page of [p1, p2]) cinemaEntries.push(await enterCinema(page));
-const p1InCinema = cinemaEntries[0] && (await state(p1)).space === 'cinema';
+for (const page of [cinemaPage, p2]) cinemaEntries.push(await enterCinema(page));
+const evidencePlayerInCinema = cinemaEntries[0] && (await state(cinemaPage)).space === 'cinema';
 const bothInCinema = cinemaEntries.every(Boolean)
-  && p1InCinema
+  && evidencePlayerInCinema
   && (await state(p2)).space === 'cinema';
 check('both players entered the cinema', bothInCinema);
-if (p1InCinema) {
-  await captureEvidence(p1, 'cinema-hall-wide-desktop.png', 'cinema hall wide view', 'cinema');
+if (evidencePlayerInCinema) {
+  await captureEvidence(cinemaPage, 'cinema-hall-wide-desktop.png', 'cinema hall wide view', 'cinema');
 } else {
   check('cinema hall wide view cloud screenshot captured', false);
 }
 
 await closeBrowser(p2Browser);
-if (p1InCinema) {
-  const highestSeat = await sitOnHighestSeat(p1, 'cinema');
-  const topSeat = await state(p1);
+if (evidencePlayerInCinema) {
+  const highestSeat = await sitOnHighestSeat(cinemaPage, 'cinema');
+  const topSeat = await state(cinemaPage);
   const highestSeatGrounded = Boolean(
     highestSeat?.walked
       && highestSeat.seated
@@ -278,9 +294,9 @@ if (p1InCinema) {
     highestSeatGrounded,
   );
   if (highestSeatGrounded) {
-    await captureEvidence(p1, 'cinema-highest-row-desktop.png', 'cinema highest row', 'cinema');
-    const stoodForArena = await prepareWorldInput(p1);
-    check('cinema player can stand before leaving for the arena', stoodForArena && (await state(p1)).seatId == null);
+    await captureEvidence(cinemaPage, 'cinema-highest-row-desktop.png', 'cinema highest row', 'cinema');
+    const stoodForArena = await prepareWorldInput(cinemaPage);
+    check('cinema player can stand before leaving for the arena', stoodForArena && (await state(cinemaPage)).seatId == null);
   } else {
     check('cinema highest row cloud screenshot captured', false);
     check('cinema player can stand before leaving for the arena', false);
@@ -291,23 +307,23 @@ if (p1InCinema) {
   check('cinema player can stand before leaving for the arena', false);
 }
 
-// Recover the existing player with the real interior exit and reversed shared
+// Recover the cinema evidence player with the real interior exit and reversed shared
 // street route. If that journey is unhealthy, a fresh authenticated player is
 // used for arena evidence; it still walks from the server plaza spawn and enters
 // through the public door, so arena coverage never depends on cinema success and
 // never uses a teleport/test-only bypass.
-const cinemaSpaceBeforeReturn = (await state(p1)).space;
+const cinemaSpaceBeforeReturn = (await state(cinemaPage)).space;
 let cinemaAtStreet = cinemaSpaceBeforeReturn === 'plaza';
 if (cinemaSpaceBeforeReturn === 'cinema') {
-  cinemaAtStreet = await exitToStreet(p1);
-  if (!cinemaAtStreet) console.log('  cinema street-exit interaction failed', JSON.stringify(await state(p1)));
+  cinemaAtStreet = await exitToStreet(cinemaPage);
+  if (!cinemaAtStreet) console.log('  cinema street-exit interaction failed', JSON.stringify(await state(cinemaPage)));
 }
-const cinemaReturned = cinemaAtStreet && await walkFromVenueDoorToSpawn(p1, 'cinema');
+const cinemaReturned = cinemaAtStreet && await walkFromVenueDoorToSpawn(cinemaPage, 'cinema');
 check('cinema return follows its real exit and shared street route', cinemaReturned);
 
 let arenaBrowser = null;
-let arenaPage = p1;
-if (!cinemaReturned || (await state(p1)).space !== 'plaza') {
+let arenaPage = cinemaPage;
+if (!cinemaReturned || (await state(cinemaPage)).space !== 'plaza') {
   arenaBrowser = await launchBrowser();
     arenaPage = await newPlayer(arenaBrowser, `arena_${RUN}`, { visualEvidence: true });
 }
@@ -343,6 +359,7 @@ if (enteredArena && (await state(arenaPage)).space === 'netcafe') {
 }
 check('esports arena wide and close evidence captured', arenaEvidenceCaptured);
 if (arenaBrowser) await closeBrowser(arenaBrowser);
+await closeBrowser(cinemaBrowser);
 
 check('no browser console errors or uncaught page exceptions', errors.length === 0);
 console.log(`CONSOLE ERRORS: ${errors.length}`);

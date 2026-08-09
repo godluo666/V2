@@ -6,9 +6,13 @@ import { surfaceMaterial } from './materials';
 type P3 = [number, number, number];
 
 const metal = surfaceMaterial('brushedMetal');
-const cyan = toonMat('#40e8ff', { emissive: '#40e8ff', emissiveIntensity: 1.15 });
+const cyan = toonMat('#39d7e8', { emissive: '#39d7e8', emissiveIntensity: 0.68 });
 const yellow = toonMat('#ffd34f', { emissive: '#ffb52e', emissiveIntensity: 0.9 });
 const violet = toonMat('#7a5fff', { emissive: '#7a5fff', emissiveIntensity: 0.85 });
+const supportMetal = surfaceMaterial('brushedMetal');
+supportMetal.color.set('#9ca8b0');
+supportMetal.metalness = 0.54;
+supportMetal.roughness = 0.5;
 
 function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; color?: string; radius?: number }) {
   const geo = useMemo(() => {
@@ -69,10 +73,10 @@ export default function CyberpunkLayer() {
             key={angle}
             position={[Math.cos(angle) * 0.33, 3.1, Math.sin(angle) * 0.33]}
             rotation={[0, -angle, 0]}
-            material={metal}
+            material={supportMetal}
             castShadow
           >
-            <boxGeometry args={[0.66, 0.055, 0.055]} />
+            <boxGeometry args={[0.66, 0.085, 0.085]} />
           </mesh>
         ))}
         <mesh position={[0, 5.65, 0]} material={violet}><boxGeometry args={[0.9, 0.16, 0.9]} /></mesh>

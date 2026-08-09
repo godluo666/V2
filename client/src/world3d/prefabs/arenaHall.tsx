@@ -18,9 +18,22 @@ import { surfaceMaterial, type SurfaceKind } from '../city/materials';
 type P3 = [number, number, number];
 type R3 = [number, number, number];
 
-function finish(kind: SurfaceKind, color: string): THREE.MeshStandardMaterial {
+interface FinishTuning {
+  roughness?: number;
+  metalness?: number;
+  bumpScale?: number;
+}
+
+function finish(
+  kind: SurfaceKind,
+  color: string,
+  tuning: FinishTuning = {},
+): THREE.MeshStandardMaterial {
   const material = surfaceMaterial(kind);
   material.color.set(color);
+  if (tuning.roughness !== undefined) material.roughness = tuning.roughness;
+  if (tuning.metalness !== undefined) material.metalness = tuning.metalness;
+  if (tuning.bumpScale !== undefined) material.bumpScale = tuning.bumpScale;
   return material;
 }
 
@@ -32,19 +45,22 @@ function illuminated(kind: SurfaceKind, color: string, intensity: number): THREE
 }
 
 const MATERIAL = {
-  // Calibrated for the real low-tier cloud path (no shadows/post FX).  These
-  // remain dark arena finishes, but their albedo steps are far enough apart for
-  // truss, rail, equipment shell and riser silhouettes to survive without Bloom.
-  concrete: finish('oldConcrete', '#3e4857'),
-  painted: finish('paintedConcrete', '#526176'),
-  blackMetal: finish('metal', '#263444'),
-  steel: finish('brushedMetal', '#8796aa'),
-  darkSteel: finish('brushedMetal', '#52637a'),
-  glass: finish('darkGlass', '#172b40'),
-  deck: finish('cinemaCarpet', '#343a55'),
-  acoustic: finish('acousticFabric', '#49415f'),
-  seat: finish('seatFabric', '#505976'),
-  seatAccent: finish('seatFabric', '#704482'),
+  // Neutral albedo separation remains readable on the real low-tier cloud path
+  // without relying on Bloom: mineral risers, powder-coated shells, brushed
+  // load-bearing steel, rubber deck and woven finishes all respond differently.
+  concrete: finish('oldConcrete', '#555960', { roughness: 0.94, metalness: 0.01, bumpScale: 0.15 }),
+  painted: finish('paintedConcrete', '#747b84', { roughness: 0.82, metalness: 0.025, bumpScale: 0.075 }),
+  blackMetal: finish('metal', '#18232d', { roughness: 0.58, metalness: 0.7, bumpScale: 0.045 }),
+  steel: finish('brushedMetal', '#9ba8b2', { roughness: 0.32, metalness: 0.88, bumpScale: 0.032 }),
+  darkSteel: finish('brushedMetal', '#455560', { roughness: 0.43, metalness: 0.82, bumpScale: 0.036 }),
+  glass: finish('darkGlass', '#19364a', { roughness: 0.2, metalness: 0.46, bumpScale: 0.01 }),
+  rubber: finish('wetAsphalt', '#252c34', { roughness: 0.8, metalness: 0.04, bumpScale: 0.055 }),
+  floorJoint: finish('wetAsphalt', '#11171c', { roughness: 0.9, metalness: 0.02, bumpScale: 0.04 }),
+  stageDeck: finish('paintedConcrete', '#4b5262', { roughness: 0.7, metalness: 0.08, bumpScale: 0.065 }),
+  deskTop: finish('brushedMetal', '#697682', { roughness: 0.46, metalness: 0.54, bumpScale: 0.025 }),
+  acoustic: finish('acousticFabric', '#51485f', { roughness: 0.98, metalness: 0, bumpScale: 0.095 }),
+  seat: finish('seatFabric', '#59677b', { roughness: 0.95, metalness: 0, bumpScale: 0.105 }),
+  seatAccent: finish('seatFabric', '#76526f', { roughness: 0.95, metalness: 0, bumpScale: 0.105 }),
   cyan: illuminated('plasticLightbox', '#39d9f2', 0.82),
   cyanDim: illuminated('plasticLightbox', '#26758a', 0.28),
   violet: illuminated('plasticLightbox', '#7656ef', 0.78),
@@ -372,6 +388,24 @@ function StationCable({ side }: { side: -1 | 1 }) {
   return <mesh geometry={geometry} material={side < 0 ? MATERIAL.cyanDim : MATERIAL.violetDim} />;
 }
 
+const STATION_MONITOR_FINS: InstanceSpec[] = [-0.47, -0.31, -0.15, 0.15, 0.31, 0.47]
+  .map((x): InstanceSpec => ({ position: [x, 1.48, -0.382], scale: [0.035, 0.35, 0.018] }));
+const STATION_KEYCAPS: InstanceSpec[] = Array.from({ length: 7 }, (_, index): InstanceSpec => ({
+  position: [-0.22 + index * 0.073, 0.856, 0.12],
+  scale: [0.045, 0.008, 0.13],
+}));
+const STATION_TOWER_VENTS: InstanceSpec[] = [-0.16, -0.06, 0.04, 0.14].map((y): InstanceSpec => ({
+  position: [0.62, 0.35 + y, 0.22],
+  scale: [0.16, 0.018, 0.012],
+}));
+const STATION_CABLE_GUIDES: InstanceSpec[] = [
+  { position: [0, 0.56, -0.31], scale: [1.08, 0.06, 0.08] },
+  ...[-0.46, 0, 0.46].map((x): InstanceSpec => ({
+    position: [x, 0.49, -0.31],
+    scale: [0.07, 0.18, 0.12],
+  })),
+];
+
 /**
  * 可供 registry 的 nc_station 分支直接使用。局部原点与旧 NcStation 一致：
  * 机位朝本地 -Z，座位交互点应放在本地 +Z 约 1.25m。
@@ -396,7 +430,7 @@ export function ArenaPlayerStation({
   return (
     <group position={position} rotation={[0, ry, 0]}>
       {/* 具有前后折面的桌体和贯通式金属底架。 */}
-      <Part position={[0, 0.76, 0]} scale={[1.78, 0.1, 0.8]} material={MATERIAL.blackMetal} />
+      <Part position={[0, 0.76, 0]} scale={[1.78, 0.1, 0.8]} material={MATERIAL.deskTop} />
       <Part position={[0, 0.81, 0.33]} scale={[1.66, 0.035, 0.09]} material={teamMaterial} castShadow={false} />
       {[-0.72, 0.72].map((x) => (
         <group key={x}>
@@ -415,33 +449,22 @@ export function ArenaPlayerStation({
       <Part position={[0, 1.48, -0.27]} scale={[1.24, 0.72, 0.16]} material={MATERIAL.blackMetal} />
       <Part position={[0, 1.48, -0.355]} scale={[1.08, 0.5, 0.045]} material={MATERIAL.steel} />
       <StationScreen seatIdx={seatIdx} />
-      {[-0.47, -0.31, -0.15, 0.15, 0.31, 0.47].map((x) => (
-        <Part key={x} position={[x, 1.48, -0.382]} scale={[0.035, 0.35, 0.018]} material={MATERIAL.blackMetal} castShadow={false} />
-      ))}
+      <InstancedParts specs={STATION_MONITOR_FINS} material={MATERIAL.blackMetal} />
       <Part position={[0, 1.48, -0.405]} scale={[0.68, 0.34, 0.06]} material={MATERIAL.blackMetal} />
       <StationBackStatus seatIdx={seatIdx} active={stationLightsOn} />
       <CylinderPart position={[0, 1.03, -0.28]} scale={[0.045, 0.24, 0.045]} material={MATERIAL.steel} />
       <Part position={[0, 0.83, -0.26]} scale={[0.4, 0.04, 0.28]} material={MATERIAL.steel} />
+      <InstancedParts specs={STATION_CABLE_GUIDES} material={MATERIAL.darkSteel} />
 
       {/* 键鼠、耳机挂架和带进风格栅的主机。 */}
       <Part position={[0, 0.835, 0.12]} scale={[0.58, 0.035, 0.2]} material={MATERIAL.glass} />
-      {Array.from({ length: 7 }, (_, index) => (
-        <Part
-          key={index}
-          position={[-0.22 + index * 0.073, 0.856, 0.12]}
-          scale={[0.045, 0.008, 0.13]}
-          material={teamMaterial}
-          castShadow={false}
-        />
-      ))}
+      <InstancedParts specs={STATION_KEYCAPS} material={teamMaterial} />
       <mesh position={[0.43, 0.855, 0.13]} material={MATERIAL.blackMetal} castShadow>
         <sphereGeometry args={[0.07, 10, 7]} />
       </mesh>
       <Part position={[0.62, 0.35, -0.09]} scale={[0.28, 0.58, 0.56]} material={MATERIAL.blackMetal} />
       <Part position={[0.62, 0.35, 0.202]} scale={[0.21, 0.47, 0.025]} material={MATERIAL.glass} />
-      {[-0.16, -0.06, 0.04, 0.14].map((y) => (
-        <Part key={y} position={[0.62, 0.35 + y, 0.22]} scale={[0.16, 0.018, 0.012]} material={teamMaterial} castShadow={false} />
-      ))}
+      <InstancedParts specs={STATION_TOWER_VENTS} material={teamMaterial} />
       <Part position={[-0.86, 1.12, 0.03]} scale={[0.035, 0.55, 0.22]} material={MATERIAL.steel} />
       <mesh position={[-0.86, 1.33, 0.05]} rotation={[Math.PI / 2, 0, 0]} material={MATERIAL.blackMetal} castShadow>
         <torusGeometry args={[0.11, 0.027, 6, 14, Math.PI * 1.45]} />
@@ -544,6 +567,22 @@ function buildAudienceInstances() {
     }
   }
 
+  // The upper bowl shares these four InstancedMeshes with the lower seats, so
+  // the venue gains a second visible audience tier without per-seat draw calls.
+  for (const side of [-1, 1] as const) {
+    for (let row = 0; row < 4; row += 1) {
+      const x = side * (16.2 + row * 1.05);
+      // Match the lower bowl's 7cm leg embed: enough contact to avoid floating,
+      // without the previous 22cm sink that swallowed the lower chair frame.
+      const y = 3.79 + row * 0.67;
+      for (const [start, count] of [[-9.0, 7], [1.55, 7]] as const) {
+        for (let seat = 0; seat < count; seat += 1) {
+          addSeat(x, y, start + seat * 1.25, side < 0 ? -Math.PI / 2 : Math.PI / 2);
+        }
+      }
+    }
+  }
+
   return { cushions, backs, legs, arms };
 }
 
@@ -556,6 +595,34 @@ function ArenaAudienceSeats() {
       <InstancedParts specs={AUDIENCE.backs} material={MATERIAL.seat} />
       <InstancedParts specs={AUDIENCE.legs} material={MATERIAL.darkSteel} />
       <InstancedParts specs={AUDIENCE.arms} material={MATERIAL.blackMetal} />
+    </group>
+  );
+}
+
+const FLOOR_JOINTS: InstanceSpec[] = [
+  ...[-11.6, -7.7, 3.0, 8.8].map((z): InstanceSpec => ({
+    position: [0, 0.017, z],
+    scale: [40.1, 0.009, 0.035],
+  })),
+  ...[-11.8, 11.8].map((x): InstanceSpec => ({
+    position: [x, 0.018, 2.4],
+    scale: [0.035, 0.01, 28.0],
+  })),
+];
+
+/** A real matte arena floor hides the generic neon debug-grid floor. The few
+ * recessed expansion joints preserve scale without turning it into another
+ * glowing checkerboard. */
+function ArenaFloorFinish() {
+  return (
+    <group>
+      <Part
+        position={[0, 0.006, 0]}
+        scale={[40.55, 0.012, 33.5]}
+        material={MATERIAL.rubber}
+        castShadow={false}
+      />
+      <InstancedParts specs={FLOOR_JOINTS} material={MATERIAL.floorJoint} />
     </group>
   );
 }
@@ -593,6 +660,92 @@ function RailRun({
           />
         );
       })}
+    </group>
+  );
+}
+
+function buildUpperBowlInstances() {
+  const concrete: InstanceSpec[] = [];
+  const painted: InstanceSpec[] = [];
+  const rubber: InstanceSpec[] = [];
+  const acoustic: InstanceSpec[] = [];
+  const steel: InstanceSpec[] = [];
+  const glass: InstanceSpec[] = [];
+  const segments = [
+    { center: -5.1, length: 8.8 },
+    { center: 5.8, length: 9.4 },
+  ];
+
+  for (const side of [-1, 1] as const) {
+    for (const segment of segments) {
+      // Deep balcony slab, visible inner fascia and four independently stepped
+      // upper rows. Nothing here changes the lower-bowl navigation collider.
+      concrete.push({
+        position: [side * 17.78, 3.22, segment.center],
+        scale: [4.62, 0.3, segment.length],
+      });
+      acoustic.push({
+        position: [side * 15.51, 3.18, segment.center],
+        scale: [0.24, 1.42, segment.length - 0.16],
+      });
+
+      for (let row = 0; row < 4; row += 1) {
+        const top = 3.86 + row * 0.67;
+        const height = top - 3.36;
+        const target = row % 2 === 0 ? concrete : painted;
+        target.push({
+          position: [side * (16.2 + row * 1.05), 3.36 + height / 2, segment.center],
+          scale: [1.03, height, segment.length - 0.12],
+        });
+        rubber.push({
+          position: [side * (16.2 + row * 1.05), top + 0.025, segment.center],
+          scale: [0.95, 0.05, segment.length - 0.24],
+        });
+      }
+
+      // Balcony guard, posts and underside ribs form one instanced steel batch.
+      steel.push(
+        { position: [side * 15.34, 4.48, segment.center], scale: [0.1, 0.11, segment.length] },
+        { position: [side * 15.34, 4.02, segment.center], scale: [0.07, 0.07, segment.length] },
+      );
+      const postCount = Math.max(3, Math.floor(segment.length / 1.65));
+      for (let post = 0; post <= postCount; post += 1) {
+        const z = segment.center - segment.length / 2 + (post * segment.length) / postCount;
+        steel.push(
+          { position: [side * 15.34, 4.02, z], scale: [0.09, 0.94, 0.09] },
+          { position: [side * 17.78, 3.0, z], scale: [4.45, 0.12, 0.12] },
+        );
+      }
+    }
+
+    // A row of physically recessed VIP/control suites gives the high wall a
+    // second occupied scale datum instead of another uninterrupted black slab.
+    for (const z of [-7.25, -3.65, 3.35, 7.25]) {
+      glass.push({ position: [side * 19.73, 8.58, z], scale: [0.12, 1.88, 3.05] });
+      acoustic.push({ position: [side * 20.05, 8.58, z], scale: [0.35, 2.24, 3.42] });
+      steel.push(
+        { position: [side * 19.58, 7.5, z], scale: [0.32, 0.16, 3.42] },
+        { position: [side * 19.58, 9.66, z], scale: [0.32, 0.16, 3.42] },
+        { position: [side * 19.58, 8.58, z - 1.66], scale: [0.32, 2.32, 0.14] },
+        { position: [side * 19.58, 8.58, z + 1.66], scale: [0.32, 2.32, 0.14] },
+      );
+    }
+  }
+
+  return { concrete, painted, rubber, acoustic, steel, glass };
+}
+
+const UPPER_BOWL = buildUpperBowlInstances();
+
+function UpperArenaBowl() {
+  return (
+    <group>
+      <InstancedParts specs={UPPER_BOWL.concrete} material={MATERIAL.concrete} />
+      <InstancedParts specs={UPPER_BOWL.painted} material={MATERIAL.painted} />
+      <InstancedParts specs={UPPER_BOWL.rubber} material={MATERIAL.rubber} />
+      <InstancedParts specs={UPPER_BOWL.acoustic} material={MATERIAL.acoustic} />
+      <InstancedParts specs={UPPER_BOWL.steel} material={MATERIAL.steel} />
+      <InstancedParts specs={UPPER_BOWL.glass} material={MATERIAL.glass} />
     </group>
   );
 }
@@ -678,6 +831,7 @@ function TieredStands({ lightsOn }: { lightsOn: boolean }) {
         );
       }))}
 
+      <UpperArenaBowl />
       <ArenaAudienceSeats />
       <RailRun position={[-19.1, 2.72, -4.55]} length={7.1} axis="z" />
       <RailRun position={[-19.1, 2.72, 6.05]} length={8.7} axis="z" />
@@ -702,8 +856,8 @@ function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
        * 0.60m，三组入口踏步依次为 0.24 / 0.36 / 0.51m。
        */}
       <Part position={[0, 0.2, -4.25]} scale={[20.2, 0.4, 10.7]} material={MATERIAL.concrete} />
-      <Part position={[0, 0.46, -4.25]} scale={[19.5, 0.18, 10.05]} material={MATERIAL.deck} />
-      <Part position={[0, 0.575, -4.25]} scale={[18.6, 0.05, 9.25]} material={MATERIAL.acoustic} />
+      <Part position={[0, 0.46, -4.25]} scale={[19.5, 0.18, 10.05]} material={MATERIAL.stageDeck} />
+      <Part position={[0, 0.575, -4.25]} scale={[18.6, 0.05, 9.25]} material={MATERIAL.rubber} />
       {[-6.6, -2.2, 2.2, 6.6].map((x, index) => (
         <group key={x}>
           <Part position={[x, 0.62, -4.25]} scale={[0.055, 0.035, 8.8]} material={index < 2 ? cyan : violet} castShadow={false} />
@@ -714,7 +868,7 @@ function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
         <group key={x}>
           <Part position={[x, 0.12, 1.45]} scale={[3.6, 0.24, 0.65]} material={MATERIAL.concrete} />
           <Part position={[x, 0.3, 1.18]} scale={[3.2, 0.12, 0.62]} material={MATERIAL.painted} />
-          <Part position={[x, 0.44, 0.91]} scale={[2.8, 0.14, 0.62]} material={MATERIAL.deck} />
+          <Part position={[x, 0.44, 0.91]} scale={[2.8, 0.14, 0.62]} material={MATERIAL.rubber} />
         </group>
       ))}
 
@@ -966,28 +1120,28 @@ function ArenaLuminaire({
 
 function OverheadRig({ lightsOn }: { lightsOn: boolean }) {
   const mounts: Array<{ position: P3; color: 'cyan' | 'violet' | 'pink' }> = [
-    { position: [-8, 9.95, -8.3], color: 'cyan' },
-    { position: [-3, 9.95, -8.3], color: 'violet' },
-    { position: [3, 9.95, -8.3], color: 'cyan' },
-    { position: [8, 9.95, -8.3], color: 'pink' },
-    { position: [-8, 9.95, 0.2], color: 'violet' },
-    { position: [-3, 9.95, 0.2], color: 'cyan' },
-    { position: [3, 9.95, 0.2], color: 'pink' },
-    { position: [8, 9.95, 0.2], color: 'violet' },
+    { position: [-8, 11.35, -8.0], color: 'cyan' },
+    { position: [-3, 11.35, -8.0], color: 'violet' },
+    { position: [3, 11.35, -8.0], color: 'cyan' },
+    { position: [8, 11.35, -8.0], color: 'pink' },
+    { position: [-8, 11.62, 4.6], color: 'violet' },
+    { position: [-3, 11.62, 4.6], color: 'cyan' },
+    { position: [3, 11.62, 4.6], color: 'pink' },
+    { position: [8, 11.62, 4.6], color: 'violet' },
   ];
   return (
     <group>
-      <TrussSpan position={[0, 10.45, -8.3]} length={20} axis="x" />
-      <TrussSpan position={[0, 10.45, 0.2]} length={20} axis="x" />
-      <TrussSpan position={[-10, 10.45, -4.05]} length={8.5} axis="z" />
-      <TrussSpan position={[10, 10.45, -4.05]} length={8.5} axis="z" />
+      <TrussSpan position={[0, 12.0, -8.0]} length={20} axis="x" />
+      <TrussSpan position={[0, 12.27, 4.6]} length={20} axis="x" />
+      <TrussSpan position={[-10, 12.14, -1.7]} length={12.6} axis="z" />
+      <TrussSpan position={[10, 12.14, -1.7]} length={12.6} axis="z" />
 
       {/* 吊杆、吊点夹具与安全链一直连接到 12.6m 顶棚。 */}
-      {([-10, 10] as const).flatMap((x) => [-8.3, 0.2].map((z) => (
+      {([-10, 10] as const).flatMap((x) => [-8.0, 4.6].map((z) => (
         <group key={`${x}-${z}`}>
-          <CylinderPart position={[x, 11.55, z]} scale={[0.055, 1.45, 0.055]} material={MATERIAL.steel} />
-          <Part position={[x, 12.58, z]} scale={[0.5, 0.14, 0.5]} material={MATERIAL.darkSteel} />
-          <mesh position={[x + 0.18, 10.55, z]} rotation={[0, 0, 0.08]} material={MATERIAL.steel}>
+          <CylinderPart position={[x, 12.56, z]} scale={[0.055, 0.78, 0.055]} material={MATERIAL.steel} />
+          <Part position={[x, 12.92, z]} scale={[0.5, 0.14, 0.5]} material={MATERIAL.darkSteel} />
+          <mesh position={[x + 0.18, 12.18, z]} rotation={[0, 0, 0.08]} material={MATERIAL.steel}>
             <torusGeometry args={[0.16, 0.025, 6, 12]} />
           </mesh>
         </group>
@@ -998,11 +1152,11 @@ function OverheadRig({ lightsOn }: { lightsOn: boolean }) {
 
       {/* 顶部双路电缆桥架，包含实体侧帮、横撑和下引线。 */}
       {[-1.05, 1.05].map((x) => (
-        <group key={x} position={[x, 11.7, -4.05]}>
-          <Part position={[-0.28, 0, 0]} scale={[0.08, 0.24, 16.5]} material={MATERIAL.darkSteel} />
-          <Part position={[0.28, 0, 0]} scale={[0.08, 0.24, 16.5]} material={MATERIAL.darkSteel} />
-          {Array.from({ length: 10 }, (_, index) => (
-            <Part key={index} position={[0, -0.09, -7.7 + index * 1.7]} scale={[0.56, 0.06, 0.08]} material={MATERIAL.steel} />
+        <group key={x} position={[x, 12.66, -1.7]}>
+          <Part position={[-0.28, 0, 0]} scale={[0.08, 0.18, 12.4]} material={MATERIAL.darkSteel} />
+          <Part position={[0.28, 0, 0]} scale={[0.08, 0.18, 12.4]} material={MATERIAL.darkSteel} />
+          {Array.from({ length: 8 }, (_, index) => (
+            <Part key={index} position={[0, -0.06, -5.75 + index * 1.64]} scale={[0.56, 0.06, 0.08]} material={MATERIAL.steel} />
           ))}
         </group>
       ))}
@@ -1017,7 +1171,7 @@ function ConsoleDesk({ position, ry, accent }: { position: P3; ry: number; accen
   return (
     <group position={position} rotation={[0, ry, 0]}>
       <Part position={[0, 0.55, 0]} scale={[3.6, 1.1, 0.9]} material={MATERIAL.blackMetal} />
-      <Part position={[0, 1.13, -0.06]} scale={[3.8, 0.12, 1.05]} material={MATERIAL.steel} />
+      <Part position={[0, 1.13, -0.06]} scale={[3.8, 0.12, 1.05]} material={MATERIAL.deskTop} />
       {[-1.1, 0, 1.1].map((x) => (
         <group key={x} position={[x, 1.52, -0.18]}>
           <Part position={[0, 0, 0]} scale={[0.92, 0.54, 0.12]} material={MATERIAL.blackMetal} />
@@ -1045,7 +1199,7 @@ function BroadcastAndControl({ lightsOn }: { lightsOn: boolean }) {
     <group>
       {/* 西南解说席：抬高地台、隔音后墙和双层玻璃框。 */}
       <Part position={[-15.8, 0.22, 13.05]} scale={[7.6, 0.44, 5.2]} material={MATERIAL.concrete} />
-      <Part position={[-15.8, 0.51, 13.05]} scale={[7.15, 0.14, 4.75]} material={MATERIAL.deck} />
+      <Part position={[-15.8, 0.51, 13.05]} scale={[7.15, 0.14, 4.75]} material={MATERIAL.rubber} />
       <Part position={[-19.45, 2.5, 13.05]} scale={[0.36, 4.8, 5.15]} material={MATERIAL.acoustic} />
       <Part position={[-15.8, 3.15, 10.58]} scale={[7.3, 0.22, 0.22]} material={MATERIAL.steel} />
       {[-19.35, -17.0, -14.65, -12.3].map((x) => (
@@ -1056,7 +1210,7 @@ function BroadcastAndControl({ lightsOn }: { lightsOn: boolean }) {
 
       {/* 东南技术控制区：机柜、观察窗和独立走线平台。 */}
       <Part position={[15.8, 0.22, 13.05]} scale={[7.6, 0.44, 5.2]} material={MATERIAL.concrete} />
-      <Part position={[15.8, 0.51, 13.05]} scale={[7.15, 0.14, 4.75]} material={MATERIAL.deck} />
+      <Part position={[15.8, 0.51, 13.05]} scale={[7.15, 0.14, 4.75]} material={MATERIAL.rubber} />
       <Part position={[19.45, 2.5, 13.05]} scale={[0.36, 4.8, 5.15]} material={MATERIAL.acoustic} />
       <Part position={[15.8, 3.15, 10.58]} scale={[7.3, 0.22, 0.22]} material={MATERIAL.steel} />
       {([12.3, 14.65, 17.0, 19.35] as const).map((x) => (
@@ -1122,7 +1276,7 @@ function WallArchitecture({ lightsOn }: { lightsOn: boolean }) {
       <Part position={[0, 2.85, 16.22]} scale={[2.25, 0.22, 0.12]} material={MATERIAL.glass} />
       <Part position={[0, 3.12, 16.15]} scale={[3.7, 0.18, 0.26]} material={MATERIAL.warning} castShadow={false} />
       <Part position={[0, 7.25, 14.9]} scale={[20.5, 0.48, 2.4]} material={MATERIAL.darkSteel} />
-      <Part position={[0, 7.55, 14.9]} scale={[19.7, 0.14, 2.05]} material={MATERIAL.deck} />
+      <Part position={[0, 7.55, 14.9]} scale={[19.7, 0.14, 2.05]} material={MATERIAL.rubber} />
       <RailRun position={[0, 7.62, 13.82]} length={19.7} axis="x" />
       {[-9.4, -4.7, 4.7, 9.4].map((x) => (
         <Part key={x} position={[x, 5.15, 14.9]} scale={[0.32, 4.2, 0.32]} material={MATERIAL.steel} />
@@ -1144,6 +1298,7 @@ export function ArenaHallArchitecture({
 }) {
   return (
     <group>
+      <ArenaFloorFinish />
       <CompetitionFloor lightsOn={lightsOn} />
       <MainScreenStructure lightsOn={lightsOn} />
       <TieredStands lightsOn={lightsOn} />
@@ -1156,28 +1311,28 @@ export function ArenaHallArchitecture({
        * 只把深色钢架、看台踏步和主屏外壳从黑背景中分离出来。
        */}
       <hemisphereLight
-        color="#a9c0d7"
-        groundColor="#201d2b"
-        intensity={lightsOn ? 0.62 : 0.14}
+        color="#c7d0d6"
+        groundColor="#292d32"
+        intensity={lightsOn ? 0.7 : 0.14}
       />
       <directionalLight
-        position={[10, 14, 8]}
-        color="#e4edf5"
-        intensity={lightsOn ? 1.18 : 0.18}
+        position={[9, 15, 9]}
+        color="#f0eee8"
+        intensity={lightsOn ? 1.24 : 0.18}
         castShadow={false}
       />
 
       {/* 非霓虹主照明：比赛区、观众区与后场均保留可读暗部。 */}
       {lightsOn && lightBudget > 0 && (
         <>
-          <pointLight position={[0, 9.2, -3.0]} color="#cbdbe9" intensity={21} distance={30} decay={1.65} />
+          <pointLight position={[0, 10.8, -2.4]} color="#eef1ee" intensity={24} distance={34} decay={1.68} />
           {(lightBudget === 2 || lightBudget >= 4) && (
-            <pointLight position={[0, 8.0, 12.0]} color="#ddcfbf" intensity={9} distance={18} decay={1.9} />
+            <pointLight position={[0, 8.8, 11.6]} color="#e5d9cb" intensity={9} distance={19} decay={1.9} />
           )}
           {lightBudget >= 3 && (
             <>
-              <pointLight position={[-14.5, 6.0, 2]} color="#83a8c4" intensity={10} distance={19} decay={1.9} />
-              <pointLight position={[14.5, 6.0, 2]} color="#9891c9" intensity={10} distance={19} decay={1.9} />
+              <pointLight position={[-14.5, 7.2, 2]} color="#adc2ce" intensity={10} distance={20} decay={1.9} />
+              <pointLight position={[14.5, 7.2, 2]} color="#c0b8cd" intensity={10} distance={20} decay={1.9} />
             </>
           )}
         </>

@@ -15,13 +15,17 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   BUILDINGS,
+  CITY_BOUNDS,
   CROSSWALKS,
+  ROADS,
+  SIDEWALKS,
   VENUES,
   cityBuildingLocalSize,
 } from '@nexuspark/shared/src/cityplan';
 import { surfaceMaterial } from './materials';
 import { applyPhysicalUv } from './physicalUv';
 import { ACCENT, ENV } from './palette';
+import { asphaltTexture, sidewalkTexture } from './streets';
 
 type MaterialSlot =
   | 'concrete'
@@ -33,7 +37,9 @@ type MaterialSlot =
   | 'warmGlass'
   | 'cinemaAccent'
   | 'arenaAccent'
-  | 'clubWood';
+  | 'clubWood'
+  | 'asphalt'
+  | 'sidewalk';
 
 type HeroMaterials = Record<MaterialSlot, THREE.MeshStandardMaterial>;
 type VenueKey = (typeof VENUES)[number]['key'];
@@ -51,6 +57,7 @@ const UNIT_CYLINDERS = new Map<number, THREE.CylinderGeometry>();
 const UP = new THREE.Vector3(0, 1, 0);
 const PHYSICAL_UV_SLOTS = new Set<MaterialSlot>([
   'concrete', 'paleConcrete', 'brick', 'inkMetal', 'brightMetal', 'clubWood',
+  'asphalt', 'sidewalk',
 ]);
 
 /** Resolve every hero anchor from the shared collision/route contract. */
@@ -146,6 +153,17 @@ function materials(): HeroMaterials {
   const clubWood = surfaceMaterial('wood');
   clubWood.color.set('#6b422c');
 
+  // The east cinema closure continues the authored street beyond the playable
+  // boundary. Reuse the canonical generated maps so that the extension cannot
+  // read as an untextured black patch or a second pavement material.
+  const asphalt = surfaceMaterial('wetAsphalt');
+  asphalt.color.set(ENV.roadAsphalt);
+  asphalt.map = asphaltTexture();
+
+  const sidewalk = surfaceMaterial('sidewalk');
+  sidewalk.color.set(ENV.sidewalk);
+  sidewalk.map = sidewalkTexture();
+
   return {
     concrete,
     paleConcrete,
@@ -157,6 +175,8 @@ function materials(): HeroMaterials {
     cinemaAccent,
     arenaAccent,
     clubWood,
+    asphalt,
+    sidewalk,
   };
 }
 
@@ -331,6 +351,172 @@ function chamferedSlab(width: number, height: number, depth: number, cut: number
   return geometry;
 }
 
+/**
+ * Close the cinema's east edge with a non-playable service wing and continue
+ * the street surfaces beyond the shared city boundary.  Everything remains in
+ * the cinema's visual group: no collider, venue, route or interaction datum is
+ * widened, while the approach camera no longer looks through an abrupt world
+ * seam.  The two elevations are authored as a post-and-beam frame with inset
+ * bays; there is deliberately no single facade box hiding behind the details.
+ */
+function addCinemaEastClosure(
+  batch: HeroBatch,
+  envelope: VenueEnvelope,
+  facadeZ: number,
+): void {
+  const wingStartX = envelope.frontage / 2 + 0.16;
+  const wingWidth = 10.4;
+  const wingEndX = wingStartX + wingWidth;
+  const wingDepth = 9.8;
+  const wingBackZ = facadeZ - wingDepth;
+  const wingCenterZ = (facadeZ + wingBackZ) / 2;
+  const floorLevels = [0.32, 4.68, 9.04, 13.4, 17.76, 22.12] as const;
+  const frontBayWidth = wingWidth / 3;
+
+  // Street-facing skeleton, floor bands and recessed lower service bays.
+  for (let edge = 0; edge <= 3; edge++) {
+    batch.box(
+      'concrete',
+      wingStartX + edge * frontBayWidth,
+      11.08,
+      facadeZ - 0.34,
+      0.38,
+      22.16,
+      0.78,
+    );
+  }
+  for (const y of floorLevels) {
+    batch.box('brightMetal', wingStartX + wingWidth / 2, y, facadeZ - 0.28, wingWidth + 0.32, 0.3, 0.9);
+  }
+  for (let bay = 0; bay < 3; bay++) {
+    const x = wingStartX + (bay + 0.5) * frontBayWidth;
+    const apertureWidth = frontBayWidth - 0.54;
+    batch.box('brick', x, 2.4, facadeZ - 0.72, apertureWidth, 4.0, 0.34);
+    batch.box(bay === 1 ? 'inkMetal' : 'darkGlass', x, 2.22, facadeZ - 0.48, apertureWidth - 0.34, 3.28, 0.16);
+    batch.box('brightMetal', x, 0.55, facadeZ - 0.28, apertureWidth - 0.18, 0.15, 0.42);
+    if (bay === 1) {
+      for (let slat = 0; slat < 7; slat++) {
+        batch.box('brightMetal', x, 1.02 + slat * 0.38, facadeZ - 0.34, apertureWidth - 0.68, 0.075, 0.24);
+      }
+    } else {
+      batch.box('inkMetal', x, 2.22, facadeZ - 0.3, 0.11, 3.48, 0.24);
+    }
+  }
+
+  // Four upper floors alternate glazed workshop bays and a ventilated plant
+  // level. Deep jambs, sills and mullions keep the openings readable at range.
+  for (let level = 0; level < 4; level++) {
+    const baseY = 4.68 + level * 4.36;
+    for (let bay = 0; bay < 3; bay++) {
+      const x = wingStartX + (bay + 0.5) * frontBayWidth;
+      const apertureWidth = frontBayWidth - 0.58;
+      batch.box('concrete', x, baseY + 0.62, facadeZ - 0.66, apertureWidth, 0.68, 0.38);
+      batch.box(level === 2 ? 'inkMetal' : 'darkGlass', x, baseY + 2.25, facadeZ - 0.62, apertureWidth, 2.42, 0.18);
+      batch.box('brightMetal', x, baseY + 1.03, facadeZ - 0.35, apertureWidth + 0.14, 0.13, 0.4);
+      batch.box('brightMetal', x, baseY + 3.48, facadeZ - 0.35, apertureWidth + 0.14, 0.13, 0.4);
+      batch.box('inkMetal', x, baseY + 2.25, facadeZ - 0.34, 0.1, 2.55, 0.26);
+      if (level === 2) {
+        for (let slat = 0; slat < 6; slat++) {
+          batch.box('brightMetal', x, baseY + 1.35 + slat * 0.36, facadeZ - 0.41, apertureWidth - 0.32, 0.07, 0.24);
+        }
+      }
+    }
+  }
+
+  // The east return is a second complete elevation, not an exposed end cap.
+  const sideBayCount = 3;
+  const sideBayDepth = wingDepth / sideBayCount;
+  for (let edge = 0; edge <= sideBayCount; edge++) {
+    batch.box('concrete', wingEndX - 0.15, 11.08, facadeZ - edge * sideBayDepth, 0.72, 22.16, 0.38);
+  }
+  for (const y of floorLevels) {
+    batch.box('brightMetal', wingEndX - 0.08, y, wingCenterZ, 0.58, 0.3, wingDepth + 0.24);
+  }
+  for (let bay = 0; bay < sideBayCount; bay++) {
+    const z = facadeZ - (bay + 0.5) * sideBayDepth;
+    batch.box('brick', wingEndX - 0.31, 2.4, z, 0.34, 4.0, sideBayDepth - 0.46);
+    batch.box(bay === 2 ? 'inkMetal' : 'darkGlass', wingEndX - 0.04, 2.22, z, 0.16, 3.28, sideBayDepth - 0.74);
+    batch.box('brightMetal', wingEndX + 0.08, 0.55, z, 0.36, 0.15, sideBayDepth - 0.62);
+  }
+  for (let level = 0; level < 4; level++) {
+    const baseY = 4.68 + level * 4.36;
+    for (let bay = 0; bay < sideBayCount; bay++) {
+      const z = facadeZ - (bay + 0.5) * sideBayDepth;
+      batch.box((level + bay) % 3 === 1 ? 'inkMetal' : 'darkGlass', wingEndX + 0.12, baseY + 2.24, z, 0.16, 2.4, sideBayDepth - 0.5);
+      batch.box('brightMetal', wingEndX + 0.18, baseY + 1.02, z, 0.32, 0.12, sideBayDepth - 0.34);
+      batch.box('inkMetal', wingEndX + 0.2, baseY + 2.24, z, 0.28, 2.54, 0.09);
+    }
+  }
+
+  // A deep loading canopy, supported tension rods and connected rainwater
+  // anatomy ground the wing at pedestrian scale.
+  batch.box('inkMetal', wingStartX + wingWidth / 2, 4.5, facadeZ + 0.62, wingWidth - 0.45, 0.24, 1.72);
+  for (let bay = 0; bay < 3; bay++) {
+    const x = wingStartX + (bay + 0.5) * frontBayWidth;
+    batch.box('brightMetal', x, 4.36, facadeZ + 0.62, 0.09, 0.11, 1.5);
+    batch.beam('brightMetal', new THREE.Vector3(x, 4.58, facadeZ + 1.42), new THREE.Vector3(x, 6.25, facadeZ - 0.05), 0.05, 8);
+  }
+  batch.cylinder('inkMetal', wingStartX + 0.48, 8.75, facadeZ + 0.13, 0.105, 17.1, 8);
+  for (const y of [2.2, 6.6, 11.0, 15.4]) {
+    batch.box('brightMetal', wingStartX + 0.48, y, facadeZ + 0.02, 0.42, 0.08, 0.34);
+  }
+
+  // Set-back projection room and rooftop plant alter the silhouette. Their
+  // housings, vents, rails and cable riser are all volumetric and batched.
+  batch.box('brightMetal', wingStartX + wingWidth / 2, 22.32, wingCenterZ, wingWidth - 0.35, 0.3, wingDepth - 0.35);
+  batch.box('concrete', wingStartX + 2.35, 24.35, wingCenterZ - 0.6, 4.25, 3.75, 5.6);
+  batch.box('inkMetal', wingStartX + 7.55, 23.55, wingCenterZ + 0.3, 3.65, 2.15, 4.1);
+  for (let slat = 0; slat < 6; slat++) {
+    batch.box('brightMetal', wingStartX + 2.35, 23.15 + slat * 0.42, wingCenterZ + 2.24, 3.35, 0.08, 0.24);
+  }
+  for (const x of [wingStartX + 6.35, wingStartX + 8.75]) {
+    batch.box('brightMetal', x, 24.74, wingCenterZ + 2.05, 1.65, 0.08, 0.24);
+    batch.cylinder('inkMetal', x - 0.7, 24.0, wingCenterZ + 2.05, 0.06, 1.5, 8);
+    batch.cylinder('inkMetal', x + 0.7, 24.0, wingCenterZ + 2.05, 0.06, 1.5, 8);
+  }
+
+  // Continue the exact street materials outside CITY_BOUNDS. These slabs are
+  // visual-only and start with a small overlap, hiding the former hard seam;
+  // the authoritative playable rectangle remains untouched.
+  const venue = VENUES.find((item) => item.key === 'cinema');
+  const eastSidewalk = SIDEWALKS
+    .filter((item) => item.x + item.w / 2 >= CITY_BOUNDS.maxX - 0.01)
+    .sort((a, b) => Math.abs(a.z - (venue?.z ?? 0)) - Math.abs(b.z - (venue?.z ?? 0)))[0];
+  const eastRoad = ROADS.find((item) => item.w > item.d && item.x + item.w / 2 >= CITY_BOUNDS.maxX - 0.01);
+  if (!eastSidewalk || !eastRoad) return;
+
+  const extensionStart = CITY_BOUNDS.maxX - 0.18;
+  const extensionEnd = CITY_BOUNDS.maxX + 15;
+  const extensionLength = extensionEnd - extensionStart;
+  const extensionCenter = (extensionStart + extensionEnd) / 2;
+  const cos = Math.cos(envelope.rotation);
+  const sin = Math.sin(envelope.rotation);
+  const addWorldBox = (
+    slot: MaterialSlot,
+    worldX: number, y: number, worldZ: number,
+    width: number, height: number, depth: number,
+  ) => {
+    const dx = worldX - envelope.building.x;
+    const dz = worldZ - envelope.building.z;
+    batch.box(slot, dx * cos - dz * sin, y, dx * sin + dz * cos, width, height, depth, 0, -envelope.rotation, 0);
+  };
+
+  addWorldBox('asphalt', extensionCenter, -0.01, eastRoad.z, extensionLength, 0.04, eastRoad.d);
+  addWorldBox('sidewalk', extensionCenter, 0.025, eastSidewalk.z, extensionLength, 0.05, eastSidewalk.d);
+  const curbDepth = 0.24;
+  addWorldBox('sidewalk', extensionCenter, 0.03, eastSidewalk.z + eastSidewalk.d / 2 - curbDepth / 2, extensionLength, 0.06, curbDepth);
+  addWorldBox('sidewalk', extensionCenter, 0.03, eastSidewalk.z - eastSidewalk.d / 2 + curbDepth / 2, extensionLength, 0.06, curbDepth);
+  addWorldBox('sidewalk', extensionEnd - curbDepth / 2, 0.03, eastSidewalk.z, curbDepth, 0.06, eastSidewalk.d);
+
+  // A continuous drain channel and spaced grates establish scale without
+  // filling the road with random props.
+  const drainZ = eastSidewalk.z + eastSidewalk.d / 2 + 0.11;
+  addWorldBox('inkMetal', extensionCenter, 0.035, drainZ, extensionLength - 0.8, 0.05, 0.18);
+  for (let worldX = extensionStart + 0.6; worldX < extensionEnd - 0.5; worldX += 0.72) {
+    addWorldBox('brightMetal', worldX, 0.066, drainZ, 0.055, 0.025, 0.22);
+  }
+}
+
 function cinemaStructure(palette: HeroMaterials): THREE.Group {
   // The asymmetric portal occupies the entrance side of the shared cinema
   // envelope and turns the whole facade into a recognisable hall.
@@ -495,6 +681,8 @@ function cinemaStructure(palette: HeroMaterials): THREE.Group {
     const y = 8.0 + i * 1.15;
     batch.box('brightMetal', serviceX - 0.2, y, 1.55 - (i % 2) * 2.5, 0.85, 0.07, 0.12, 0, 0, i % 2 ? -0.5 : 0.5);
   }
+
+  addCinemaEastClosure(batch, envelope, facadeZ);
 
   root.add(batch.build('hero-cinema-batch', palette));
   return root;

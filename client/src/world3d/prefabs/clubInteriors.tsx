@@ -106,13 +106,20 @@ function RugFringe({ w, d }: { w: number; d: number }) {
     let instance = 0;
     for (const side of [-1, 1] as const) {
       for (let i = 0; i < fringeCount; i += 1) {
+        const lengthJitter = ((i * 11 + (side > 0 ? 3 : 0)) % 7) * 0.014;
+        const widthJitter = ((i * 5 + (side > 0 ? 1 : 0)) % 4) * 0.004;
+        const splay = (((i * 13 + (side > 0 ? 2 : 0)) % 9) - 4) * 0.026;
         transform.position.set(
           -w / 2 + 0.12 + (i + 0.5) * fringeStep,
           0.024,
-          side * (d / 2 + 0.075 + (i % 3) * 0.004),
+          side * (d / 2 + 0.07 + ((i * 7) % 5) * 0.004),
         );
-        transform.rotation.set(0, (i % 5 - 2) * 0.018, 0);
-        transform.scale.set(Math.min(0.04, fringeStep * 0.42), 0.018, 0.19 + (i % 3) * 0.016);
+        transform.rotation.set(0, splay, 0);
+        transform.scale.set(
+          Math.min(0.046, fringeStep * 0.3 + widthJitter),
+          0.016 + (i % 3) * 0.002,
+          0.145 + lengthJitter,
+        );
         transform.updateMatrix();
         mesh.setMatrixAt(instance, transform.matrix);
         instance += 1;

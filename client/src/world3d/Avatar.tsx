@@ -235,7 +235,7 @@ export const Avatar = forwardRef<AvatarHandle, Props>(function Avatar(
 
       {/* 柔和接触阴影: 被自重轻压在地面上的感觉 (羽化圆) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0.012]}>
-        <circleGeometry args={[0.49, 32]} />
+        <circleGeometry args={[0.54, 32]} />
         <meshBasicMaterial map={contactShadowTexture()} transparent depthWrite={false} />
       </mesh>
       {/* nametag */}
@@ -258,8 +258,8 @@ function contactShadowTexture(): THREE.CanvasTexture {
   c.width = c.height = 128;
   const ctx = c.getContext('2d')!;
   const g = ctx.createRadialGradient(64, 64, 8, 64, 64, 62);
-  g.addColorStop(0, 'rgba(12,14,20,0.58)');
-  g.addColorStop(0.58, 'rgba(20,20,28,0.34)');
+  g.addColorStop(0, 'rgba(8,10,15,0.72)');
+  g.addColorStop(0.56, 'rgba(16,17,24,0.42)');
   g.addColorStop(1, 'rgba(24,22,30,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 128);
