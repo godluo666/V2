@@ -1119,6 +1119,14 @@ function ArenaLuminaire({
 }
 
 const overheadScreenTextures = new Map<number, THREE.CanvasTexture>();
+function ScreenCable({ points }: { points: P3[] }) {
+  const geometry = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)));
+    return new THREE.TubeGeometry(curve, Math.max(8, points.length * 5), 0.035, 5, false);
+  }, [points]);
+  return <mesh geometry={geometry} material={MATERIAL.darkSteel} castShadow receiveShadow />;
+}
+
 function overheadScreenTexture(index: number): THREE.CanvasTexture {
   const cached = overheadScreenTextures.get(index);
   if (cached) return cached;
@@ -1184,7 +1192,7 @@ function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
         );
       })}
       {positions.map((x) => (
-        <Cable key={`screen-cable-${x}`} points={[[x, 12.4, -2.5], [x, 11.2, -2.5], [x, 9.1, -2.5]]} color="#242d38" radius={0.035} />
+        <ScreenCable key={`screen-cable-${x}`} points={[[x, 12.4, -2.5], [x, 11.2, -2.5], [x, 9.1, -2.5]]} />
       ))}
     </group>
   );
