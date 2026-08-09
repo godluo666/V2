@@ -31,8 +31,8 @@ describe('world membership and movement', () => {
     world.join(b.session, SPACE.PLAZA);
     const joinMsg = lastOf(a.ws, 'player_join');
     expect(joinMsg?.d.profile.username).toBe('bob');
-    // NPCs are included in the roster
-    expect(initA.players.some((p) => p.isNpc)).toBe(true);
+    // The street intentionally has no static NPC crowd; online players remain.
+    expect(initA.players.some((p) => p.isNpc)).toBe(false);
   });
 
   it('accepts valid movement and rejects teleports', () => {
