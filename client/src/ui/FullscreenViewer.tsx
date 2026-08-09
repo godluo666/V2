@@ -9,7 +9,7 @@
  * 因此进出全屏:不重建 video、不重载 iframe、不产生双音轨、进度不丢。
  * 附带:黑边感知的坐标映射(点击黑边不算内容点击)与 np_watch_debug=1 调试角标。
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useUI, useWorld } from '../state/stores';
 import { hot } from '../state/hot';
 import { useFullscreenMedia } from '../world3d/media/fullscreen';
@@ -24,6 +24,29 @@ export function contentRectOf(containerW: number, containerH: number, mediaW: nu
   const w = mediaW * s;
   const h = mediaH * s;
   return { x: (containerW - w) / 2, y: (containerH - h) / 2, w, h };
+}
+
+function writeWorldFrame(
+  frame: LayerFrame | null,
+  outer: HTMLDivElement | null,
+  camera: HTMLDivElement | null,
+  object: HTMLDivElement | null,
+) {
+  if (!outer || !camera || !object) return;
+  if (!frame || !frame.visible) {
+    outer.style.display = 'none';
+    return;
+  }
+  outer.style.display = 'block';
+  outer.style.perspective = `${frame.fovPx}px`;
+  outer.style.width = `${frame.w}px`;
+  outer.style.height = `${frame.h}px`;
+  camera.style.transform = frame.cameraCss;
+  camera.style.width = `${frame.w}px`;
+  camera.style.height = `${frame.h}px`;
+  object.style.transform = frame.objectCss;
+  object.style.width = `${frame.px}px`;
+  object.style.height = `${frame.py}px`;
 }
 
 export default function FullscreenViewer() {
@@ -56,20 +79,18 @@ export default function FullscreenViewer() {
       const obj = objRef.current;
       if (!outer || !cam || !obj) return;
       if (useFullscreenMedia.getState().open) return; // 全屏样式由 React 侧管理
-      if (!f || !f.visible) { outer.style.display = 'none'; return; }
-      outer.style.display = 'block';
-      outer.style.perspective = `${f.fovPx}px`;
-      outer.style.width = `${f.w}px`;
-      outer.style.height = `${f.h}px`;
-      cam.style.transform = f.cameraCss;
-      cam.style.width = `${f.w}px`;
-      cam.style.height = `${f.h}px`;
-      obj.style.transform = f.objectCss;
-      obj.style.width = `${f.px}px`;
-      obj.style.height = `${f.py}px`;
+      writeWorldFrame(f, outer, cam, obj);
     });
     return () => mediaRuntime.onLayerFrame(null);
   }, []);
+
+  // React removes the fullscreen `transform:none` declarations while leaving
+  // the CSS3D layer empty. Restore the last projection in the same commit
+  // instead of waiting for software WebGL to produce another frame.
+  useLayoutEffect(() => {
+    if (open || !active) return;
+    writeWorldFrame(frameRef.current, outerRef.current, camRef.current, objRef.current);
+  }, [active, open]);
 
   // 屏幕被清空/换空间后媒体没了 → 自动退出全屏
   useEffect(() => {
@@ -156,21 +177,27 @@ export default function FullscreenViewer() {
   return (
     <div
       ref={outerRef}
+      data-media-layer="outer"
       onPointerDown={onFsPointer}
       style={open ? {
-        position: 'fixed', inset: 0, zIndex: 60, background: '#000', display: 'block',
+        position: 'fixed', inset: 0, width: '100vw', height: '100vh', perspective: 'none',
+        zIndex: 60, background: '#000', display: 'block',
       } : {
         position: 'fixed', inset: 0, zIndex: 5, overflow: 'hidden', pointerEvents: 'none', display: 'none',
       }}
     >
       <div
         ref={camRef}
-        style={open ? { position: 'absolute', inset: 0, transform: 'none' } : {
+        data-media-layer="camera"
+        style={open ? {
+          position: 'absolute', inset: 0, width: '100%', height: '100%', transform: 'none',
+        } : {
           position: 'absolute', top: 0, left: 0, transformStyle: 'preserve-3d', pointerEvents: 'none',
         }}
       >
         <div
           ref={objRef}
+          data-media-layer="object"
           style={open ? {
             position: 'absolute', inset: 0, width: '100%', height: '100%', transform: 'none', pointerEvents: 'auto',
           } : {

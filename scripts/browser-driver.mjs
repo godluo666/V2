@@ -545,11 +545,22 @@ export async function exitToStreet(page) {
       ? [x, z, 18_000, 0.03]
       : [x, z]
   ));
-  const reachedExit = await walkRoute(page, [
-    ...route,
-    [exit.approach[0], exit.approach[1], 8_000, 0.6],
-  ]);
-  if (!reachedExit || !await spaceIs(page, sourceSpace)) return false;
+  // Keep the collision-planned leg and the short door leg separate.  The old
+  // fixed 8s budget on the latter expired exactly at the cutoff after a costly
+  // evidence screenshot, even though the player had already left the table and
+  // the shared route itself was valid.  Both attempts below still advance only
+  // through normal, server-authoritative input; a retry merely re-establishes
+  // focus after the detailed interior has stalled Chromium's renderer.
+  const reachedInnerApproach = await walkRoute(page, route);
+  if (!reachedInnerApproach || !await spaceIs(page, sourceSpace)) return false;
+
+  let reachedDoor = await walkTo(page, exit.approach[0], exit.approach[1], 24_000, 0.6);
+  if (!reachedDoor) {
+    if (!await prepareWorldInput(page)) return false;
+    await page.waitForTimeout(450);
+    reachedDoor = await walkTo(page, exit.approach[0], exit.approach[1], 36_000, 0.72);
+  }
+  if (!reachedDoor || !await spaceIs(page, sourceSpace)) return false;
   return interactWhenPrompt(page, exit.label, ...exit.approach, {
     expectedSpace: 'plaza',
   });

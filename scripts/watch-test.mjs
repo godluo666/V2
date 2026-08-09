@@ -103,22 +103,45 @@ for (let i = 0; i < 10; i++) {
     return true;
   });
   if (!opened) { stable = false; console.log('  ✗ 找不到全屏按钮 @ round', i); break; }
-  // 世界/全屏的判据:是否处于 CSS3D matrix3d 变换之下(投影 rect 尺寸在
-  // 巨幕近处会超过视口,不能当判据)。原生全屏过渡会暂停渲染几百毫秒,
+  // 世界/全屏的判据:相机层和物体层是否都有有效 CSS transform(投影 rect
+  // 在巨幕近处会超过视口,不能当判据)。原生全屏过渡会暂停渲染几百毫秒,
   // 所以用轮询等待目标状态而不是定长等待。
   const probeSrc = `(() => {
     const f = document.querySelector('iframe');
-    let el = f ? f.parentElement : null;
-    let matrix = false;
-    let hops = 0;
-    while (el && hops++ < 8) {
-      if ((el.style.transform || '').includes('matrix3d')) { matrix = true; break; }
-      el = el.parentElement;
-    }
+    const objectLayer = f ? f.closest('[data-media-layer="object"]') : null;
+    const cameraLayer = objectLayer?.parentElement?.matches('[data-media-layer="camera"]')
+      ? objectLayer.parentElement
+      : null;
+    const outerLayer = cameraLayer?.parentElement?.matches('[data-media-layer="outer"]')
+      ? cameraLayer.parentElement
+      : null;
+    const transformedLayers = [cameraLayer, objectLayer].filter((el) => {
+      if (!el) return false;
+      const inlineTransform = (el.style.transform || '').trim();
+      const computedTransform = getComputedStyle(el).transform;
+      return (inlineTransform && inlineTransform !== 'none')
+        || (computedTransform && computedTransform !== 'none');
+    }).length;
+    const outerStyle = outerLayer ? getComputedStyle(outerLayer) : null;
+    const outerRect = outerLayer?.getBoundingClientRect();
     return {
       count: document.querySelectorAll('iframe').length,
       mark: f && f.dataset.mark ? f.dataset.mark : null,
-      matrix,
+      // World mode has camera + object projections; fullscreen has neither.
+      // Accept the browser's valid matrix()/matrix3d()/translate serialization.
+      matrix: transformedLayers >= 2,
+      transformedLayers,
+      worldReady: !!outerLayer && outerStyle?.display !== 'none'
+        && outerStyle?.visibility !== 'hidden'
+        && outerStyle?.perspective !== 'none'
+        && !!outerRect && outerRect.width > 1 && outerRect.height > 1,
+      fullscreenSized: (() => {
+        if (!outerLayer) return false;
+        const rect = outerLayer.getBoundingClientRect();
+        return Math.abs(rect.left) <= 1 && Math.abs(rect.top) <= 1
+          && Math.abs(rect.width - innerWidth) <= 1
+          && Math.abs(rect.height - innerHeight) <= 1;
+      })(),
       videos: document.querySelectorAll('video').length,
       audios: document.querySelectorAll('audio').length,
     };
@@ -129,6 +152,7 @@ for (let i = 0; i < 10; i++) {
         ([src, want]) => {
           const s = eval(src);
           return s.count === 1 && s.mark === 'the-one-and-only' && s.matrix === want
+            && (want ? s.worldReady : s.fullscreenSized)
             && s.videos === 0 && s.audios === 0;
         },
         [probeSrc, wantMatrix],
