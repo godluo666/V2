@@ -73,10 +73,8 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: Install Playwright inside the workspace
-        run: |
-          npm install --no-save --package-lock=false playwright
-          npx playwright install --with-deps chromium
+      - name: Install Chromium for the locked workspace Playwright
+        run: npx playwright install --with-deps chromium
 
       - name: Build production bundles
         run: npm run build
