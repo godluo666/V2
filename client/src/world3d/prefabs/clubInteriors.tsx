@@ -298,23 +298,60 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
   );
 }
 
+const FLIGHT_TRACK_CELL = new THREE.CylinderGeometry(1, 1, 1, 10);
+
+function flightTrackPoint(colour: number, progress: number): P3 {
+  const cell = (colour * 13 + progress) % 52;
+  const side = Math.floor(cell / 13);
+  const step = cell % 13;
+  const along = -0.48 + step * 0.08;
+  if (side === 0) return [along, 0.805, -0.58];
+  if (side === 1) return [0.58, 0.805, along];
+  if (side === 2) return [-along, 0.805, 0.58];
+  return [-0.58, 0.805, -along];
+}
+
+function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
+  const refs = useRef<Array<THREE.InstancedMesh | null>>([]);
+  useLayoutEffect(() => {
+    const transform = new THREE.Object3D();
+    refs.current.forEach((mesh, colour) => {
+      if (!mesh) return;
+      for (let step = 0; step < 13; step += 1) {
+        const [x, y, z] = flightTrackPoint(colour, step);
+        transform.position.set(x, y, z);
+        transform.rotation.set(0, 0, 0);
+        transform.scale.set(0.034, 0.012, 0.034);
+        transform.updateMatrix();
+        mesh.setMatrixAt(step, transform.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    });
+  }, []);
+  return (
+    <group>
+      {materials.map((material, colour) => (
+        <instancedMesh
+          key={colour}
+          ref={(node) => { refs.current[colour] = node; }}
+          args={[FLIGHT_TRACK_CELL, material, 13]}
+          castShadow={false}
+          receiveShadow
+          dispose={null}
+        />
+      ))}
+    </group>
+  );
+}
+
 export function FlyingChessTable({ position, ry }: { position: P3; ry: number }) {
   const colors = [red, blue, gold, green];
   const game = useWorld((state) => state.flying['gr-flight']);
   const homeSpots: P3[] = [
-    [-0.42, 0.84, -0.42], [0.42, 0.84, -0.42],
-    [0.42, 0.84, 0.42], [-0.42, 0.84, 0.42],
+    [-0.42, 0.805, -0.42], [0.42, 0.805, -0.42],
+    [0.42, 0.805, 0.42], [-0.42, 0.805, 0.42],
   ];
-  const trackPoint = (colour: number, progress: number): P3 => {
-    const cell = (colour * 13 + progress) % 52;
-    const side = Math.floor(cell / 13);
-    const step = cell % 13;
-    const along = -0.48 + step * 0.08;
-    if (side === 0) return [along, 0.84, -0.58];
-    if (side === 1) return [0.58, 0.84, along];
-    if (side === 2) return [-along, 0.84, 0.58];
-    return [-0.58, 0.84, -along];
-  };
   return (
     <group position={position} rotation={[0, ry, 0]}>
       {/* A woven floor-stall mat and low cushions make this a sit-down street
@@ -343,6 +380,7 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
         <mesh key={`h-${v}`} position={[0, 0.762, v]} material={darkWood}><boxGeometry args={[1.05, 0.014, 0.018]} /></mesh>,
         <mesh key={`v-${v}`} position={[v, 0.763, 0]} material={darkWood}><boxGeometry args={[0.018, 0.014, 1.05]} /></mesh>,
       ])}
+      <FlyingChessTrack materials={colors} />
       {[
         [-0.42, -0.42], [0.42, -0.42], [0.42, 0.42], [-0.42, 0.42],
       ].map(([x, z], i) => (
@@ -361,8 +399,8 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
         const p = progress < 0
           ? homeSpots[colour]
           : progress >= 52
-          ? [((pawn % 2) - 0.5) * 0.18, 0.84, (Math.floor(pawn / 2) - 0.5) * 0.18] as P3
-          : trackPoint(colour, progress);
+          ? [((pawn % 2) - 0.5) * 0.18, 0.805, (Math.floor(pawn / 2) - 0.5) * 0.18] as P3
+          : flightTrackPoint(colour, progress);
         return (
           <group key={`live-pawn-${colour}-${pawn}`} position={p}>
             <mesh material={colors[colour]} castShadow>

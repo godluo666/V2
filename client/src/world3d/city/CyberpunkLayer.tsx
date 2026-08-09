@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { useSettings } from '../../state/stores';
 import { toonMat } from './toon';
 import { surfaceMaterial } from './materials';
 
@@ -32,18 +33,19 @@ function StreetFX() {
   const right = useRef<THREE.Group>(null);
   const pulse = useRef<THREE.Group>(null);
   const t = useRef(0);
+  const reduceMotion = useSettings((state) => state.reduceMotion);
   useFrame((_, delta) => {
     t.current += delta;
-    if (left.current) left.current.position.y = Math.sin(t.current * 2.1) * 0.06;
-    if (right.current) right.current.position.y = Math.sin(t.current * 1.8 + 1.4) * 0.05;
+    if (left.current) left.current.position.y = reduceMotion ? 0 : Math.sin(t.current * 2.1) * 0.06;
+    if (right.current) right.current.position.y = reduceMotion ? 0 : Math.sin(t.current * 1.8 + 1.4) * 0.05;
     if (pulse.current) {
       pulse.current.children.forEach((child, index) => {
         const baseY = (child.userData.baseY as number | undefined) ?? child.position.y;
         const baseRz = (child.userData.baseRz as number | undefined) ?? child.rotation.z;
         child.userData.baseY = baseY;
         child.userData.baseRz = baseRz;
-        child.position.y = baseY + Math.sin(t.current * 2.7 + index * 0.55) * 0.045;
-        child.rotation.z = baseRz + Math.sin(t.current * 0.8 + index) * 0.035;
+        child.position.y = baseY + (reduceMotion ? 0 : Math.sin(t.current * 2.7 + index * 0.55) * 0.045);
+        child.rotation.z = baseRz + (reduceMotion ? 0 : Math.sin(t.current * 0.8 + index) * 0.035);
       });
     }
   });

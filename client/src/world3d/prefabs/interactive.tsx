@@ -4,9 +4,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { useWorld } from '../../state/stores';
+import { useSettings, useWorld } from '../../state/stores';
 import { hot } from '../../state/hot';
-import type { Stroke, TicTacToeState, LightsOutState } from '@nexuspark/shared';
+import { TRACKS, type Stroke, type TicTacToeState, type LightsOutState } from '@nexuspark/shared';
 
 const mat = (color: string, rough = 0.7, metal = 0) =>
   new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
@@ -387,35 +387,120 @@ export function VendingMachine({ position, rotation, kind = 'drinks' }: {
 export function Jukebox({ position, rotation }: { position: [number, number, number]; rotation: number }) {
   const music = useWorld((s) => s.music);
   const glowRef = useRef<THREE.MeshStandardMaterial>(null);
+  const discRef = useRef<THREE.Group>(null);
+  const equalizerRef = useRef<THREE.Group>(null);
   const playing = !!music?.trackId;
-  useFrame(({ clock }) => {
-    if (glowRef.current) {
-      glowRef.current.emissiveIntensity = playing ? 1.1 + Math.sin(clock.elapsedTime * 6) * 0.4 : 0.35;
+  const track = TRACKS.find((item) => item.id === music?.trackId);
+  const reduceMotion = useSettings((state) => state.reduceMotion);
+  const displayTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 192;
+    const ctx = canvas.getContext('2d')!;
+    const gradient = ctx.createLinearGradient(0, 0, 512, 192);
+    gradient.addColorStop(0, '#151126');
+    gradient.addColorStop(0.55, playing ? '#53334d' : '#342b35');
+    gradient.addColorStop(1, '#111827');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 512, 192);
+    ctx.strokeStyle = playing ? '#ffc966' : '#8f806d';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(10, 10, 492, 172);
+    ctx.fillStyle = '#fff2cf';
+    ctx.font = '700 34px "Noto Sans SC", sans-serif';
+    ctx.fillText(track?.name ?? '请选择曲目', 28, 76);
+    ctx.fillStyle = playing ? '#ff9e62' : '#a69a8b';
+    ctx.font = '700 23px Arial, sans-serif';
+    ctx.fillText(track ? `${track.bpm} BPM  ·  NOW PLAYING` : 'MOON TIDE JUKEBOX', 28, 126);
+    ctx.fillStyle = '#70d9e8';
+    for (let index = 0; index < 12; index += 1) {
+      const height = 8 + ((index * 17 + (track?.bpm ?? 72)) % 34);
+      ctx.fillRect(30 + index * 29, 156 - height, 15, height);
     }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 2;
+    return texture;
+  }, [playing, track]);
+  useEffect(() => () => displayTexture.dispose(), [displayTexture]);
+  useFrame(({ clock }, delta) => {
+    if (glowRef.current) {
+      glowRef.current.emissiveIntensity = playing
+        ? 1.1 + (reduceMotion ? 0 : Math.sin(clock.elapsedTime * 6) * 0.4)
+        : 0.35;
+    }
+    if (discRef.current && playing && !reduceMotion) {
+      discRef.current.rotation.z -= delta * ((track?.bpm ?? 90) / 60) * 1.8;
+    }
+    equalizerRef.current?.children.forEach((child, index) => {
+      const pulse = playing
+        ? 0.55 + (reduceMotion ? 0 : Math.sin(clock.elapsedTime * 5.2 + index * 0.78) * 0.34)
+        : 0.22;
+      child.scale.y = Math.max(0.16, pulse);
+    });
   });
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <boxGeometry args={[0.8, 1.2, 0.5]} />
-        <meshStandardMaterial color="#6e3a1f" roughness={0.5} />
+    <group position={position} rotation={[0, rotation, 0]} name="synchronised-jukebox">
+      <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.94, 0.16, 0.62]} />
+        <meshStandardMaterial color="#35261f" roughness={0.78} />
+      </mesh>
+      <mesh position={[0, 0.66, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.92, 1.18, 0.58]} />
+        <meshStandardMaterial color="#754425" roughness={0.68} metalness={0.04} />
       </mesh>
       <mesh position={[0, 1.28, 0]} castShadow>
-        <cylinderGeometry args={[0.4, 0.4, 0.5, 16, 1, false, 0, Math.PI]} />
-        <meshStandardMaterial color="#6e3a1f" roughness={0.5} />
+        <cylinderGeometry args={[0.46, 0.46, 0.58, 20, 1, false, 0, Math.PI]} />
+        <meshStandardMaterial color="#754425" roughness={0.68} metalness={0.04} />
       </mesh>
-      <mesh position={[0, 1.28, 0.13]} rotation={[0.1, 0, 0]}>
-        <torusGeometry args={[0.3, 0.045, 8, 18, Math.PI]} />
+      {[-0.48, 0.48].map((x) => (
+        <mesh key={x} position={[x, 0.77, 0]} castShadow>
+          <boxGeometry args={[0.08, 1.34, 0.66]} />
+          <meshStandardMaterial color="#c49a58" roughness={0.42} metalness={0.46} />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.28, 0.19]} rotation={[0.1, 0, 0]}>
+        <torusGeometry args={[0.34, 0.055, 8, 22, Math.PI]} />
         <meshStandardMaterial ref={glowRef} color="#ffb454" emissive="#ff9a3a" emissiveIntensity={0.6} roughness={0.3} />
       </mesh>
-      <mesh position={[0, 0.72, 0.26]}>
-        <planeGeometry args={[0.55, 0.4]} />
-        <meshStandardMaterial color="#f5e6c8" emissive="#ffdf9a" emissiveIntensity={playing ? 0.45 : 0.12} roughness={0.4} />
-      </mesh>
-      {[-0.28, 0.28].map((x, i) => (
-        <mesh key={i} position={[x, 0.35, 0.26]}>
-          <circleGeometry args={[0.09, 12]} />
-          <meshStandardMaterial color="#3a2a1a" roughness={0.8} />
+      <group ref={discRef} position={[0, 1.23, 0.205]} rotation={[0, 0, 0]}>
+        <mesh>
+          <circleGeometry args={[0.25, 24]} />
+          <meshStandardMaterial color="#1d2430" roughness={0.36} metalness={0.28} />
         </mesh>
+        <mesh position={[0, 0, 0.008]}>
+          <ringGeometry args={[0.07, 0.12, 20]} />
+          <meshStandardMaterial color={playing ? '#f26d83' : '#76636a'} emissive="#7a2945" emissiveIntensity={playing ? 0.45 : 0.08} />
+        </mesh>
+        <mesh position={[0, 0, 0.012]}><circleGeometry args={[0.018, 12]} /><meshStandardMaterial color="#f3c86a" metalness={0.55} roughness={0.3} /></mesh>
+      </group>
+      <mesh position={[0, 0.76, 0.306]}>
+        <boxGeometry args={[0.68, 0.32, 0.045]} />
+        <meshStandardMaterial color="#2f2730" roughness={0.48} metalness={0.16} />
+      </mesh>
+      <mesh position={[0, 0.76, 0.333]}>
+        <planeGeometry args={[0.61, 0.25]} />
+        <meshBasicMaterial map={displayTexture} toneMapped={false} />
+      </mesh>
+      <group ref={equalizerRef} position={[0, 0.48, 0.325]}>
+        {[-0.24, -0.16, -0.08, 0, 0.08, 0.16, 0.24].map((x, index) => (
+          <mesh key={x} position={[x, 0, 0]}>
+            <boxGeometry args={[0.045, 0.22, 0.035]} />
+            <meshStandardMaterial color={index % 2 ? '#62d9e8' : '#f06b9a'} emissive={index % 2 ? '#31bbd1' : '#c93f78'} emissiveIntensity={playing ? 0.72 : 0.12} roughness={0.42} />
+          </mesh>
+        ))}
+      </group>
+      {[-0.27, 0.27].map((x, i) => (
+        <group key={i} position={[x, 0.27, 0.325]}>
+          <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.12, 0.12, 0.055, 16]} />
+            <meshStandardMaterial color="#30251d" roughness={0.82} />
+          </mesh>
+          <mesh position={[0, 0, 0.032]}>
+            <circleGeometry args={[0.075, 16]} />
+            <meshStandardMaterial color="#11161d" roughness={0.92} />
+          </mesh>
+        </group>
       ))}
     </group>
   );
