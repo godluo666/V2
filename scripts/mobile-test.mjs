@@ -95,7 +95,7 @@ const before = await page.evaluate(() => {
 if (!before) {
   await abortJourney('摇杆验证前尚无服务端权威 selfSnap');
 }
-const joystick = page.locator('div[style*="border-radius: 50%"]', { has: page.locator('div') }).first();
+const joystick = page.locator('.touch-stick').first();
 const joystickBox = await joystick.boundingBox();
 check('虚拟摇杆节点可用', !!joystickBox);
 if (!joystickBox) {

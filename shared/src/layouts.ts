@@ -644,6 +644,32 @@ function buildNetcafe(): SpaceLayout {
 function buildGameroom(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { minX: -12, maxX: 12, minZ: -9, maxZ: 9 };
+  const clubSeatPosition = (
+    x: number,
+    y: number,
+    z: number,
+    ry: number,
+    localX: number,
+    localZ: number,
+  ): [number, number, number] => [
+    x + localX * Math.cos(ry) + localZ * Math.sin(ry),
+    y,
+    z - localX * Math.sin(ry) + localZ * Math.cos(ry),
+  ];
+  const addClubChair = (
+    id: string,
+    x: number,
+    z: number,
+    ry: number,
+    accent: number,
+    label: string,
+  ) => {
+    b.prop('chair', x, 0, z, ry, { style: 'club', accent });
+    // The Dango body is 0.8m deep.  A small local-forward offset and the real
+    // cushion-top height keep it clear of both the padded back and table edge.
+    const [seatX, seatY, seatZ] = clubSeatPosition(x, 0.61, z, ry, 0, 0.18);
+    b.inter(id, 'seat', seatX, seatY, seatZ, ry, label);
+  };
 
   b.inter('gr-exit', 'door', 0, 0, 8.7, 0, '返回一番街', {
     target: SPACE.PLAZA, spawn: streetReturnFor('gameroom'),
@@ -654,24 +680,27 @@ function buildGameroom(): SpaceLayout {
   // 不再依赖两块超大空地毯制造“宽敞”，入场便能同时读到围坐区和桌游区。
   b.prop('club_rug', -3.55, 0.012, 1.05, 0, { w: 6.9, d: 5.9 });
   b.prop('club_rug', 4.25, 0.012, -0.15, 0, { w: 6.6, d: 7.35 });
-  b.prop('club_sofa', -6.35, 0, 1.05, Math.PI / 2); b.box(-6.35, 1.05, 1.05, 3.8);
-  b.inter('gr-sofa-w0', 'seat', -6.25, 0.44, 0.1, Math.PI / 2, '窝进沙发');
-  b.inter('gr-sofa-w1', 'seat', -6.25, 0.44, 1.05, Math.PI / 2, '窝进沙发');
-  b.inter('gr-sofa-w2', 'seat', -6.25, 0.44, 2.0, Math.PI / 2, '窝进沙发');
-  b.prop('club_sofa', -3.35, 0, -1.55, 0); b.box(-3.35, -1.55, 3.8, 1.05);
-  b.inter('gr-sofa-n0', 'seat', -4.3, 0.44, -1.47, 0, '窝进沙发');
-  b.inter('gr-sofa-n1', 'seat', -3.35, 0.44, -1.47, 0, '窝进沙发');
-  b.inter('gr-sofa-n2', 'seat', -2.4, 0.44, -1.47, 0, '窝进沙发');
+  const westSofa = { x: -6.35, z: 1.05, ry: Math.PI / 2 };
+  b.prop('club_sofa', westSofa.x, 0, westSofa.z, westSofa.ry); b.box(westSofa.x, westSofa.z, 1.05, 3.8);
+  [1.15, 0, -1.15].forEach((localX, i) => {
+    const [x, y, z] = clubSeatPosition(westSofa.x, 0.6, westSofa.z, westSofa.ry, localX, 0.2);
+    b.inter(`gr-sofa-w${i}`, 'seat', x, y, z, westSofa.ry, '窝进沙发');
+  });
+  const northSofa = { x: -3.35, z: -1.55, ry: 0 };
+  b.prop('club_sofa', northSofa.x, 0, northSofa.z, northSofa.ry); b.box(northSofa.x, northSofa.z, 3.8, 1.05);
+  [-1.15, 0, 1.15].forEach((localX, i) => {
+    const [x, y, z] = clubSeatPosition(northSofa.x, 0.6, northSofa.z, northSofa.ry, localX, 0.2);
+    b.inter(`gr-sofa-n${i}`, 'seat', x, y, z, northSofa.ry, '窝进沙发');
+  });
   b.prop('coffee_table', -3.45, 0, 1.0); b.circle(-3.45, 1.0, 0.55);
 
   // 社团棋桌：象棋为现有服务端权威玩法；飞行棋为可围坐实体桌游陈设。
   b.inter('gr-xq', 'xiangqi', 4.35, 0, 2.45, 0, '社团象棋桌');
   b.box(4.35, 2.45, 1.0, 1.0);
   for (const [x, z, ry, i] of [
-    [3.25, 2.45, Math.PI / 2, 0], [5.45, 2.45, -Math.PI / 2, 1],
+    [3.17, 2.45, Math.PI / 2, 0], [5.53, 2.45, -Math.PI / 2, 1],
   ] as const) {
-    b.prop('chair', x, 0, z, ry, { style: 'club', accent: i });
-    b.inter(`gr-xq-s${i}`, 'seat', x, 0.47, z, ry, '坐下下棋');
+    addClubChair(`gr-xq-s${i}`, x, z, ry, i, '坐下下棋');
   }
   b.prop('club_flying_chess', 4.35, 0, -2.75);
   b.box(4.35, -2.75, 1.25, 1.25);
@@ -679,17 +708,15 @@ function buildGameroom(): SpaceLayout {
     [4.35, -1.4, Math.PI, 0], [5.7, -2.75, -Math.PI / 2, 1],
     [4.35, -4.1, 0, 2], [3.0, -2.75, Math.PI / 2, 3],
   ] as const) {
-    b.prop('chair', x, 0, z, ry, { style: 'club', accent: i });
-    b.inter(`gr-flight-s${i}`, 'seat', x, 0.47, z, ry, '围坐飞行棋');
+    addClubChair(`gr-flight-s${i}`, x, z, ry, i, '围坐飞行棋');
   }
 
   // 中央后段的社团筹备桌把两个功能区串成一体；桌体阻挡与实体一致，
   // 左右仍各保留超过 1.5m 的绕行空间，不堵入口主轴。
   b.prop('club_craft_table', 0.35, 0, -5.05, 0);
   b.box(0.35, -5.05, 1.9, 1.05);
-  for (const [x, ry, i] of [[-1.0, Math.PI / 2, 0], [1.7, -Math.PI / 2, 1]] as const) {
-    b.prop('chair', x, 0, -5.05, ry, { style: 'club', accent: i + 2 });
-    b.inter(`gr-craft-s${i}`, 'seat', x, 0.47, -5.05, ry, '一起筹备活动');
+  for (const [x, ry, i] of [[-1.23, Math.PI / 2, 0], [1.93, -Math.PI / 2, 1]] as const) {
+    addClubChair(`gr-craft-s${i}`, x, -5.05, ry, i + 2, '一起筹备活动');
   }
 
   // 小舞台、点歌机、茶水零食台、社团墙与安静阅读角。

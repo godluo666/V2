@@ -1,4 +1,5 @@
 /** Cozy, asset-free furniture for the Dango party hall activity room. */
+import { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { toonMat } from '../city/toon';
 import { surfaceMaterial } from '../city/materials';
@@ -24,6 +25,7 @@ const creamFabric = surfaceMaterial('seatFabric'); creamFabric.color.set('#ead8c
 const blushFabric = surfaceMaterial('seatFabric'); blushFabric.color.set('#d98b91');
 const sageFabric = surfaceMaterial('seatFabric'); sageFabric.color.set('#8fb8a5');
 const lavenderFabric = surfaceMaterial('seatFabric'); lavenderFabric.color.set('#9783b8');
+const rugEdge = surfaceMaterial('acousticFabric'); rugEdge.color.set('#d8b59a');
 
 /**
  * 归一化的程序化倒角实体：软包使用更大的圆角，木作只做细小倒棱。
@@ -92,6 +94,47 @@ function SculptedPart({
   );
 }
 
+function RugFringe({ w, d }: { w: number; d: number }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const fringeCount = Math.max(24, Math.round(w / 0.21));
+  const fringeStep = (w - 0.24) / fringeCount;
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const transform = new THREE.Object3D();
+    let instance = 0;
+    for (const side of [-1, 1] as const) {
+      for (let i = 0; i < fringeCount; i += 1) {
+        transform.position.set(
+          -w / 2 + 0.12 + (i + 0.5) * fringeStep,
+          0.024,
+          side * (d / 2 + 0.075 + (i % 3) * 0.004),
+        );
+        transform.rotation.set(0, (i % 5 - 2) * 0.018, 0);
+        transform.scale.set(fringeStep * 0.78, 0.032, 0.17 + (i % 3) * 0.018);
+        transform.updateMatrix();
+        mesh.setMatrixAt(instance, transform.matrix);
+        instance += 1;
+      }
+    }
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingBox();
+    mesh.computeBoundingSphere();
+  }, [d, fringeCount, fringeStep, w]);
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[SOFT_SOLID, rugEdge, fringeCount * 2]}
+      castShadow={false}
+      receiveShadow
+      dispose={null}
+    />
+  );
+}
+
 export function ClubRug({ position, ry, w, d }: {
   position: P3; ry: number; w: number; d: number;
 }) {
@@ -102,18 +145,31 @@ export function ClubRug({ position, ry, w, d }: {
       <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]} material={gold}>
         <ringGeometry args={[Math.min(w, d) * 0.17, Math.min(w, d) * 0.23, 32]} />
       </mesh>
-      {[-1, 1].flatMap((side) =>
-        Array.from({ length: 12 }, (_, i) => (
-          <mesh
-            key={`${side}-${i}`}
-            position={[-w / 2 + 0.3 + i * ((w - 0.6) / 11), 0.012, side * (d / 2 + 0.08)]}
-            rotation={[Math.PI / 2, 0, 0]}
-            material={cream}
-          >
-            <cylinderGeometry args={[0.012, 0.012, 0.16, 5]} />
-          </mesh>
-        )),
-      )}
+      {/* A continuous woven binding makes the edge read as textile before the
+          individual tufts resolve.  The former twelve white cylinders looked
+          like staples at the party-hall camera distance. */}
+      {[-1, 1].map((side) => (
+        <group key={`rug-edge-${side}`}>
+          <SculptedPart
+            position={[0, 0.026, side * (d / 2 - 0.065)]}
+            scale={[w - 0.18, 0.028, 0.13]}
+            material={rugEdge}
+            soft
+            castShadow={false}
+          />
+        </group>
+      ))}
+      <RugFringe w={w} d={d} />
+      {[-1, 1].map((side) => (
+        <SculptedPart
+          key={`side-binding-${side}`}
+          position={[side * (w / 2 - 0.065), 0.026, 0]}
+          scale={[0.13, 0.028, d - 0.18]}
+          material={rugEdge}
+          soft
+          castShadow={false}
+        />
+      ))}
     </group>
   );
 }
@@ -187,13 +243,13 @@ export function ClubChair({ position, ry, accent = 0 }: { position: P3; ry: numb
       </mesh>
       {/* 靠背改为双立柱、弧边顶梁与独立软垫，删除原先整块木板轮廓。 */}
       {[-0.31, 0.31].map((x) => (
-        <mesh key={x} position={[x, 0.87, -0.3]} rotation={[-0.06, 0, 0]} material={darkWood} castShadow>
+        <mesh key={x} position={[x, 0.87, -0.34]} rotation={[-0.06, 0, 0]} material={darkWood} castShadow>
           <cylinderGeometry args={[0.034, 0.044, 0.82, 8]} />
         </mesh>
       ))}
-      <SculptedPart position={[0, 1.22, -0.25]} scale={[0.72, 0.13, 0.12]} rotation={[-0.06, 0, 0]} material={darkWood} />
-      <SculptedPart position={[0, 0.96, -0.255]} scale={[0.56, 0.42, 0.105]} rotation={[-0.08, 0, 0]} material={cushion} soft />
-      <SculptedPart position={[0, 0.96, -0.318]} scale={[0.37, 0.21, 0.02]} rotation={[-0.08, 0, 0]} material={accent % 2 ? sageFabric : lavenderFabric} castShadow={false} />
+      <SculptedPart position={[0, 1.22, -0.32]} scale={[0.72, 0.13, 0.12]} rotation={[-0.06, 0, 0]} material={darkWood} />
+      <SculptedPart position={[0, 0.96, -0.325]} scale={[0.56, 0.42, 0.105]} rotation={[-0.08, 0, 0]} material={cushion} soft />
+      <SculptedPart position={[0, 0.96, -0.388]} scale={[0.37, 0.21, 0.02]} rotation={[-0.08, 0, 0]} material={accent % 2 ? sageFabric : lavenderFabric} castShadow={false} />
     </group>
   );
 }
@@ -442,13 +498,14 @@ export function ClubReadingNook({ position, ry }: { position: P3; ry: number }) 
  * lip and side cheek.  The result stays readable even with the neon layer
  * disabled and gives the compact room a believable club-house construction.
  */
-function ClubWallDetails() {
+function ClubWallDetails({ lightsOn }: { lightsOn: boolean }) {
   const panelMats = [sage, lavender, paper, pink];
+  const sconceShade = lightsOn ? glowGold : gold;
   return (
     <group>
       {([-1, 1] as const).flatMap((side) => (
         [-8, -4, 4, 8].map((x, i) => (
-          <group key={`wall-panel-${side}-${x}`} position={[x, 0, side * 8.72]}>
+          <group key={`wall-panel-${side}-${x}`} position={[x, 0, side * 8.92]}>
             <mesh position={[0, 2.15, 0]} castShadow material={darkWood}>
               <boxGeometry args={[3.15, 2.35, 0.16]} />
             </mesh>
@@ -489,7 +546,7 @@ function ClubWallDetails() {
       ))}
       {([-1, 1] as const).flatMap((side) => (
         [-6.4, -2.1, 2.1, 6.4].map((z, i) => (
-          <group key={`side-shelf-${side}-${z}`} position={[side * 11.72, 0, z]} rotation={[0, side * Math.PI / 2, 0]}>
+          <group key={`side-shelf-${side}-${z}`} position={[side * 11.91, 0, z]} rotation={[0, side * Math.PI / 2, 0]}>
             <mesh position={[0, 2.4, 0]} castShadow material={darkWood}>
               <boxGeometry args={[2.35, 2.6, 0.18]} />
             </mesh>
@@ -512,24 +569,68 @@ function ClubWallDetails() {
           </group>
         ))
       ))}
-      {/* Exposed lower wainscot, corner posts and a real cable tray. */}
+      {/* The side-wall modules need their own warm architectural layer.  These
+          rails sit in front of the plaster and bridge the gaps between shelves
+          without becoming another flat wall-sized slab. */}
+      {([-1, 1] as const).map((side) => (
+        <group key={`side-wainscot-${side}`}>
+          <mesh position={[side * 11.88, 0.52, 0]} castShadow material={wood}>
+            <boxGeometry args={[0.24, 0.95, 17.0]} />
+          </mesh>
+          <mesh position={[side * 11.92, 1.02, 0]} material={darkWood}>
+            <boxGeometry args={[0.16, 0.1, 17.0]} />
+          </mesh>
+          <mesh position={[side * 11.89, 3.7, 0]} material={darkWood}>
+            <boxGeometry args={[0.22, 0.16, 17.0]} />
+          </mesh>
+        </group>
+      ))}
+      {([-1, 1] as const).flatMap((side) => (
+        [-4.25, 0, 4.25].map((z) => (
+          <group
+            key={`side-sconce-${side}-${z}`}
+            position={[side * 11.95, 2.52, z]}
+            rotation={[0, side * Math.PI / 2, 0]}
+          >
+            <SculptedPart position={[0, 0, 0]} scale={[0.42, 0.68, 0.1]} material={darkWood} />
+            <SculptedPart position={[0, 0.015, -0.065]} scale={[0.28, 0.5, 0.05]} material={paper} castShadow={false} />
+            <mesh position={[0, 0.02, -0.19]} rotation={[Math.PI / 2, 0, 0]} material={wood} castShadow>
+              <cylinderGeometry args={[0.025, 0.025, 0.26, 8]} />
+            </mesh>
+            <mesh position={[0, -0.11, -0.34]} material={sconceShade} castShadow>
+              <coneGeometry args={[0.18, 0.22, 16]} />
+            </mesh>
+            <mesh position={[0, -0.235, -0.34]} material={sconceShade}>
+              <sphereGeometry args={[0.075, 12, 8]} />
+            </mesh>
+          </group>
+        ))
+      ))}
+      {/* Exposed lower wainscot, crown rails and actual corner posts. */}
       {([-1, 1] as const).map((side) => (
         <group key={`wainscot-${side}`}>
-          <mesh position={[0, 0.52, side * 8.6]} castShadow material={wood}>
+          <mesh position={[0, 0.52, side * 8.88]} castShadow material={wood}>
             <boxGeometry args={[23.2, 0.95, 0.24]} />
           </mesh>
-          <mesh position={[0, 1.02, side * 8.76]} material={darkWood}>
+          <mesh position={[0, 1.02, side * 8.92]} material={darkWood}>
             <boxGeometry args={[23.2, 0.1, 0.16]} />
           </mesh>
-          <mesh position={[0, 3.7, side * 8.58]} material={darkWood}>
+          <mesh position={[0, 3.7, side * 8.89]} material={darkWood}>
             <boxGeometry args={[23.2, 0.16, 0.22]} />
           </mesh>
         </group>
       ))}
-      {([-10.9, 10.9] as const).map((x) => (
-        <mesh key={`corner-post-${x}`} position={[x, 2.15, 0]} castShadow material={darkWood}>
-          <boxGeometry args={[0.22, 4.3, 17.2]} />
-        </mesh>
+      {([-1, 1] as const).flatMap((xSide) => (
+        ([-1, 1] as const).map((zSide) => (
+          <mesh
+            key={`corner-post-${xSide}-${zSide}`}
+            position={[xSide * 11.89, 2.15, zSide * 8.89]}
+            castShadow
+            material={darkWood}
+          >
+            <boxGeometry args={[0.22, 4.3, 0.22]} />
+          </mesh>
+        ))
       ))}
     </group>
   );
@@ -556,7 +657,7 @@ export function ClubExtras({
   const realPendantLights = pendantLightIndices(lightBudget);
   return (
     <group>
-      <ClubWallDetails />
+      <ClubWallDetails lightsOn={lightsOn} />
       {/* 天花木梁与串灯：把活动室的高度和温馨感做出来。 */}
       {[-8, -4, 0, 4, 8].map((x) => (
         <mesh key={`beam-${x}`} position={[x, 4.08, 0]} material={darkWood}><boxGeometry args={[0.18, 0.22, 17.2]} /></mesh>

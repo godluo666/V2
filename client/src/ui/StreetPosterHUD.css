@@ -447,6 +447,93 @@
   .street-coordinate { display: none; }
 }
 
+@media (max-width: 760px) and (orientation: portrait) {
+  .street-edition {
+    top: calc(62px + env(safe-area-inset-top));
+    left: 7px;
+    width: 43px;
+    height: 112px;
+  }
+
+  .street-objective {
+    top: calc(62px + env(safe-area-inset-top));
+    left: 66px;
+    right: 8px;
+    width: auto;
+    padding: 9px 22px 10px 19px;
+    filter: drop-shadow(5px 6px 0 rgba(21, 23, 30, .88));
+  }
+
+  .street-objective::before { width: 13px; }
+  .street-objective-kicker { font-size: 9px; }
+  .street-objective strong {
+    margin-top: 3px;
+    overflow: hidden;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .street-venue {
+    width: 136px;
+    padding: 7px 8px;
+    gap: 4px;
+    filter: drop-shadow(4px 4px 0 rgba(246, 241, 226, .82));
+  }
+  .street-venue.is-active {
+    filter:
+      drop-shadow(4px 4px 0 #f6f1e2)
+      drop-shadow(-3px -2px 0 #42d7c7);
+    transform: scale(1.03);
+  }
+  .street-venue-cinema {
+    top: 26vh;
+    right: 4px;
+  }
+  .street-venue-gameroom {
+    top: 39vh;
+    left: 4px;
+  }
+  .street-venue-netcafe {
+    top: 50vh;
+    right: 4px;
+    bottom: auto;
+  }
+
+  .street-route-detail {
+    left: 128px;
+    right: 8px;
+    bottom: calc(136px + env(safe-area-inset-bottom));
+    width: auto;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 6px;
+    padding: 8px 14px 8px 8px;
+    filter: drop-shadow(5px 6px 0 rgba(21, 23, 30, .9));
+  }
+  .street-detail-index {
+    min-width: 34px;
+    font-size: 16px;
+  }
+  .street-detail-kicker {
+    overflow: hidden;
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .street-route-detail strong {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .street-detail-distance {
+    min-width: 54px;
+    padding-left: 7px;
+  }
+  .street-detail-distance b { font-size: 21px; }
+  .street-detail-distance > span { font-size: 10px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .street-poster-ui *,
   .street-poster-ui *::before,

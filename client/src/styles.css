@@ -267,6 +267,37 @@ input[type="range"] { accent-color: var(--accent); }
 .kbd-help .key { background: #232c40; border: 1px solid rgba(120,150,200,0.35); border-radius: 5px; padding: 1px 7px; font-size: 12px; margin-right: 6px; display: inline-block; min-width: 34px; text-align: center; }
 
 /* ── 手机触控层 ─────────────────────────────────────────────────────────── */
+.touch-stick {
+  position: fixed;
+  left: 18px;
+  bottom: 86px;
+  width: 112px;
+  height: 112px;
+  z-index: 30;
+  border: 1.5px solid rgba(150, 170, 210, 0.35);
+  border-radius: 50%;
+  background: rgba(20, 26, 40, 0.35);
+  touch-action: none;
+}
+.touch-stick-knob {
+  position: absolute;
+  left: 32px;
+  top: 32px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(150, 180, 230, 0.55);
+  pointer-events: none;
+}
+.touch-actions {
+  position: fixed;
+  right: 14px;
+  bottom: 148px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .touch-btn {
   width: 54px;
   height: 54px;
@@ -279,3 +310,163 @@ input[type="range"] { accent-color: var(--accent); }
   -webkit-user-select: none;
 }
 .touch-btn:active { background: rgba(90, 120, 190, 0.6); }
+
+/* 390px 竖屏 HUD：把信息、导航和操作分进互不侵占的安全区。 */
+@media (max-width: 760px) and (orientation: portrait) {
+  .hud-street .hud-top {
+    top: calc(8px + env(safe-area-inset-top));
+    left: 8px;
+    max-width: 222px;
+    gap: 6px;
+    padding: 7px 16px 7px 11px;
+    overflow: hidden;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .hud-street .hud-top::before {
+    margin: -7px 0 -7px -11px;
+    width: 5px;
+  }
+  .hud-street .hud-top .dim,
+  .hud-street .hud-top .sep:nth-last-child(2) {
+    display: none;
+  }
+  .hud-street .hud-topright {
+    top: calc(8px + env(safe-area-inset-top));
+    right: 8px;
+    gap: 4px;
+  }
+  .hud-street .hud-topright .hud-credits {
+    min-width: 48px;
+    padding: 7px 8px;
+    font-size: 12px;
+    text-align: center;
+  }
+  .hud-street .hud-topright .btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    font-size: 15px;
+  }
+  .hud-street .roster {
+    top: calc(50px + env(safe-area-inset-top));
+    right: 8px;
+    z-index: 35;
+    width: min(220px, calc(100vw - 16px));
+    max-height: 54vh;
+    overflow-y: auto;
+  }
+  .hud-street .toasts {
+    top: calc(128px + env(safe-area-inset-top));
+    width: calc(100vw - 32px);
+  }
+  .hud-street .toast { max-width: 100%; }
+
+  .hud-street .chat {
+    left: 8px;
+    bottom: calc(214px + env(safe-area-inset-bottom));
+    z-index: 10;
+    width: min(242px, calc(100vw - 24px));
+    gap: 4px;
+  }
+  .hud-street .chat-log {
+    max-height: 76px;
+    padding: 7px 9px;
+    border-color: rgba(246, 241, 226, .32);
+    border-radius: 3px;
+    background: rgba(10, 13, 18, .78);
+    box-shadow: 4px 4px 0 rgba(238, 54, 87, .62);
+    font-size: 11px;
+    line-height: 1.35;
+    text-shadow: 0 1px 2px #000;
+    mask-image: linear-gradient(to bottom, transparent, black 16%);
+  }
+  .hud-street .chat.faded .chat-log { opacity: .84; }
+  .hud-street .chat-input-row .input {
+    min-height: 34px;
+    padding: 6px 9px;
+    border-color: rgba(246, 241, 226, .4);
+    border-radius: 3px;
+    background: rgba(10, 13, 18, .88);
+    font-size: 12px;
+  }
+
+  .hud-street .dock {
+    left: 50%;
+    right: auto;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    gap: 4px;
+    transform: translateX(-50%);
+  }
+  .hud-street .dock .btn {
+    width: 40px;
+    height: 40px;
+    font-size: 17px;
+  }
+  .hud-street .emotes {
+    top: calc(132px + env(safe-area-inset-top));
+    right: 8px;
+    bottom: auto;
+    z-index: 31;
+    flex-direction: row;
+    gap: 5px;
+  }
+  .hud-street .emotes .btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .touch-stick {
+    left: 10px;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    border: 2px solid rgba(246, 241, 226, .72);
+    background:
+      linear-gradient(rgba(66, 215, 199, .18), rgba(66, 215, 199, .18)),
+      rgba(9, 12, 18, .76);
+    box-shadow: 5px 5px 0 rgba(21, 23, 30, .8), inset 0 0 0 1px rgba(66, 215, 199, .35);
+  }
+  .touch-stick-knob {
+    border: 4px solid #171920;
+    background: #f6f1e2;
+    box-shadow: 0 0 0 2px #42d7c7;
+  }
+  .touch-actions {
+    right: 8px;
+    bottom: calc(62px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(4, 48px);
+    gap: 6px;
+  }
+  .touch-actions .touch-btn {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: 2px solid #171920;
+    border-radius: 50%;
+    color: #171920;
+    background: #f6f1e2;
+    box-shadow: 3px 3px 0 #ee3657;
+    font-size: 16px;
+    font-weight: 900;
+  }
+  .touch-actions .touch-btn:first-child {
+    color: #f6f1e2;
+    background: #171920;
+    box-shadow: 3px 3px 0 #42d7c7;
+  }
+  .touch-actions .touch-btn:active {
+    color: #171920;
+    background: #ffd84f;
+  }
+}
+
+@media (max-width: 360px) and (orientation: portrait) {
+  .touch-actions {
+    grid-template-columns: repeat(4, 44px);
+    gap: 4px;
+  }
+  .touch-actions .touch-btn {
+    width: 44px;
+    height: 44px;
+  }
+}

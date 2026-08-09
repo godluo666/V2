@@ -303,6 +303,61 @@ function StationScreen({ seatIdx }: { seatIdx: number }) {
   );
 }
 
+const stationBackTextures = new Map<number, THREE.CanvasTexture>();
+
+function stationBackTexture(seatIdx: number): THREE.CanvasTexture {
+  const cached = stationBackTextures.get(seatIdx);
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = 384;
+  canvas.height = 192;
+  const ctx = canvas.getContext('2d')!;
+  const alphaTeam = seatIdx < 4;
+  const accent = alphaTeam ? '#39d9f2' : '#8d65f4';
+  const gradient = ctx.createLinearGradient(0, 0, 384, 192);
+  gradient.addColorStop(0, alphaTeam ? '#092936' : '#251638');
+  gradient.addColorStop(1, '#121a2a');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 384, 192);
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 10;
+  ctx.strokeRect(8, 8, 368, 176);
+  ctx.fillStyle = accent;
+  ctx.fillRect(24, 30, 7, 132);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#edf8ff';
+  ctx.font = '900 56px "Segoe UI", sans-serif';
+  ctx.fillText(`P${String(seatIdx + 1).padStart(2, '0')}`, 212, 96);
+  ctx.fillStyle = '#9fb3c8';
+  ctx.font = '700 22px "Segoe UI", sans-serif';
+  ctx.fillText(alphaTeam ? 'ALPHA STATION' : 'OMEGA STATION', 212, 137);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  stationBackTextures.set(seatIdx, texture);
+  return texture;
+}
+
+/**
+ * Tournament-facing status panel on the physical monitor back. The two rows
+ * face opposite directions, so this makes all eight existing stations legible
+ * from the spectator camera without moving any seat or business coordinate.
+ */
+function StationBackStatus({ seatIdx, active }: { seatIdx: number; active: boolean }) {
+  const texture = useMemo(() => stationBackTexture(seatIdx), [seatIdx]);
+  const material = useMemo(() => new THREE.MeshBasicMaterial({
+    map: texture,
+    color: active ? '#ffffff' : '#46505d',
+    toneMapped: false,
+  }), [active, texture]);
+  useEffect(() => () => material.dispose(), [material]);
+  return (
+    <mesh position={[0, 1.48, -0.438]} rotation={[0, Math.PI, 0]} material={material}>
+      <planeGeometry args={[0.54, 0.25]} />
+    </mesh>
+  );
+}
+
 function StationCable({ side }: { side: -1 | 1 }) {
   const geometry = useMemo(() => {
     const curve = new THREE.CatmullRomCurve3([
@@ -363,6 +418,8 @@ export function ArenaPlayerStation({
       {[-0.47, -0.31, -0.15, 0.15, 0.31, 0.47].map((x) => (
         <Part key={x} position={[x, 1.48, -0.382]} scale={[0.035, 0.35, 0.018]} material={MATERIAL.blackMetal} castShadow={false} />
       ))}
+      <Part position={[0, 1.48, -0.405]} scale={[0.68, 0.34, 0.06]} material={MATERIAL.blackMetal} />
+      <StationBackStatus seatIdx={seatIdx} active={stationLightsOn} />
       <CylinderPart position={[0, 1.03, -0.28]} scale={[0.045, 0.24, 0.045]} material={MATERIAL.steel} />
       <Part position={[0, 0.83, -0.26]} scale={[0.4, 0.04, 0.28]} material={MATERIAL.steel} />
 

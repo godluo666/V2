@@ -79,11 +79,7 @@ export default function TouchControls() {
       {/* 左下:虚拟摇杆 */}
       <div
         ref={baseRef}
-        style={{
-          position: 'fixed', left: 18, bottom: 86, width: R * 2, height: R * 2, zIndex: 30,
-          borderRadius: '50%', background: 'rgba(20,26,40,0.35)', border: '1.5px solid rgba(150,170,210,0.35)',
-          touchAction: 'none',
-        }}
+        className="touch-stick"
         onPointerDown={(e) => {
           activePointer.current = e.pointerId;
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -95,14 +91,11 @@ export default function TouchControls() {
       >
         <div
           ref={knobRef}
-          style={{
-            position: 'absolute', left: R - 24, top: R - 24, width: 48, height: 48,
-            borderRadius: '50%', background: 'rgba(150,180,230,0.55)', pointerEvents: 'none',
-          }}
+          className="touch-stick-knob"
         />
       </div>
       {/* 右下:动作键(位于 dock 上方,避开原有按钮) */}
-      <div style={{ position: 'fixed', right: 14, bottom: 148, zIndex: 30, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="touch-actions">
         <TapBtn label="E" code="KeyE" title="互动" />
         <HoldBtn label="跳" code="Space" title="跳跃(按住可蓄)" />
         <HoldBtn label="抓" code="KeyG" title="长按抓住附近团子,松手放下" />
