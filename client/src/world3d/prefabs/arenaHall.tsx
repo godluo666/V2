@@ -501,6 +501,33 @@ export function ArenaPlayerStation({
 
 /* ───────────────────────────── 看台系统 ───────────────────────────── */
 
+/**
+ * Five starters share one physical competition bench. The individual station
+ * props remain the interaction anchors, while this recessed spine, cable
+ * chase and five service bays make the team read as one broadcast desk.
+ */
+function CentralTeamBench({ lightsOn }: { lightsOn: boolean }) {
+  const accents = [MATERIAL.cyan, MATERIAL.cyan, MATERIAL.violet, MATERIAL.violet, MATERIAL.pink];
+  const accentDim = [MATERIAL.cyanDim, MATERIAL.cyanDim, MATERIAL.violetDim, MATERIAL.violetDim, MATERIAL.pinkDim];
+  const activeAccents = lightsOn ? accents : accentDim;
+  const bayX = [-4.4, -2.2, 0, 2.2, 4.4];
+  return (
+    <group name="arena-five-player-bench">
+      <Part position={[0, 0.34, -6.34]} scale={[10.85, 0.5, 0.82]} material={MATERIAL.concrete} />
+      <Part position={[0, 0.61, -6.34]} scale={[10.66, 0.1, 0.9]} material={MATERIAL.deskTop} />
+      <Part position={[0, 1.03, -6.72]} scale={[10.72, 0.18, 0.18]} material={MATERIAL.darkSteel} />
+      <Part position={[0, 0.72, -6.78]} scale={[10.42, 0.045, 0.06]} material={lightsOn ? MATERIAL.cyanDim : MATERIAL.floorJoint} castShadow={false} />
+      {bayX.map((x, index) => (
+        <group key={x}>
+          <Part position={[x, 0.69, -6.8]} scale={[1.52, 0.06, 0.1]} material={activeAccents[index]} castShadow={false} />
+          <Part position={[x - 0.92, 0.42, -6.35]} scale={[0.08, 0.46, 0.72]} material={MATERIAL.steel} />
+          <Part position={[x + 0.92, 0.42, -6.35]} scale={[0.08, 0.46, 0.72]} material={MATERIAL.steel} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function buildAudienceInstances() {
   const cushions: InstanceSpec[] = [];
   const backs: InstanceSpec[] = [];
@@ -1388,6 +1415,7 @@ export function ArenaHallArchitecture({
       <ArenaFloorFinish />
       <CompetitionFloor lightsOn={lightsOn} />
       <MainScreenStructure lightsOn={lightsOn} />
+      <CentralTeamBench lightsOn={lightsOn} />
       <OverheadScreenArray lightsOn={lightsOn} />
       <TieredStands lightsOn={lightsOn} />
       <OverheadRig lightsOn={lightsOn} />

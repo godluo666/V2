@@ -30,11 +30,22 @@ function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; co
 function StreetFX() {
   const left = useRef<THREE.Group>(null);
   const right = useRef<THREE.Group>(null);
+  const pulse = useRef<THREE.Group>(null);
   const t = useRef(0);
   useFrame((_, delta) => {
     t.current += delta;
     if (left.current) left.current.position.y = Math.sin(t.current * 2.1) * 0.06;
     if (right.current) right.current.position.y = Math.sin(t.current * 1.8 + 1.4) * 0.05;
+    if (pulse.current) {
+      pulse.current.children.forEach((child, index) => {
+        const baseY = (child.userData.baseY as number | undefined) ?? child.position.y;
+        const baseRz = (child.userData.baseRz as number | undefined) ?? child.rotation.z;
+        child.userData.baseY = baseY;
+        child.userData.baseRz = baseRz;
+        child.position.y = baseY + Math.sin(t.current * 2.7 + index * 0.55) * 0.045;
+        child.rotation.z = baseRz + Math.sin(t.current * 0.8 + index) * 0.035;
+      });
+    }
   });
   const bars = [-2.8, -1.4, 0, 1.4, 2.8];
   return (
@@ -54,6 +65,26 @@ function StreetFX() {
           </mesh>
         ))}
         <mesh position={[0, -1.1, 0]} material={supportMetal}><boxGeometry args={[6.2, 0.1, 0.14]} /></mesh>
+      </group>
+      {/* Short, anchored light rails add motion and colour at the sides of the
+          crossroads without placing another opaque billboard across entrances. */}
+      <group ref={pulse} position={[20.6, 3.75, -6.8]} rotation={[0, -0.16, 0.08]}>
+        <mesh position={[0, -1.7, 0]} material={supportMetal} castShadow><boxGeometry args={[5.4, 0.12, 0.18]} /></mesh>
+        {[-2.1, -1.4, -0.7, 0, 0.7, 1.4, 2.1].map((x, index) => (
+          <mesh key={x} position={[x, 0, 0]} material={index % 2 ? fxAqua : fxPink} castShadow>
+            <boxGeometry args={[0.24, 2.7 + (index % 3) * 0.28, 0.12]} />
+          </mesh>
+        ))}
+        <mesh position={[-2.72, -0.7, 0]} material={metal} castShadow><boxGeometry args={[0.14, 2.05, 0.16]} /></mesh>
+        <mesh position={[2.72, -0.7, 0]} material={metal} castShadow><boxGeometry args={[0.14, 2.05, 0.16]} /></mesh>
+      </group>
+      <group position={[-20.2, 3.45, 6.2]} rotation={[0, 0.18, -0.08]}>
+        <mesh position={[0, -1.45, 0]} material={supportMetal} castShadow><boxGeometry args={[4.8, 0.12, 0.18]} /></mesh>
+        {[-1.8, -1.1, -0.4, 0.3, 1.0, 1.7].map((x, index) => (
+          <mesh key={x} position={[x, 0, 0]} material={index % 2 ? fxGold : fxAqua} castShadow>
+            <boxGeometry args={[0.2, 2.2 + (index % 2) * 0.3, 0.12]} />
+          </mesh>
+        ))}
       </group>
       <Cable points={[[-22.5, 6.8, -11.2], [-15.0, 7.4, -10.7], [-7.4, 6.9, -10.4]]} color="#ff3f83" radius={0.055} />
       <Cable points={[[8.8, 7.1, 7.2], [15.2, 7.8, 6.6], [22.4, 7.0, 5.8]]} color="#37e8f1" radius={0.05} />
