@@ -33,6 +33,7 @@ displayGlass.color.set('#c9edf0');
 displayGlass.transparent = true;
 displayGlass.opacity = 0.18;
 displayGlass.depthWrite = false;
+const cork = surfaceMaterial('wood'); cork.color.set('#a8784e'); cork.roughness = 0.94;
 
 /**
  * 归一化的程序化倒角实体：软包使用更大的圆角，木作只做细小倒棱。
@@ -869,6 +870,65 @@ function ClubWallDetails({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+function ClubNoticeBoard() {
+  const notes = [
+    { x: -2.45, y: -0.08, w: 1.02, h: 0.72, mat: sage, accent: pink, rz: -0.035 },
+    { x: -0.86, y: 0.14, w: 1.18, h: 0.88, mat: paper, accent: cyan, rz: 0.024 },
+    { x: 0.72, y: -0.12, w: 0.92, h: 0.7, mat: lavender, accent: red, rz: -0.018 },
+    { x: 2.28, y: 0.1, w: 1.16, h: 0.84, mat: cream, accent: green, rz: 0.038 },
+  ];
+  return (
+    <group name="club-notice-board" position={[0, 2.55, -8.69]}>
+      <SculptedPart position={[0, 0, 0]} scale={[7.18, 1.98, 0.22]} material={darkWood} />
+      <SculptedPart position={[0, -0.02, 0.135]} scale={[6.74, 1.58, 0.09]} material={cork} castShadow={false} />
+      {/* A thick lower document trough physically connects the board to the
+          open cubbies below instead of letting both modules overlap. */}
+      <SculptedPart position={[0, -1.03, 0.16]} scale={[6.9, 0.13, 0.42]} material={wood} />
+      <SculptedPart position={[0, -0.91, 0.28]} scale={[6.52, 0.13, 0.08]} material={darkWood} />
+      {[-2.2, 0, 2.2].map((x, index) => (
+        <SculptedPart
+          key={`notice-header-${x}`}
+          position={[x, 0.89, 0.16]}
+          scale={[2.06, 0.18 + (index === 1 ? 0.03 : 0), 0.1]}
+          material={[blushFabric, creamFabric, sageFabric][index]}
+          soft
+        />
+      ))}
+      {notes.map((note, index) => (
+        <group key={`notice-sheet-${note.x}`} position={[note.x, note.y, 0.23]} rotation={[0, 0, note.rz]}>
+          <SculptedPart position={[0, 0, 0]} scale={[note.w, note.h, 0.045]} material={note.mat} castShadow />
+          <SculptedPart position={[0, note.h * 0.29, 0.035]} scale={[note.w * 0.64, 0.055, 0.025]} material={note.accent} castShadow={false} />
+          {[0.02, -0.13, -0.27].map((lineY, lineIndex) => (
+            <mesh key={lineY} position={[0.05, lineY, 0.038]} material={lineIndex === 0 ? ink : darkWood} castShadow={false}>
+              <boxGeometry args={[note.w * (0.58 - lineIndex * 0.09), 0.025, 0.014]} />
+            </mesh>
+          ))}
+          <mesh position={[-note.w * 0.36, note.h * 0.33, 0.08]} rotation={[Math.PI / 2, 0, 0]} material={index % 2 ? clubBrass : red} castShadow>
+            <cylinderGeometry args={[0.04, 0.04, 0.045, 10]} />
+          </mesh>
+        </group>
+      ))}
+      {/* Two small framed memories break the memo rhythm and create an actual
+          layered photo cluster rather than another set of coloured cards. */}
+      {[-1.68, 1.58].map((x, index) => (
+        <group key={`notice-photo-${x}`} position={[x, -0.53 + index * 0.05, 0.32]} rotation={[0, 0, index ? -0.04 : 0.045]}>
+          <SculptedPart position={[0, 0, 0]} scale={[0.72, 0.52, 0.055]} material={darkWood} />
+          <SculptedPart position={[0, 0, 0.04]} scale={[0.6, 0.4, 0.025]} material={paper} castShadow={false} />
+          <SculptedPart position={[0, 0.035, 0.064]} scale={[0.48, 0.25, 0.018]} material={index ? blue : green} castShadow={false} />
+        </group>
+      ))}
+      {[-3.24, 3.24].map((x) => (
+        <group key={`notice-clip-${x}`} position={[x, 0.4, 0.31]}>
+          <SculptedPart position={[0, 0, 0]} scale={[0.14, 0.28, 0.08]} material={clubBrass} />
+          <mesh position={[0, 0.18, 0]} rotation={[Math.PI / 2, 0, 0]} material={darkWood} castShadow>
+            <torusGeometry args={[0.07, 0.014, 6, 12, Math.PI]} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function pendantLightIndices(count: number): ReadonlySet<number> {
   const clamped = Math.max(0, Math.min(5, count));
   if (clamped === 0) return new Set();
@@ -1021,16 +1081,7 @@ export function ClubExtras({
         </group>
       ))}
       <mesh position={[0, 3.85, -8.88]} material={strip}><boxGeometry args={[9.5, 0.08, 0.06]} /></mesh>
-      <mesh position={[0, 3.55, -8.82]} material={pink}><boxGeometry args={[4.2, 0.58, 0.05]} /></mesh>
-      {/* 北墙社团公告板、磁贴、活动海报与开放收纳格。 */}
-      <mesh position={[0, 2.25, -8.76]} material={ink}><boxGeometry args={[7.0, 2.3, 0.12]} /></mesh>
-      <mesh position={[0, 2.25, -8.69]} material={paper}><boxGeometry args={[6.55, 1.86, 0.04]} /></mesh>
-      {[-2.3, -0.75, 0.8, 2.35].map((x, i) => (
-        <group key={`notice-${x}`} position={[x, 2.32 + (i % 2) * 0.18, -8.63]} rotation={[0, 0, (i - 1.5) * 0.025]}>
-          <mesh material={i % 2 ? sage : lavender}><boxGeometry args={[1.05, 0.82, 0.025]} /></mesh>
-          <mesh position={[0, 0.22, 0.02]} material={i % 2 ? pink : red}><boxGeometry args={[0.72, 0.07, 0.012]} /></mesh>
-        </group>
-      ))}
+      <ClubNoticeBoard />
       {[-2.9, -1.0, 0.9, 2.8].map((x, i) => (
         <group key={`cubby-${x}`} position={[x, 1.0, -8.7]}>
           {/* 开放柜格使用背板、四边框、层板和抽屉，不再是一块黑色矩形。 */}
