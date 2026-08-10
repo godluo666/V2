@@ -18,6 +18,7 @@ import { seededRandom } from '@nexuspark/shared';
 import { hot } from '../../state/hot';
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
+import { surfaceMaterial } from './materials';
 import { addOutline } from './outline';
 import {
   MergeBag, unitBox, unitCylinder, vertexToonMat, makeInstanced, makeCanvas,
@@ -1014,50 +1015,84 @@ export function CPhone({ position, ry = 0 }: { position: P3; ry?: number }) {
 
 // ═══ c_locker 投币储物柜 ════════════════════════════════════════════════════
 
-let _lockerTex: THREE.CanvasTexture | null = null;
-function lockerTexture(): THREE.CanvasTexture {
-  if (_lockerTex) return _lockerTex;
-  const rnd = seededRandom(6100);
-  const [c, ctx] = makeCanvas(256);
-  ctx.fillStyle = cssShade(ENV.wallC, 0.03);
-  ctx.fillRect(0, 0, 256, 256);
-  ctx.strokeStyle = cssShade(ENV.outline, 0.06);
-  ctx.lineWidth = 3;
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 4; col++) {
-      const x = 8 + col * 61, y = 8 + row * 82;
-      ctx.globalAlpha = 1;
-      ctx.strokeRect(x, y, 55, 76);
-      ctx.fillStyle = cssShade(ENV.wallC, 0.03 + (rnd() - 0.5) * 0.04);
-      ctx.fillRect(x + 2, y + 2, 51, 72);
-      // 锁孔 + 编号牌
-      ctx.fillStyle = cssShade(ENV.metal, -0.06);
-      ctx.fillRect(x + 38, y + 30, 10, 14);
-      ctx.fillStyle = cssShade(ACCENT.lampSodium, 0.1, 0, -0.25);
-      ctx.fillRect(x + 8, y + 8, 20, 10);
-    }
-  }
-  _lockerTex = canvasTexture(c, false);
-  return _lockerTex;
+const lockerShellMaterial = surfaceMaterial('metal');
+lockerShellMaterial.color.set('#59636b');
+lockerShellMaterial.roughness = 0.66;
+lockerShellMaterial.metalness = 0.34;
+const lockerDoorMaterial = surfaceMaterial('metal');
+lockerDoorMaterial.color.set('#a7b3b6');
+lockerDoorMaterial.roughness = 0.58;
+lockerDoorMaterial.metalness = 0.18;
+const lockerFrameMaterial = surfaceMaterial('brushedMetal');
+lockerFrameMaterial.color.set('#38434b');
+lockerFrameMaterial.roughness = 0.5;
+lockerFrameMaterial.metalness = 0.48;
+const lockerLabelMaterial = surfaceMaterial('plasticLightbox');
+lockerLabelMaterial.color.set('#d4a943');
+lockerLabelMaterial.emissive.set('#6d4512');
+lockerLabelMaterial.emissiveIntensity = 0.12;
+
+function LockerDoor({ col, row }: { col: number; row: number }) {
+  const x = -0.555 + col * 0.37;
+  const y = 0.47 + row * 0.56;
+  const alternate = (col + row) % 3 === 0;
+  return (
+    <group position={[x, y, 0.304]}>
+      <mesh material={lockerDoorMaterial} castShadow receiveShadow position={[0, 0, alternate ? 0.008 : 0]}>
+        <boxGeometry args={[0.335, 0.51, 0.055]} />
+      </mesh>
+      <mesh position={[-0.08, 0.17, 0.042]} material={lockerLabelMaterial} castShadow={false}>
+        <boxGeometry args={[0.12, 0.06, 0.024]} />
+      </mesh>
+      <mesh position={[0.105, 0.015, 0.062]} rotation={[Math.PI / 2, 0, 0]} material={lockerFrameMaterial} castShadow>
+        <cylinderGeometry args={[0.035, 0.035, 0.055, 10]} />
+      </mesh>
+      <mesh position={[0.105, -0.06, 0.058]} material={lockerFrameMaterial} castShadow>
+        <boxGeometry args={[0.035, 0.1, 0.032]} />
+      </mesh>
+      {[-0.15, -0.1, -0.05].map((ventY) => (
+        <mesh key={ventY} position={[-0.045, ventY, 0.059]} material={lockerFrameMaterial} castShadow={false}>
+          <boxGeometry args={[0.12, 0.012, 0.018]} />
+        </mesh>
+      ))}
+    </group>
+  );
 }
 
-let _lockerFrontMat: THREE.MeshToonMaterial | null = null;
 export function CLocker({ position, ry = 0 }: { position: P3; ry?: number }) {
   const j = useJitter(position);
-  const group = useMemo(() => {
-    if (!_lockerFrontMat) _lockerFrontMat = toonMat(0xffffff, { map: lockerTexture() });
-    const g = new THREE.Group();
-    const bag = new MergeBag();
-    bag.box(0, 0.93, 0, 1.5, 1.86, 0.55, shade(ENV.wallC, 0.0));
-    bag.box(0, 0.03, 0, 1.54, 0.06, 0.6, shade(ENV.metal, -0.04));
-    g.add(bagMesh(bag));
-    const front = new THREE.Mesh(sharedPlane(), _lockerFrontMat);
-    front.position.set(0, 0.98, 0.28);
-    front.scale.set(1.44, 1.7, 1);
-    g.add(front);
-    return g;
-  }, []);
-  return <primitive object={group} position={position} rotation={[0, ry + j.ry * 0.3, 0]} scale={[j.s, j.s, j.s]} />;
+  return (
+    <group position={position} rotation={[0, ry + j.ry * 0.3, 0]} scale={[j.s, j.s, j.s]}>
+      <mesh position={[0, 1.1, 0]} material={lockerShellMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.56, 1.88, 0.58]} />
+      </mesh>
+      <mesh position={[0, 2.09, -0.02]} material={lockerFrameMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.68, 0.1, 0.66]} />
+      </mesh>
+      <mesh position={[0, 0.17, -0.015]} material={lockerFrameMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.64, 0.1, 0.64]} />
+      </mesh>
+      {[-0.55, 0.55].flatMap((x) => [-0.18, 0.18].map((z) => (
+        <mesh key={`${x}-${z}`} position={[x, 0.08, z]} material={lockerFrameMaterial} castShadow>
+          <cylinderGeometry args={[0.055, 0.07, 0.16, 8]} />
+        </mesh>
+      )))}
+      {/* Structural grid sits proud of the shell and separates every door. */}
+      {[-0.74, -0.37, 0, 0.37, 0.74].map((x) => (
+        <mesh key={`locker-v-${x}`} position={[x, 1.03, 0.326]} material={lockerFrameMaterial} castShadow>
+          <boxGeometry args={[0.035, 1.72, 0.07]} />
+        </mesh>
+      ))}
+      {[0.19, 0.75, 1.31, 1.87].map((y) => (
+        <mesh key={`locker-h-${y}`} position={[0, y, 0.326]} material={lockerFrameMaterial} castShadow>
+          <boxGeometry args={[1.5, 0.035, 0.07]} />
+        </mesh>
+      ))}
+      {[0, 1, 2].flatMap((row) => [0, 1, 2, 3].map((col) => (
+        <LockerDoor key={`locker-door-${row}-${col}`} col={col} row={row} />
+      )))}
+    </group>
+  );
 }
 
 // ═══ c_manhole / c_hydrant / c_planter ══════════════════════════════════════
