@@ -918,6 +918,9 @@ export function CAc({ position, ry = 0 }: { position: P3; ry?: number }) {
 // ═══ c_wires 悬垂电缆(CatmullRom 弧线,缓慢摆动)════════════════════════════
 
 let _wireMat: THREE.MeshToonMaterial | null = null;
+const wireSupportMaterial = surfaceMaterial('brushedMetal', true, false);
+wireSupportMaterial.roughness = 0.52;
+wireSupportMaterial.metalness = 0.72;
 export function CWires({
   position, ry = 0, to, len = 12, sag = 1.0, strands = 2,
 }: { position: P3; ry?: number; to?: P3; len?: number; sag?: number; strands?: number }) {
@@ -930,11 +933,15 @@ export function CWires({
     const end = to
       ? new THREE.Vector3(to[0] - position[0], to[1] - position[1], to[2] - position[2])
       : new THREE.Vector3(Math.sin(ry) * len, hangY, Math.cos(ry) * len);
+    const run = end.clone().sub(start);
+    const horizontalLength = Math.hypot(run.x, run.z) || 1;
+    const crossX = -run.z / horizontalLength;
+    const crossZ = run.x / horizontalLength;
     const rnd = seededRandom(posSeed(position) + 21);
     for (let s = 0; s < strands; s++) {
       const off = (s - (strands - 1) / 2) * 0.14;
-      const a = start.clone(); a.x += off;
-      const b = end.clone(); b.x += off;
+      const a = start.clone(); a.x += crossX * off; a.z += crossZ * off;
+      const b = end.clone(); b.x += crossX * off; b.z += crossZ * off;
       const drop = sag * (0.85 + rnd() * 0.35);
       const q1 = a.clone().lerp(b, 0.25); q1.y -= drop * 0.68;
       const mid = a.clone().lerp(b, 0.5); mid.y -= drop;
@@ -942,6 +949,43 @@ export function CWires({
       const curve = new THREE.CatmullRomCurve3([a, q1, mid, q3, b]);
       const tube = new THREE.TubeGeometry(curve, 20, 0.018 + rnd() * 0.008, 5, false);
       g.add(new THREE.Mesh(tube, _wireMat));
+    }
+
+    // Both cable ends terminate on real grounded utility supports. Their
+    // cross-arms follow the route normal, while paired ceramic pins line up
+    // with the corrected strand separation instead of floating beside it.
+    const supports = new MergeBag();
+    const groundY = -position[1];
+    const crossArmRotation = Math.atan2(run.x, run.z);
+    for (const anchor of [start, end]) {
+      const supportHeight = Math.max(0.8, anchor.y - groundY);
+      supports.add(unitCylinder(), {
+        x: anchor.x, y: groundY + supportHeight / 2, z: anchor.z,
+        sx: 0.07, sy: supportHeight, sz: 0.07,
+        color: '#707a80',
+      });
+      supports.add(unitCylinder(), {
+        x: anchor.x, y: groundY + 0.07, z: anchor.z,
+        sx: 0.14, sy: 0.14, sz: 0.14,
+        color: '#454d53',
+      });
+      supports.box(anchor.x, anchor.y - 0.12, anchor.z, 0.72, 0.07, 0.11, '#909ba1', crossArmRotation);
+      for (const off of [-0.14, 0.14]) {
+        supports.add(unitCylinder(), {
+          x: anchor.x + crossX * off,
+          y: anchor.y - 0.045,
+          z: anchor.z + crossZ * off,
+          sx: 0.035, sy: 0.14, sz: 0.035,
+          color: '#d6c9ab',
+        });
+      }
+    }
+    const supportGeometry = supports.build();
+    if (supportGeometry) {
+      const supportMesh = new THREE.Mesh(supportGeometry, wireSupportMaterial);
+      supportMesh.castShadow = true;
+      supportMesh.receiveShadow = true;
+      g.add(supportMesh);
     }
     return g;
   }, [position[0], position[1], position[2], ry, to, len, sag, strands]); // eslint-disable-line react-hooks/exhaustive-deps
