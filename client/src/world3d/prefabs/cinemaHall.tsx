@@ -939,6 +939,7 @@ export function CinemaHallArchitecture({
       <AisleGuidance lightsOn={lightsOn} />
       <CinemaAisleHandrails lightsOn={lightsOn} />
       <CinemaRiserNosings lightsOn={lightsOn} />
+      <CinemaSeatInstances />
       <GrandCeilingCrown lightsOn={lightsOn} />
 
       {/* Layered ceiling: side soffits, acoustic clouds, then supported trusses. */}
@@ -1045,6 +1046,80 @@ export function PremiumCinemaSeat({ position, rotation, variant = 0 }: {
       <mesh geometry={seatFabricGeometry} material={fabric} castShadow receiveShadow />
       <mesh geometry={seatTrimGeometry} material={seatTrim} castShadow receiveShadow />
       <mesh geometry={seatCupGeometry} material={cupInterior} castShadow receiveShadow />
+    </group>
+  );
+}
+
+interface CinemaSeatInstanceSpec {
+  position: P3;
+  rotation: number;
+  variant: number;
+}
+
+const CINEMA_SEAT_INSTANCE_SPECS: CinemaSeatInstanceSpec[] = (() => {
+  const specs: CinemaSeatInstanceSpec[] = [];
+  const seating = CINEMA_SPATIAL_CONTRACT.seating;
+  let seatIdx = 0;
+  for (let row = 0; row < seating.rows; row += 1) {
+    const z = seating.firstZ + row * seating.rowSpacing;
+    const y = row * seating.rowRise;
+    for (const x of seating.x) {
+      specs.push({ position: [x, y, z], rotation: Math.PI, variant: row + seatIdx });
+      seatIdx += 1;
+    }
+  }
+  return specs;
+})();
+
+const CINEMA_SEATS_BY_FABRIC = seatFabrics.map((_, variant) => (
+  CINEMA_SEAT_INSTANCE_SPECS.filter((spec) => Math.abs(spec.variant) % seatFabrics.length === variant)
+));
+
+/**
+ * The 72 business seats remain individual interactables in shared/layouts,
+ * but their repeated visual layers render in six static instance batches:
+ * shell, trim, cup hardware, and three restrained fabric variants.
+ */
+function CinemaSeatInstances() {
+  const metalRef = useRef<THREE.InstancedMesh>(null);
+  const trimRef = useRef<THREE.InstancedMesh>(null);
+  const cupRef = useRef<THREE.InstancedMesh>(null);
+  const fabricRefs = useRef<Array<THREE.InstancedMesh | null>>([]);
+  useLayoutEffect(() => {
+    const transform = new THREE.Object3D();
+    const write = (mesh: THREE.InstancedMesh | null, specs: CinemaSeatInstanceSpec[]) => {
+      if (!mesh) return;
+      specs.forEach((spec, index) => {
+        transform.position.set(...spec.position);
+        transform.rotation.set(0, spec.rotation, 0);
+        transform.scale.set(1, 1, 1);
+        transform.updateMatrix();
+        mesh.setMatrixAt(index, transform.matrix);
+      });
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    };
+    write(metalRef.current, CINEMA_SEAT_INSTANCE_SPECS);
+    write(trimRef.current, CINEMA_SEAT_INSTANCE_SPECS);
+    write(cupRef.current, CINEMA_SEAT_INSTANCE_SPECS);
+    CINEMA_SEATS_BY_FABRIC.forEach((specs, index) => write(fabricRefs.current[index], specs));
+  }, []);
+  return (
+    <group name="cinema-seat-instance-batches">
+      <instancedMesh dispose={null} ref={metalRef} args={[seatMetalGeometry, seatMetal, CINEMA_SEAT_INSTANCE_SPECS.length]} castShadow receiveShadow />
+      <instancedMesh dispose={null} ref={trimRef} args={[seatTrimGeometry, seatTrim, CINEMA_SEAT_INSTANCE_SPECS.length]} castShadow receiveShadow />
+      <instancedMesh dispose={null} ref={cupRef} args={[seatCupGeometry, cupInterior, CINEMA_SEAT_INSTANCE_SPECS.length]} castShadow receiveShadow />
+      {seatFabrics.map((material, index) => (
+        <instancedMesh
+          key={`cinema-seat-fabric-${index}`}
+          dispose={null}
+          ref={(node) => { fabricRefs.current[index] = node; }}
+          args={[seatFabricGeometry, material, CINEMA_SEATS_BY_FABRIC[index].length]}
+          castShadow
+          receiveShadow
+        />
+      ))}
     </group>
   );
 }

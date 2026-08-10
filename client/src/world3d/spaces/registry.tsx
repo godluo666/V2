@@ -23,7 +23,6 @@ import { Bookshelf } from '../prefabs/furniture';
 import { XiangqiTablePrefab, MahjongTablePrefab, RiichiTablePrefab } from '../prefabs/gameTables';
 import { GrTea, GrLantern } from '../prefabs/clubVenueProps';
 import { ArenaPlayerStation } from '../prefabs/arenaHall';
-import { PremiumCinemaSeat } from '../prefabs/cinemaHall';
 import {
   ClubRug, ClubSofa, ClubStage, FlyingChessTable, FloorCushion, ClubTrophyWall,
   ClubStorageCabinet, ClubReadingNook, ClubChair, ClubCraftTable,
@@ -51,14 +50,9 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'bld_shop': return <BldShop key={key} position={pos} />;
     case 'bld_tower': return <BldTower key={key} position={pos} />;
     case 'cafe_counter': return <CafeCounter key={key} position={pos} rotation={p.ry} />;
-    case 'cinema_seat': return (
-      <PremiumCinemaSeat
-        key={key}
-        position={pos}
-        rotation={p.ry}
-        variant={((p.data?.row as number) ?? 0) + ((p.data?.seatIdx as number) ?? 0)}
-      />
-    );
+    // CinemaHallArchitecture owns the 72-seat instanced visual batch.  The
+    // layout props remain authoritative for collision and cine-s* interaction.
+    case 'cinema_seat': return null;
     case 'cinema_riser': return (
       <CinemaRiser key={key} position={pos} rotation={p.ry}
         w={(p.data?.w as number) ?? 21}
