@@ -132,7 +132,17 @@ interface InstanceSpec {
   scale: P3;
 }
 
-function InstancedParts({ specs, material }: { specs: InstanceSpec[]; material: THREE.Material }) {
+function InstancedParts({
+  specs,
+  material,
+  castShadow = true,
+  receiveShadow = true,
+}: {
+  specs: InstanceSpec[];
+  material: THREE.Material;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+}) {
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useLayoutEffect(() => {
@@ -155,8 +165,8 @@ function InstancedParts({ specs, material }: { specs: InstanceSpec[]; material: 
       dispose={null}
       ref={ref}
       args={[BOX, material, specs.length]}
-      castShadow
-      receiveShadow
+      castShadow={castShadow}
+      receiveShadow={receiveShadow}
     />
   );
 }
@@ -980,9 +990,18 @@ function ArenaBroadcastPerch({ lightsOn }: { lightsOn: boolean }) {
 
 /* ─────────────────────────── 比赛台与大屏 ─────────────────────────── */
 
+const STARTER_BAY_BOUNDARIES = [-5.5, -3.3, -1.1, 1.1, 3.3, 5.5];
+const COMPETITION_DECK_JOINTS: InstanceSpec[] = STARTER_BAY_BOUNDARIES.map((x) => ({
+  position: [x, 0.3, -4.25],
+  scale: [0.1, 0.34, 9.7],
+}));
+const STARTER_BAY_GUIDES: InstanceSpec[] = STARTER_BAY_BOUNDARIES.map((x) => ({
+  position: [x, 0.62, -4.75],
+  scale: [0.055, 0.035, 3.8],
+}));
+
 function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
   const cyan = lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim;
-  const violet = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
   return (
     <group>
       {/*
@@ -993,12 +1012,16 @@ function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
       <Part position={[0, 0.2, -4.25]} scale={[20.2, 0.4, 10.7]} material={MATERIAL.concrete} />
       <Part position={[0, 0.46, -4.25]} scale={[19.5, 0.18, 10.05]} material={MATERIAL.stageDeck} />
       <Part position={[0, 0.575, -4.25]} scale={[18.6, 0.05, 9.25]} material={MATERIAL.rubber} />
-      {[-6.6, -2.2, 2.2, 6.6].map((x, index) => (
-        <group key={x}>
-          <Part position={[x, 0.62, -4.25]} scale={[0.055, 0.035, 8.8]} material={index < 2 ? cyan : violet} castShadow={false} />
-          <Part position={[x, 0.3, -4.25]} scale={[0.12, 0.34, 9.7]} material={MATERIAL.darkSteel} />
-        </group>
-      ))}
+      {/* Six physical deck joints frame the five 2.2m starter bays. The old
+          four-way cyan/violet split contradicted the contiguous five-player
+          bench and made the stage read like two mirrored exhibition teams. */}
+      <InstancedParts specs={COMPETITION_DECK_JOINTS} material={MATERIAL.darkSteel} />
+      <InstancedParts
+        specs={STARTER_BAY_GUIDES}
+        material={cyan}
+        castShadow={false}
+        receiveShadow={false}
+      />
       {[-5.4, 0, 5.4].map((x) => (
         <group key={x}>
           <Part position={[x, 0.12, 1.45]} scale={[3.6, 0.24, 0.65]} material={MATERIAL.concrete} />

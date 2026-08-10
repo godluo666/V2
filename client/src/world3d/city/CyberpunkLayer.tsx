@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useSettings } from '../../state/stores';
@@ -138,7 +138,11 @@ function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; co
     return new THREE.TubeGeometry(curve, Math.max(8, points.length * 5), radius, 5, false);
   }, [points, radius]);
   const mat = useMemo(() => toonMat(color), [color]);
-  return <mesh geometry={geo} material={mat} />;
+  useEffect(() => () => {
+    geo.dispose();
+    mat.dispose();
+  }, [geo, mat]);
+  return <mesh geometry={geo} material={mat} dispose={null} />;
 }
 
 function StreetFX() {

@@ -10,7 +10,7 @@
  * 全部程序化、全走 palette/toon/outline;重复道具几何模块级缓存共享,
  * 每实例只做种子化旋转/缩放抖动(§5 重复物体变化)。
  */
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -871,6 +871,11 @@ export function CWires({
   }, [position[0], position[1], position[2], ry, to, len, sag, strands]); // eslint-disable-line react-hooks/exhaustive-deps
   const ref = useRef<THREE.Group>(null);
   const phase = useMemo(() => posSeed(position) % 7, [position]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => {
+    group.traverse((object) => {
+      if ((object as THREE.Mesh).isMesh) (object as THREE.Mesh).geometry.dispose();
+    });
+  }, [group]);
   useFrame((state) => {
     if (ref.current) {
       // 缓慢摆动(整束绕挂线轴微转,§4.3)
@@ -879,7 +884,7 @@ export function CWires({
   });
   return (
     <group ref={ref} position={position}>
-      <primitive object={group} />
+      <primitive object={group} dispose={null} />
     </group>
   );
 }
