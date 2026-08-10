@@ -329,7 +329,7 @@ function stationBackTexture(seatIdx: number): THREE.CanvasTexture {
   canvas.width = 384;
   canvas.height = 192;
   const ctx = canvas.getContext('2d')!;
-  const alphaTeam = seatIdx < 4;
+  const alphaTeam = seatIdx < 5;
   const accent = alphaTeam ? '#39d9f2' : '#8d65f4';
   const gradient = ctx.createLinearGradient(0, 0, 384, 192);
   gradient.addColorStop(0, alphaTeam ? '#092936' : '#251638');
@@ -424,7 +424,10 @@ export function ArenaPlayerStation({
 }) {
   const switchedOn = useWorld((state) => state.switches['nc-lights'] ?? true);
   const stationLightsOn = lightsOn ?? switchedOn;
-  const teamMaterial = seatIdx < 4
+  // The five starters are one contiguous team bench. Seats 5–7 are the rear
+  // reserve row; keeping that split here makes the architecture and business
+  // contract communicate the same grouping in every camera direction.
+  const teamMaterial = seatIdx < 5
     ? (stationLightsOn ? MATERIAL.cyan : MATERIAL.cyanDim)
     : (stationLightsOn ? MATERIAL.violet : MATERIAL.violetDim);
 
@@ -508,16 +511,17 @@ export function ArenaPlayerStation({
  * chase and five service bays make the team read as one broadcast desk.
  */
 function CentralTeamBench({ lightsOn }: { lightsOn: boolean }) {
-  const accents = [MATERIAL.cyan, MATERIAL.cyan, MATERIAL.violet, MATERIAL.violet, MATERIAL.pink];
-  const accentDim = [MATERIAL.cyanDim, MATERIAL.cyanDim, MATERIAL.violetDim, MATERIAL.violetDim, MATERIAL.pinkDim];
+  const accents = [MATERIAL.cyan, MATERIAL.cyan, MATERIAL.cyan, MATERIAL.cyan, MATERIAL.cyan];
+  const accentDim = [MATERIAL.cyanDim, MATERIAL.cyanDim, MATERIAL.cyanDim, MATERIAL.cyanDim, MATERIAL.cyanDim];
   const activeAccents = lightsOn ? accents : accentDim;
   const bayX = [-4.4, -2.2, 0, 2.2, 4.4];
   return (
     <group name="arena-five-player-bench">
       <Part position={[0, 0.34, -6.34]} scale={[10.85, 0.5, 0.82]} material={MATERIAL.concrete} />
       <Part position={[0, 0.61, -6.34]} scale={[10.66, 0.1, 0.9]} material={MATERIAL.deskTop} />
+      <Part position={[0, 0.48, -6.805]} scale={[10.46, 0.38, 0.1]} material={MATERIAL.equipmentPolymer} />
       <Part position={[0, 1.03, -6.72]} scale={[10.72, 0.18, 0.18]} material={MATERIAL.darkSteel} />
-      <Part position={[0, 0.72, -6.78]} scale={[10.42, 0.045, 0.06]} material={lightsOn ? MATERIAL.cyanDim : MATERIAL.floorJoint} castShadow={false} />
+      <Part position={[0, 0.72, -6.865]} scale={[10.42, 0.045, 0.055]} material={lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim} castShadow={false} />
       {bayX.map((x, index) => (
         <group key={x}>
           <Part position={[x, 0.69, -6.8]} scale={[1.52, 0.06, 0.1]} material={activeAccents[index]} castShadow={false} />
@@ -1303,7 +1307,34 @@ function overheadScreenTexture(index: number): THREE.CanvasTexture {
 function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
   const positions = [-7.2, -2.4, 2.4, 7.2];
   return (
-    <group>
+    <group name="arena-four-screen-crown">
+      {/* One carrier frame makes the four displays a single broadcast crown.
+          The screens still have independent shells/content, while the load
+          path now continues through a spine, cross members and ceiling drops. */}
+      <Part position={[0, 11.34, -2.5]} scale={[19.3, 0.28, 0.42]} material={MATERIAL.darkSteel} />
+      <Part position={[0, 11.56, -2.5]} scale={[20.0, 0.16, 0.62]} material={MATERIAL.steel} />
+      {[-9.4, -4.8, 0, 4.8, 9.4].map((x, index) => (
+        <group key={`screen-crown-bay-${x}`}>
+          <Part position={[x, 10.68, -2.5]} scale={[0.16, 1.42, 0.46]} material={MATERIAL.steel} />
+          <Part
+            position={[x, 11.7, -2.23]}
+            rotation={[0, 0, (index % 2 ? -1 : 1) * 0.16]}
+            scale={[1.08, 0.11, 0.12]}
+            material={MATERIAL.darkSteel}
+          />
+        </group>
+      ))}
+      {[-5.9, 0, 5.9].map((x, index) => (
+        <Part
+          key={`screen-crown-marker-${x}`}
+          position={[x, 11.465, -2.84]}
+          scale={[2.6, 0.055, 0.08]}
+          material={index === 1
+            ? (lightsOn ? MATERIAL.pink : MATERIAL.pinkDim)
+            : (lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim)}
+          castShadow={false}
+        />
+      ))}
       {positions.map((x, index) => {
         const accent = index % 2 === 0 ? (lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim) : (lightsOn ? MATERIAL.violet : MATERIAL.violetDim);
         return (
