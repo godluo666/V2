@@ -385,6 +385,9 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
 
 const FLIGHT_TRACK_CELL = new THREE.CylinderGeometry(1, 1, 1, 10);
 const FLIGHT_HOME_SOCKET = new THREE.TorusGeometry(1, 0.14, 6, 14);
+const FLIGHT_BOARD_TOP = 0.305;
+const FLIGHT_TRACK_Y = FLIGHT_BOARD_TOP + 0.012;
+const FLIGHT_PAWN_Y = FLIGHT_BOARD_TOP + 0.06;
 const FLIGHT_HOME_CENTRES: Array<[number, number]> = [
   [-0.42, -0.42], [0.42, -0.42], [0.42, 0.42], [-0.42, 0.42],
 ];
@@ -397,10 +400,10 @@ function flightTrackPoint(colour: number, progress: number): P3 {
   const side = Math.floor(cell / 13);
   const step = cell % 13;
   const along = -0.48 + step * 0.08;
-  if (side === 0) return [along, 0.805, -0.58];
-  if (side === 1) return [0.58, 0.805, along];
-  if (side === 2) return [-along, 0.805, 0.58];
-  return [-0.58, 0.805, -along];
+  if (side === 0) return [along, FLIGHT_PAWN_Y, -0.58];
+  if (side === 1) return [0.58, FLIGHT_PAWN_Y, along];
+  if (side === 2) return [-along, FLIGHT_PAWN_Y, 0.58];
+  return [-0.58, FLIGHT_PAWN_Y, -along];
 }
 
 function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
@@ -411,10 +414,10 @@ function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
       if (!mesh) return;
       for (let step = 0; step < 13; step += 1) {
         const [x, , z] = flightTrackPoint(colour, step);
-        // Track cells sit 4 mm above the 0.755m board top.  The old shared
-        // pawn height (0.805m) was also used here and left every cell visibly
-        // floating about four centimetres above the surface.
-        transform.position.set(x, 0.765, z);
+        // Track cells sit just above the low board surface; the pawn centre is
+        // deliberately only a few centimetres higher so seated players can
+        // read each cell and the moving piece never floats over the rug.
+        transform.position.set(x, FLIGHT_TRACK_Y, z);
         transform.rotation.set(0, 0, 0);
         transform.scale.set(0.034, 0.012, 0.034);
         transform.updateMatrix();
@@ -443,7 +446,7 @@ function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
 function flightHomePoint(colour: number, pawn: number): P3 {
   const centre = FLIGHT_HOME_CENTRES[colour] ?? FLIGHT_HOME_CENTRES[0];
   const offset = FLIGHT_HOME_OFFSETS[pawn] ?? FLIGHT_HOME_OFFSETS[0];
-  return [centre[0] + offset[0], 0.805, centre[1] + offset[1]];
+  return [centre[0] + offset[0], FLIGHT_PAWN_Y, centre[1] + offset[1]];
 }
 
 function FlyingChessHomeSockets({ materials }: { materials: THREE.Material[] }) {
@@ -491,18 +494,19 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           cannot drift or overlap this board prefab. */}
       <SculptedPart position={[0, 0.04, 0]} scale={[3.35, 0.08, 3.35]} material={rug} />
       <SculptedPart position={[0, 0.09, 0]} scale={[3.02, 0.025, 3.02]} material={rugEdge} castShadow={false} />
-      <SculptedPart position={[0, 0.66, 0]} scale={[1.34, 0.13, 1.34]} material={wood} />
-      <SculptedPart position={[0, 0.735, 0]} scale={[1.18, 0.04, 1.18]} material={cream} />
-      {/* 桌裙使桌面与四腿形成完整木作，而不是一块板悬在腿上。 */}
-      {[-0.52, 0.52].map((z) => (
-        <SculptedPart key={`apron-z-${z}`} position={[0, 0.53, z]} scale={[1.08, 0.22, 0.08]} material={darkWood} />
-      ))}
-      {[-0.52, 0.52].map((x) => (
-        <SculptedPart key={`apron-x-${x}`} position={[x, 0.53, 0]} scale={[0.08, 0.22, 1.08]} material={darkWood} />
-      ))}
-      {[-0.28, 0, 0.28].flatMap((v) => [
-        <mesh key={`h-${v}`} position={[0, 0.762, v]} material={darkWood}><boxGeometry args={[1.05, 0.014, 0.018]} /></mesh>,
-        <mesh key={`v-${v}`} position={[v, 0.763, 0]} material={darkWood}><boxGeometry args={[0.018, 0.014, 1.05]} /></mesh>,
+      {/* The game is played directly on the rug: a low padded timber board
+          replaces the old dining-height table, leaving all four floor cushions
+          around the edge and keeping every pawn visible from a seated view. */}
+      <SculptedPart position={[0, 0.16, 0]} scale={[1.62, 0.13, 1.62]} material={darkWood} />
+      <SculptedPart position={[0, 0.245, 0]} scale={[1.5, 0.09, 1.5]} material={wood} />
+      <SculptedPart position={[0, 0.295, 0]} scale={[1.28, 0.035, 1.28]} material={cream} />
+      {[-0.56, 0.56].flatMap((v) => [
+        <mesh key={`h-${v}`} position={[0, FLIGHT_BOARD_TOP + 0.025, v]} material={darkWood}>
+          <boxGeometry args={[1.08, 0.018, 0.022]} />
+        </mesh>,
+        <mesh key={`v-${v}`} position={[v, FLIGHT_BOARD_TOP + 0.026, 0]} material={darkWood}>
+          <boxGeometry args={[0.022, 0.018, 1.08]} />
+        </mesh>,
       ])}
       <FlyingChessTrack materials={colors} />
       <FlyingChessHomeSockets materials={colors} />
@@ -521,7 +525,7 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
         const p = progress < 0
           ? flightHomePoint(colour, pawn)
           : progress >= 52
-          ? [((pawn % 2) - 0.5) * 0.18, 0.805, (Math.floor(pawn / 2) - 0.5) * 0.18] as P3
+          ? [((pawn % 2) - 0.5) * 0.18, FLIGHT_PAWN_Y, (Math.floor(pawn / 2) - 0.5) * 0.18] as P3
           : flightTrackPoint(colour, progress);
         return (
           <group key={`live-pawn-${colour}-${pawn}`} position={p}>
@@ -534,15 +538,9 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           </group>
         );
       }))}
-      {[-0.48, 0.48].flatMap((x) => [-0.48, 0.48].map((z) => (
-        <mesh key={`${x}-${z}`} position={[x, 0.31, z]} rotation={[z * 0.06, 0, -x * 0.06]} material={darkWood} castShadow>
-          <cylinderGeometry args={[0.035, 0.052, 0.62, 8]} />
-        </mesh>
-      )))}
-      {/* 下层棋盒架与两只带盖收纳盒，盒盖、卡扣均有实体厚度。 */}
-      <SculptedPart position={[0, 0.24, 0]} scale={[0.78, 0.06, 0.62]} material={wood} />
-      {[-0.22, 0.22].map((x, i) => (
-        <group key={`game-box-${x}`} position={[x, 0.31, 0]} rotation={[0, i ? -0.05 : 0.05, 0]}>
+      {/* 两只收纳盒放在地毯边缘，实际下棋时不会藏在桌板下面。 */}
+      {[-0.92, 0.92].map((x, i) => (
+        <group key={`game-box-${x}`} position={[x, 0.15, 0.12]} rotation={[0, i ? -0.05 : 0.05, 0]}>
           <SculptedPart position={[0, 0, 0]} scale={[0.34, 0.13, 0.44]} material={i ? blue : red} />
           <SculptedPart position={[0, 0.08, 0]} scale={[0.36, 0.035, 0.46]} material={paper} />
           <SculptedPart position={[0, 0.01, 0.23]} scale={[0.1, 0.07, 0.025]} material={gold} castShadow={false} />

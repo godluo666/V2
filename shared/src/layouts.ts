@@ -693,7 +693,9 @@ function buildGameroom(): SpaceLayout {
   ] as const) {
     addClubChair(`gr-flight-s${i}`, x, z, ry, i, '围坐飞行棋');
   }
-  b.inter('gr-flight', 'flying', 4.35, 0.86, -2.75, 0, '打开地摊飞行棋');
+  // The authoritative interaction anchor follows the low board on the rug;
+  // the machine id and server protocol remain unchanged.
+  b.inter('gr-flight', 'flying', 4.35, 0.34, -2.75, 0, '打开地摊飞行棋');
 
   // 中央后段的社团筹备桌把两个功能区串成一体；桌体阻挡与实体一致，
   // 左右仍各保留超过 1.5m 的绕行空间，不堵入口主轴。

@@ -1002,6 +1002,7 @@ const STARTER_BAY_GUIDES: InstanceSpec[] = STARTER_BAY_BOUNDARIES.map((x) => ({
 
 function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
   const cyan = lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim;
+  const violet = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
   return (
     <group>
       {/*
