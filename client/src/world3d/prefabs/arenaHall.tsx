@@ -1305,63 +1305,72 @@ function overheadScreenTexture(index: number): THREE.CanvasTexture {
 }
 
 function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
-  const positions = [-7.2, -2.4, 2.4, 7.2];
+  const screens: Array<{ position: P3; ry: number }> = [
+    { position: [0, 9.55, -0.55], ry: 0 },
+    { position: [3.9, 9.55, -2.5], ry: Math.PI / 2 },
+    { position: [0, 9.55, -4.45], ry: Math.PI },
+    { position: [-3.9, 9.55, -2.5], ry: -Math.PI / 2 },
+  ];
   return (
-    <group name="arena-four-screen-crown">
-      {/* One carrier frame makes the four displays a single broadcast crown.
-          The screens still have independent shells/content, while the load
-          path now continues through a spine, cross members and ceiling drops. */}
-      <Part position={[0, 11.34, -2.5]} scale={[19.3, 0.28, 0.42]} material={MATERIAL.darkSteel} />
-      <Part position={[0, 11.56, -2.5]} scale={[20.0, 0.16, 0.62]} material={MATERIAL.steel} />
-      {[-9.4, -4.8, 0, 4.8, 9.4].map((x, index) => (
-        <group key={`screen-crown-bay-${x}`}>
-          <Part position={[x, 10.68, -2.5]} scale={[0.16, 1.42, 0.46]} material={MATERIAL.steel} />
+    <group name="arena-four-sided-scoreboard">
+      {/* A four-sided suspended scoreboard serves the U-shaped audience bowl.
+          Each face has a dedicated housing/content layer, while a rectangular
+          carrier ring and four corner drops provide an observable load path. */}
+      {[-3.9, 3.9].map((x) => (
+        <Part key={`carrier-x-${x}`} position={[x, 11.55, -2.5]} scale={[0.22, 0.22, 4.1]} material={MATERIAL.steel} />
+      ))}
+      {[-4.45, -0.55].map((z) => (
+        <Part key={`carrier-z-${z}`} position={[0, 11.55, z]} scale={[8.0, 0.22, 0.22]} material={MATERIAL.steel} />
+      ))}
+      <Part position={[0, 11.72, -2.5]} scale={[8.25, 0.14, 0.34]} material={MATERIAL.darkSteel} />
+      <Part position={[0, 11.72, -2.5]} rotation={[0, Math.PI / 2, 0]} scale={[4.25, 0.14, 0.34]} material={MATERIAL.darkSteel} />
+      {([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => (
+        <group key={`scoreboard-drop-${xSide}-${zSide}`}>
+          <CylinderPart
+            position={[xSide * 3.82, 12.12, -2.5 + zSide * 1.88]}
+            scale={[0.055, 1.14, 0.055]}
+            material={MATERIAL.steel}
+          />
           <Part
-            position={[x, 11.7, -2.23]}
-            rotation={[0, 0, (index % 2 ? -1 : 1) * 0.16]}
-            scale={[1.08, 0.11, 0.12]}
+            position={[xSide * 3.82, 12.66, -2.5 + zSide * 1.88]}
+            scale={[0.42, 0.12, 0.42]}
             material={MATERIAL.darkSteel}
           />
         </group>
-      ))}
-      {[-5.9, 0, 5.9].map((x, index) => (
-        <Part
-          key={`screen-crown-marker-${x}`}
-          position={[x, 11.465, -2.84]}
-          scale={[2.6, 0.055, 0.08]}
-          material={index === 1
-            ? (lightsOn ? MATERIAL.pink : MATERIAL.pinkDim)
-            : (lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim)}
-          castShadow={false}
-        />
-      ))}
-      {positions.map((x, index) => {
+      )))}
+      <Part position={[0, 9.55, -2.5]} scale={[7.16, 2.9, 3.5]} material={MATERIAL.blackMetal} />
+      {screens.map((screen, index) => {
         const accent = index % 2 === 0 ? (lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim) : (lightsOn ? MATERIAL.violet : MATERIAL.violetDim);
         return (
-          <group key={x} position={[x, 9.65, -2.5]} rotation={[0.18, 0, 0]}>
-            <Part position={[0, 0, 0.12]} scale={[4.2, 2.42, 0.34]} material={MATERIAL.blackMetal} />
-            <Part position={[0, 1.26, 0.18]} scale={[4.32, 0.1, 0.18]} material={MATERIAL.steel} castShadow={false} />
-            <Part position={[0, -1.26, 0.18]} scale={[4.32, 0.1, 0.18]} material={MATERIAL.steel} castShadow={false} />
-            {/* The housing is a real thick box. Keep the live face on its
-                camera-facing +Z side; placing it behind the shell made the
-                four overhead displays read as black slabs in the cloud view. */}
-            <mesh position={[0, 0, 0.31]} castShadow={false}>
-              <planeGeometry args={[3.78, 2.08]} />
-              <meshBasicMaterial
-                map={overheadScreenTexture(index)}
-                toneMapped={false}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-            <Part position={[0, -1.58, 0.12]} scale={[0.12, 0.8, 0.12]} material={MATERIAL.darkSteel} />
-            <mesh position={[0, -1.98, 0.12]} rotation={[Math.PI / 2, 0, 0]} material={accent} castShadow={false}>
-              <circleGeometry args={[0.11, 12]} />
-            </mesh>
+          <group key={`scoreboard-face-${index}`} position={screen.position} rotation={[0, screen.ry, 0]}>
+            <group rotation={[0.1, 0, 0]}>
+              <Part position={[0, 0, 0]} scale={[7.62, 3.62, 0.42]} material={MATERIAL.blackMetal} />
+              <Part position={[0, 1.87, 0.08]} scale={[7.82, 0.14, 0.28]} material={MATERIAL.steel} />
+              <Part position={[0, -1.87, 0.08]} scale={[7.82, 0.14, 0.28]} material={MATERIAL.steel} />
+              {[-3.86, 3.86].map((x) => (
+                <Part key={x} position={[x, 0, 0.08]} scale={[0.14, 3.66, 0.28]} material={MATERIAL.steel} />
+              ))}
+              <mesh position={[0, 0, 0.235]} castShadow={false}>
+                <planeGeometry args={[7.24, 3.22]} />
+                <meshBasicMaterial map={overheadScreenTexture(index)} toneMapped={false} side={THREE.DoubleSide} />
+              </mesh>
+              <Part position={[0, -2.13, 0.02]} scale={[3.1, 0.14, 0.22]} material={MATERIAL.darkSteel} />
+              {[-0.9, 0, 0.9].map((x) => (
+                <Part key={x} position={[x, -2.14, 0.145]} scale={[0.56, 0.05, 0.05]} material={accent} castShadow={false} />
+              ))}
+            </group>
           </group>
         );
       })}
-      {positions.map((x) => (
-        <ScreenCable key={`screen-cable-${x}`} points={[[x, 12.4, -2.5], [x, 11.2, -2.5], [x, 9.1, -2.5]]} />
+      {([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => (
+        <ScreenCable
+          key={`screen-cable-${xSide}-${zSide}`}
+          points={[
+            [xSide * 3.82, 12.72, -2.5 + zSide * 1.88],
+            [xSide * 3.82, 11.5, -2.5 + zSide * 1.88],
+            [xSide * 3.72, 10.95, -2.5 + zSide * 1.78],
+          ]}
+        />
       ))}
     </group>
   );
