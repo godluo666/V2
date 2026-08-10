@@ -403,8 +403,11 @@ function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
     refs.current.forEach((mesh, colour) => {
       if (!mesh) return;
       for (let step = 0; step < 13; step += 1) {
-        const [x, y, z] = flightTrackPoint(colour, step);
-        transform.position.set(x, y, z);
+        const [x, , z] = flightTrackPoint(colour, step);
+        // Track cells sit 4 mm above the 0.755m board top.  The old shared
+        // pawn height (0.805m) was also used here and left every cell visibly
+        // floating about four centimetres above the surface.
+        transform.position.set(x, 0.765, z);
         transform.rotation.set(0, 0, 0);
         transform.scale.set(0.034, 0.012, 0.034);
         transform.updateMatrix();
@@ -439,19 +442,12 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
   ];
   return (
     <group position={position} rotation={[0, ry, 0]}>
-      {/* A woven floor-stall mat and low cushions make this a sit-down street
-          game rather than another dining table. The service seat anchors stay
-          unchanged so the authoritative multiplayer seat logic remains valid. */}
+      {/* A woven floor-stall mat makes this a sit-down street game rather than
+          another dining table. The four cushions are rendered once from the
+          shared `chair(style=floor)` props so their geometry and seat anchors
+          cannot drift or overlap this board prefab. */}
       <SculptedPart position={[0, 0.04, 0]} scale={[3.35, 0.08, 3.35]} material={rug} />
       <SculptedPart position={[0, 0.09, 0]} scale={[3.02, 0.025, 3.02]} material={rugEdge} castShadow={false} />
-      {[
-        [0, -1.36, red], [1.36, 0, blue], [0, 1.36, green], [-1.36, 0, gold],
-      ].map(([x, z, material], index) => (
-        <group key={`floor-cushion-${index}`} position={[x as number, 0.34, z as number]} rotation={[0, index * Math.PI / 2, 0]}>
-          <SculptedPart position={[0, 0, 0]} scale={[0.78, 0.27, 0.58]} material={material as THREE.Material} soft />
-          <SculptedPart position={[0, 0.16, -0.12]} scale={[0.56, 0.08, 0.11]} material={creamFabric} soft castShadow={false} />
-        </group>
-      ))}
       <SculptedPart position={[0, 0.66, 0]} scale={[1.34, 0.13, 1.34]} material={wood} />
       <SculptedPart position={[0, 0.735, 0]} scale={[1.18, 0.04, 1.18]} material={cream} />
       {/* 桌裙使桌面与四腿形成完整木作，而不是一块板悬在腿上。 */}

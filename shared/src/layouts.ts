@@ -676,7 +676,8 @@ function buildGameroom(): SpaceLayout {
   });
   b.prop('coffee_table', -3.45, 0, 1.0); b.circle(-3.45, 1.0, 0.55);
 
-  // 社团棋桌：象棋为现有服务端权威玩法；飞行棋为可围坐实体桌游陈设。
+  // 社团棋桌：象棋和地摊飞行棋均为服务端权威玩法；四个 floor-style
+  // chair prop 是飞行棋坐垫的唯一渲染来源，棋盘 prefab 不得重复绘制。
   b.inter('gr-xq', 'xiangqi', 4.35, 0, 2.45, 0, '社团象棋桌');
   b.box(4.35, 2.45, 1.0, 1.0);
   for (const [x, z, ry, i] of [
