@@ -689,40 +689,60 @@ function RearArchitecture({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+// Mirrors the six authoritative row bands in shared/src/layouts.ts. Lights
+// are mounted on the current deck top, never buried at the base floor.
+const AISLE_LIGHTS: Array<[number, number]> = [
+  [-8.8, 0], [-6.6, 0], [-4.4, 0],
+  [-3.2, 0.38], [-2, 0.38],
+  [-0.9, 0.76], [0.3, 0.76],
+  [1.5, 1.14], [2.7, 1.14],
+  [3.9, 1.52], [5.1, 1.52],
+  [6.4, 1.9], [7.6, 1.9], [8.75, 1.9],
+  [10.6, 0], [12.4, 0],
+];
+const AISLE_LIGHT_HOUSINGS = mergeParts(
+  [-6.3, 6.3].flatMap((x) => AISLE_LIGHTS.map(([z, deckY]) => ({
+    geometry: seatBox,
+    position: [x, deckY + 0.03, z] as P3,
+    scale: [0.38, 0.055, 0.22] as P3,
+  }))),
+);
+const AISLE_LIGHT_CORES = mergeParts(
+  [-6.3, 6.3].flatMap((x) => AISLE_LIGHTS.map(([z, deckY]) => ({
+    geometry: seatBox,
+    position: [x, deckY + 0.062, z] as P3,
+    scale: [0.25, 0.018, 0.11] as P3,
+  }))),
+);
+const WALL_GUIDE_Z = [-8, -4, 0, 4, 8, 12];
+const WALL_GUIDE_HOUSINGS = mergeParts(
+  ([-1, 1] as const).flatMap((side) => WALL_GUIDE_Z.map((z) => ({
+    geometry: seatBox,
+    position: [side * 16.25, 0.42, z] as P3,
+    rotation: [0, -side * Math.PI / 2, 0] as P3,
+    scale: [0.46, 0.25, 0.14] as P3,
+  }))),
+);
+const WALL_GUIDE_CORES = mergeParts(
+  ([-1, 1] as const).flatMap((side) => WALL_GUIDE_Z.map((z) => ({
+    geometry: seatBox,
+    position: [side * (16.25 - 0.085), 0.42, z] as P3,
+    rotation: [0, -side * Math.PI / 2, 0] as P3,
+    scale: [0.31, 0.12, 0.045] as P3,
+  }))),
+);
+
 function AisleGuidance({ lightsOn }: { lightsOn: boolean }) {
   const material = lightsOn ? guideOn : guideOff;
-  // Mirrors the six authoritative row bands in shared/src/layouts.ts. Lights
-  // are mounted on the current deck top, never buried at the base floor.
-  const aisleLights: Array<[number, number]> = [
-    [-8.8, 0], [-6.6, 0], [-4.4, 0],
-    [-3.2, 0.38], [-2, 0.38],
-    [-0.9, 0.76], [0.3, 0.76],
-    [1.5, 1.14], [2.7, 1.14],
-    [3.9, 1.52], [5.1, 1.52],
-    [6.4, 1.9], [7.6, 1.9], [8.75, 1.9],
-    [10.6, 0], [12.4, 0],
-  ];
   return (
-    <group>
+    <group name="cinema-aisle-guidance" dispose={null}>
       {/* Flush housings sit 25 mm above the carpet and remain readable without
           pretending to replace layout-owned stair geometry. */}
-      {[-6.3, 6.3].flatMap((x) => aisleLights.map(([z, deckY]) => (
-        <group key={`${x}-${z}`} position={[x, deckY + 0.03, z]}>
-          <mesh material={blackSteel} receiveShadow>
-            <boxGeometry args={[0.38, 0.055, 0.22]} />
-          </mesh>
-          <mesh position={[0, 0.032, 0]} material={material}>
-            <boxGeometry args={[0.25, 0.018, 0.11]} />
-          </mesh>
-        </group>
-      )))}
-      {/* Outer escape route marker is wall-mounted at human ankle height. */}
-      {([-1, 1] as const).flatMap((side) => [-8, -4, 0, 4, 8, 12].map((z) => (
-        <group key={`${side}-${z}`} position={[side * 16.25, 0.42, z]} rotation={[0, -side * Math.PI / 2, 0]}>
-          <mesh material={blackSteel} castShadow><boxGeometry args={[0.46, 0.25, 0.14]} /></mesh>
-          <mesh position={[0, 0, 0.085]} material={material}><boxGeometry args={[0.31, 0.12, 0.045]} /></mesh>
-        </group>
-      )))}
+      <mesh geometry={AISLE_LIGHT_HOUSINGS} material={blackSteel} receiveShadow />
+      <mesh geometry={AISLE_LIGHT_CORES} material={material} receiveShadow />
+      {/* Outer escape route markers remain wall-mounted at ankle height. */}
+      <mesh geometry={WALL_GUIDE_HOUSINGS} material={blackSteel} castShadow receiveShadow />
+      <mesh geometry={WALL_GUIDE_CORES} material={material} receiveShadow />
     </group>
   );
 }
