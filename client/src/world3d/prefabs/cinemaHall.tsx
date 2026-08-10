@@ -182,6 +182,7 @@ function mergeParts(parts: Array<{
 // meshes.  Every row reuses these buffers, keeping the close-up model detailed
 // without multiplying draw calls by every bolt and cup holder.
 const seatBox = new THREE.BoxGeometry(1, 1, 1);
+const handrailCylinder = new THREE.CylinderGeometry(0.045, 0.045, 1, 8);
 const seatCylinder = new THREE.CylinderGeometry(1, 1, 1, 14);
 const seatCapsule = new THREE.CapsuleGeometry(0.065, 0.38, 5, 10);
 const seatCupRing = new THREE.TorusGeometry(0.075, 0.014, 8, 18);
@@ -726,6 +727,75 @@ function AisleGuidance({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+const CINEMA_HANDRAIL_X = [-8.52, -3.78, 3.78, 8.52] as const;
+const CINEMA_HANDRAIL_START = { z: -6.25, y: 0.94 } as const;
+const CINEMA_HANDRAIL_END = { z: 8.9, y: 2.88 } as const;
+
+function CinemaAisleHandrails({ lightsOn }: { lightsOn: boolean }) {
+  const railsRef = useRef<THREE.InstancedMesh>(null);
+  const postsRef = useRef<THREE.InstancedMesh>(null);
+  const markersRef = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const rails = railsRef.current;
+    const posts = postsRef.current;
+    const markers = markersRef.current;
+    if (!rails || !posts || !markers) return;
+    const transform = new THREE.Object3D();
+    const dz = CINEMA_HANDRAIL_END.z - CINEMA_HANDRAIL_START.z;
+    const dy = CINEMA_HANDRAIL_END.y - CINEMA_HANDRAIL_START.y;
+    const railLength = Math.hypot(dz, dy);
+    const railAngle = Math.atan2(dz, dy);
+    CINEMA_HANDRAIL_X.forEach((x, index) => {
+      transform.position.set(
+        x,
+        (CINEMA_HANDRAIL_START.y + CINEMA_HANDRAIL_END.y) / 2,
+        (CINEMA_HANDRAIL_START.z + CINEMA_HANDRAIL_END.z) / 2,
+      );
+      transform.rotation.set(railAngle, 0, 0);
+      transform.scale.set(1, railLength, 1);
+      transform.updateMatrix();
+      rails.setMatrixAt(index, transform.matrix);
+    });
+
+    let postIndex = 0;
+    const seating = CINEMA_SPATIAL_CONTRACT.seating;
+    CINEMA_HANDRAIL_X.forEach((x) => {
+      for (let row = 0; row < seating.rows; row += 1) {
+        const z = seating.firstZ + row * seating.rowSpacing - 1.05;
+        const progress = (z - CINEMA_HANDRAIL_START.z) / dz;
+        const railY = THREE.MathUtils.lerp(CINEMA_HANDRAIL_START.y, CINEMA_HANDRAIL_END.y, progress);
+        const deckY = row * seating.rowRise;
+        const postHeight = Math.max(0.48, railY - deckY);
+        transform.position.set(x, deckY + postHeight / 2, z);
+        transform.rotation.set(0, 0, 0);
+        transform.scale.set(0.84, postHeight, 0.84);
+        transform.updateMatrix();
+        posts.setMatrixAt(postIndex, transform.matrix);
+        transform.position.set(x, railY - 0.06, z);
+        transform.scale.set(1.45, 0.12, 1.45);
+        transform.updateMatrix();
+        markers.setMatrixAt(postIndex, transform.matrix);
+        postIndex += 1;
+      }
+    });
+    rails.instanceMatrix.needsUpdate = true;
+    posts.instanceMatrix.needsUpdate = true;
+    markers.instanceMatrix.needsUpdate = true;
+    rails.computeBoundingSphere();
+    posts.computeBoundingSphere();
+    markers.computeBoundingSphere();
+  }, []);
+  const markerMaterial = lightsOn ? guideOn : guideOff;
+  const postCount = CINEMA_HANDRAIL_X.length * CINEMA_SPATIAL_CONTRACT.seating.rows;
+  return (
+    <group name="cinema-aisle-handrails">
+      <instancedMesh dispose={null} ref={railsRef} args={[handrailCylinder, brushedSteel, CINEMA_HANDRAIL_X.length]} castShadow receiveShadow />
+      <instancedMesh dispose={null} ref={postsRef} args={[handrailCylinder, blackSteel, postCount]} castShadow receiveShadow />
+      <instancedMesh dispose={null} ref={markersRef} args={[handrailCylinder, markerMaterial, postCount]} material={markerMaterial} receiveShadow />
+    </group>
+  );
+}
+
 interface RiserNosingSpec {
   position: P3;
   scale: P3;
@@ -867,6 +937,7 @@ export function CinemaHallArchitecture({
       <CinemaSideGalleries lightsOn={lightsOn} />
       <RearArchitecture lightsOn={lightsOn} />
       <AisleGuidance lightsOn={lightsOn} />
+      <CinemaAisleHandrails lightsOn={lightsOn} />
       <CinemaRiserNosings lightsOn={lightsOn} />
       <GrandCeilingCrown lightsOn={lightsOn} />
 
