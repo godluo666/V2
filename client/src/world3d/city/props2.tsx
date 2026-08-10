@@ -968,49 +968,106 @@ function phoneSignTexture(): THREE.CanvasTexture {
 }
 
 let _phoneSignMat: THREE.MeshToonMaterial | null = null;
-let _glassMat: THREE.MeshToonMaterial | null = null;
+const phoneFrameMaterial = surfaceMaterial('metal');
+phoneFrameMaterial.color.set('#477476');
+phoneFrameMaterial.roughness = 0.58;
+phoneFrameMaterial.metalness = 0.38;
+const phoneTrimMaterial = surfaceMaterial('brushedMetal');
+phoneTrimMaterial.color.set('#99a9a5');
+phoneTrimMaterial.roughness = 0.48;
+phoneTrimMaterial.metalness = 0.52;
+const phoneGlassMaterial = surfaceMaterial('glass', false, false);
+phoneGlassMaterial.color.set('#a8d3d5');
+phoneGlassMaterial.transparent = true;
+phoneGlassMaterial.opacity = 0.24;
+phoneGlassMaterial.depthWrite = false;
+phoneGlassMaterial.side = THREE.DoubleSide;
+const phoneBodyMaterial = surfaceMaterial('plasticLightbox');
+phoneBodyMaterial.color.set('#26323a');
+phoneBodyMaterial.roughness = 0.66;
+const phoneHandsetMaterial = surfaceMaterial('plasticLightbox');
+phoneHandsetMaterial.color.set('#b94755');
+phoneHandsetMaterial.roughness = 0.52;
 export function CPhone({ position, ry = 0 }: { position: P3; ry?: number }) {
   const j = useJitter(position);
-  const group = useMemo(() => {
-    if (!_phoneSignMat) {
-      const tex = phoneSignTexture();
-      _phoneSignMat = toonMat(0xffffff, { map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.5, fog: false });
-    }
-    if (!_glassMat) {
-      _glassMat = toonMat(shade(ENV.skyTopDusk, 0.06), { transparent: true, opacity: 0.28, side: THREE.DoubleSide });
-      _glassMat.depthWrite = false;
-    }
-    const g = new THREE.Group();
-    const bag = new MergeBag();
-    const frame = shade(ENV.wallC, -0.02);
-    // 四角柱 + 顶盒 + 底座
-    for (const [sx, sz] of [[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]] as const) {
-      bag.box(sx, 1.15, sz, 0.1, 2.3, 0.1, frame);
-    }
-    bag.box(0, 2.42, 0, 1.3, 0.24, 1.3, shade(frame, -0.03));
-    bag.box(0, 0.04, 0, 1.24, 0.08, 1.24, shade(ENV.metal, -0.04));
-    // 内部话机
-    bag.box(0, 1.35, -0.48, 0.34, 0.5, 0.12, shade(ENV.metal, 0.04));
-    bag.box(0.12, 1.3, -0.4, 0.07, 0.24, 0.07, shade(ENV.outline, 0.05));
-    bag.box(0, 0.95, -0.42, 0.5, 0.06, 0.3, frame); // 小台
-    const bodyMesh = bagMesh(bag);
-    g.add(bodyMesh);
-    // 玻璃(三面)
-    for (const [x, z, r] of [[0, 0.55, 0], [-0.55, 0, Math.PI / 2], [0.55, 0, Math.PI / 2]] as const) {
-      const p = new THREE.Mesh(sharedPlane(), _glassMat);
-      p.position.set(x, 1.25, z);
-      p.rotation.y = r;
-      p.scale.set(1.0, 2.0, 1);
-      g.add(p);
-    }
-    // 顶部灯箱(还亮着)
-    const sign = new THREE.Mesh(sharedPlane(), _phoneSignMat);
-    sign.position.set(0, 2.42, 0.66);
-    sign.scale.set(0.9, 0.22, 1);
-    g.add(sign);
-    return g;
-  }, []);
-  return <primitive object={group} position={position} rotation={[0, ry + j.ry * 0.4, 0]} scale={[j.s, j.s, j.s]} />;
+  if (!_phoneSignMat) {
+    const tex = phoneSignTexture();
+    _phoneSignMat = toonMat(0xffffff, { map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.5, fog: false });
+  }
+  return (
+    <group position={position} rotation={[0, ry + j.ry * 0.4, 0]} scale={[j.s, j.s, j.s]}>
+      <mesh position={[0, 0.07, 0]} material={phoneTrimMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.42, 0.14, 1.42]} />
+      </mesh>
+      {([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => (
+        <mesh key={`${xSide}-${zSide}`} position={[xSide * 0.61, 1.28, zSide * 0.61]} material={phoneFrameMaterial} castShadow receiveShadow>
+          <boxGeometry args={[0.12, 2.42, 0.12]} />
+        </mesh>
+      )))}
+      <mesh position={[0, 2.5, -0.01]} material={phoneFrameMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.52, 0.22, 1.52]} />
+      </mesh>
+      <mesh position={[0, 2.65, -0.08]} rotation={[-0.055, 0, 0]} material={phoneTrimMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.64, 0.1, 1.66]} />
+      </mesh>
+      {/* Three glass leaves now have real thickness and sit inside the frame. */}
+      <mesh position={[0, 1.33, 0.625]} material={phoneGlassMaterial} castShadow={false} receiveShadow>
+        <boxGeometry args={[1.05, 2.02, 0.026]} />
+      </mesh>
+      {([-1, 1] as const).map((side) => (
+        <mesh key={`phone-glass-${side}`} position={[side * 0.625, 1.33, 0]} material={phoneGlassMaterial} castShadow={false} receiveShadow>
+          <boxGeometry args={[0.026, 2.02, 1.05]} />
+        </mesh>
+      ))}
+      {/* Front door hardware and hinges establish which glass leaf opens. */}
+      <mesh position={[0.42, 1.2, 0.675]} material={phoneTrimMaterial} castShadow>
+        <cylinderGeometry args={[0.025, 0.025, 0.52, 8]} />
+      </mesh>
+      {[-0.48, 0.48].map((y) => (
+        <mesh key={y} position={[-0.56, 1.32 + y, 0.68]} material={phoneFrameMaterial} castShadow>
+          <boxGeometry args={[0.1, 0.16, 0.08]} />
+        </mesh>
+      ))}
+
+      {/* Recessed phone, keypad, coin slot, handset and coiled return cable. */}
+      <mesh position={[0, 1.42, -0.555]} material={phoneBodyMaterial} castShadow receiveShadow>
+        <boxGeometry args={[0.58, 0.74, 0.16]} />
+      </mesh>
+      <mesh position={[0, 0.98, -0.43]} material={phoneTrimMaterial} castShadow receiveShadow>
+        <boxGeometry args={[0.72, 0.08, 0.38]} />
+      </mesh>
+      {Array.from({ length: 12 }, (_, index) => {
+        const col = index % 3;
+        const row = Math.floor(index / 3);
+        return (
+          <mesh key={`phone-key-${index}`} position={[-0.1 + col * 0.1, 1.56 - row * 0.09, -0.46]} material={phoneTrimMaterial} castShadow={false}>
+            <boxGeometry args={[0.055, 0.045, 0.025]} />
+          </mesh>
+        );
+      })}
+      <mesh position={[0.19, 1.66, -0.46]} material={lockerLabelMaterial} castShadow={false}>
+        <boxGeometry args={[0.11, 0.025, 0.025]} />
+      </mesh>
+      <group position={[-0.2, 1.45, -0.42]} rotation={[0, 0, -0.08]}>
+        <mesh material={phoneHandsetMaterial} castShadow><boxGeometry args={[0.11, 0.42, 0.1]} /></mesh>
+        {[-0.22, 0.22].map((y) => (
+          <mesh key={y} position={[0, y, 0]} material={phoneHandsetMaterial} castShadow>
+            <boxGeometry args={[0.2, 0.12, 0.14]} />
+          </mesh>
+        ))}
+      </group>
+      <mesh position={[-0.34, 1.06, -0.43]} rotation={[Math.PI / 2, 0, 0]} material={phoneBodyMaterial} castShadow>
+        <torusGeometry args={[0.12, 0.018, 6, 18, Math.PI * 1.65]} />
+      </mesh>
+
+      <mesh position={[0, 2.5, 0.77]} material={phoneFrameMaterial} castShadow>
+        <boxGeometry args={[1.08, 0.34, 0.08]} />
+      </mesh>
+      <mesh position={[0, 2.5, 0.816]} material={_phoneSignMat} castShadow={false}>
+        <planeGeometry args={[0.92, 0.24]} />
+      </mesh>
+    </group>
+  );
 }
 
 // ═══ c_locker 投币储物柜 ════════════════════════════════════════════════════
