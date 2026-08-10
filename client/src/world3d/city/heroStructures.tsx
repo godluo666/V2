@@ -974,6 +974,21 @@ function mediaTowerScreenShell(palette: HeroMaterials): THREE.Group {
       batch.box('brightMetal', x, (screenBottom + screenTop) / 2, z + 0.04, 0.16, screenTop - screenBottom, 0.48, 0, ry, 0);
     }
   }
+  // Two slim structural mullions split the giant display into a three-bay
+  // media facade. They sit in front of the actual screen plane, so even a
+  // portrait crop reads a constructed tower instead of one borderless poster.
+  for (const x of [-3.7, 3.7]) {
+    batch.box(
+      'brightMetal',
+      x,
+      (screenBottom + screenTop) / 2,
+      frontZ + 0.43,
+      0.11,
+      screenTop - screenBottom - 0.36,
+      0.2,
+    );
+    batch.box('inkMetal', x, screenBottom + 0.38, frontZ + 0.55, 0.32, 0.18, 0.38);
+  }
   for (const side of [-1, 1]) {
     batch.box('inkMetal', side * 5.82, 8.35, frontZ + 0.12, 0.72, 7.75, 1.45, 0, side * 0.16, 0);
     batch.box('darkGlass', side * 5.93, 8.35, frontZ + 0.72, 0.4, 6.72, 0.2, 0, side * 0.16, 0);

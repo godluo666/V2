@@ -213,63 +213,93 @@ function mediaTowerTexture(): THREE.CanvasTexture {
   if (_mediaTowerTex) return _mediaTowerTex;
   const [canvas, ctx] = makeCanvas(1024);
   canvas.height = 576;
-  ctx.fillStyle = '#f4eddd';
+  ctx.fillStyle = '#121722';
   ctx.fillRect(0, 0, 1024, 576);
 
-  // 原创错位印刷海报：借用黑/白/红的抽象原则，不复刻任何游戏素材。
-  ctx.fillStyle = '#151820';
+  // Original editorial collage: a dark field carries one paper wedge and one
+  // red action zone.  This keeps the tower vivid without turning the entire
+  // mobile viewport into a uniformly emissive red rectangle.
+  ctx.fillStyle = '#f3ecdc';
   ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(468, 0);
-  ctx.lineTo(300, 576);
-  ctx.lineTo(0, 576);
+  ctx.moveTo(42, 70);
+  ctx.lineTo(720, 18);
+  ctx.lineTo(650, 402);
+  ctx.lineTo(16, 530);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = '#ee3657';
   ctx.beginPath();
-  ctx.moveTo(390, -40);
-  ctx.lineTo(1024, 70);
-  ctx.lineTo(1024, 438);
-  ctx.lineTo(254, 548);
+  ctx.moveTo(612, -28);
+  ctx.lineTo(1024, 48);
+  ctx.lineTo(1024, 314);
+  ctx.lineTo(552, 364);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = '#ffd84f';
   ctx.beginPath();
-  ctx.moveTo(790, 0);
+  ctx.moveTo(884, 0);
   ctx.lineTo(1024, 0);
-  ctx.lineTo(1024, 220);
-  ctx.lineTo(872, 182);
+  ctx.lineTo(1024, 146);
+  ctx.lineTo(936, 124);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = '#38d3d0';
-  ctx.fillRect(0, 498, 1024, 42);
-
+  ctx.fillRect(0, 524, 1024, 26);
+  ctx.fillStyle = '#ee3657';
   ctx.save();
-  ctx.translate(534, 280);
-  ctx.rotate(-0.055);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = '900 116px "Arial Black", "Segoe UI", sans-serif';
-  ctx.lineWidth = 18;
-  ctx.strokeStyle = '#151820';
-  ctx.strokeText('MOON//VISION', 7, 8);
-  ctx.fillStyle = '#fff9ea';
-  ctx.fillText('MOON//VISION', 0, 0);
+  ctx.translate(480, 478);
+  ctx.rotate(-0.075);
+  ctx.fillRect(-430, -9, 680, 18);
   ctx.restore();
 
-  ctx.fillStyle = '#fff9ea';
-  ctx.font = '900 42px "Arial Black", "Segoe UI", sans-serif';
-  ctx.fillText('LIVE CITY FEED', 46, 72);
+  ctx.save();
+  ctx.translate(92, 264);
+  ctx.rotate(-0.045);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 104px "Arial Black", "Segoe UI", sans-serif';
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = '#f3ecdc';
+  ctx.strokeText('MOON', 4, 5);
   ctx.fillStyle = '#151820';
-  ctx.font = '900 54px "Arial Black", "Segoe UI", sans-serif';
-  ctx.fillText('07', 896, 500);
-  ctx.font = '700 26px "Segoe UI", sans-serif';
-  ctx.fillText('SHIOHAMA CROSS / 35.68 N', 502, 560);
+  ctx.fillText('MOON', 0, 0);
+  ctx.font = '900 48px "Arial Black", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#ee3657';
+  ctx.fillText('VISION / 07', 16, 82);
+  ctx.restore();
 
-  // 右下漫画网点只参与主屏构图，不作为全局重复背景。
-  ctx.fillStyle = 'rgba(21,24,32,.55)';
-  for (let y = 374; y < 492; y += 18) {
-    for (let x = 720 + ((y / 18) % 2) * 9; x < 970; x += 18) {
+  ctx.save();
+  ctx.translate(775, 190);
+  ctx.rotate(-0.09);
+  ctx.textAlign = 'center';
+  ctx.font = '900 34px "Arial Black", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#fff9ea';
+  ctx.fillText('CITY SIGNAL', 0, 0);
+  ctx.font = '700 22px "Segoe UI", sans-serif';
+  ctx.fillText('LIVE / EAST LOOP', 0, 42);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(754, 430);
+  ctx.rotate(0.035);
+  ctx.textAlign = 'left';
+  ctx.font = '900 50px "Arial Black", "Segoe UI", sans-serif';
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = '#121722';
+  ctx.strokeText('35.68 N', 3, 3);
+  ctx.fillStyle = '#f3ecdc';
+  ctx.fillText('35.68 N', 0, 0);
+  ctx.restore();
+
+  ctx.fillStyle = '#f3ecdc';
+  ctx.font = '800 25px "Segoe UI", sans-serif';
+  ctx.fillText('SHIOHAMA CROSS / 35.68 N', 38, 568);
+
+  // Halftone is confined to the lower-right information field rather than
+  // repeated over the city or used to disguise a flat building surface.
+  ctx.fillStyle = 'rgba(243,236,220,.38)';
+  for (let y = 342; y < 492; y += 18) {
+    for (let x = 704 + ((y / 18) % 2) * 9; x < 994; x += 18) {
       ctx.beginPath();
       ctx.arc(x, y, 4.3, 0, Math.PI * 2);
       ctx.fill();
@@ -593,7 +623,7 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
     map: tex,
     emissiveMap: tex,
     emissive: 0xffffff,
-    emissiveIntensity: 0.48,
+    emissiveIntensity: 0.4,
     fog: false,
   });
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(displayW, displayH), screenMat);
@@ -611,11 +641,16 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   }
 
   // 三层办公室窗带参与中段构图，避免巨幕上方退化成一块黑盒。
+  const officeBands = [
+    toonMat('#31bfc9', { emissive: '#31bfc9', emissiveIntensity: 0.22 }),
+    toonMat(ACCENT.cinemaSign, { emissive: ACCENT.cinemaSign, emissiveIntensity: 0.24 }),
+    toonMat('#e6ba51', { emissive: '#e6ba51', emissiveIntensity: 0.18 }),
+  ];
   for (let row = 0; row < 3; row++) {
     const y = 17.5 + row * 5.8;
     const band = new THREE.Mesh(
       new THREE.BoxGeometry(w * (row === 1 ? 0.78 : 0.88), 0.3, 0.25),
-      row === 1 ? toonMat(ACCENT.cinemaSign) : inkMat,
+      officeBands[row],
     );
     band.position.set((row - 1) * w * 0.035, y - 1.15, d / 2 + 0.16);
     local.add(band);
