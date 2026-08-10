@@ -27,6 +27,12 @@ const blushFabric = surfaceMaterial('seatFabric'); blushFabric.color.set('#d98b9
 const sageFabric = surfaceMaterial('seatFabric'); sageFabric.color.set('#8fb8a5');
 const lavenderFabric = surfaceMaterial('seatFabric'); lavenderFabric.color.set('#9783b8');
 const rugEdge = surfaceMaterial('acousticFabric'); rugEdge.color.set('#c78f79');
+const clubBrass = surfaceMaterial('brushedMetal'); clubBrass.color.set('#c59a53'); clubBrass.roughness = 0.42;
+const displayGlass = surfaceMaterial('glass', false, false);
+displayGlass.color.set('#c9edf0');
+displayGlass.transparent = true;
+displayGlass.opacity = 0.18;
+displayGlass.depthWrite = false;
 
 /**
  * 归一化的程序化倒角实体：软包使用更大的圆角，木作只做细小倒棱。
@@ -554,22 +560,66 @@ export function ClubCraftTable({ position, ry }: { position: P3; ry: number }) {
 }
 
 export function ClubTrophyWall({ position, ry }: { position: P3; ry: number }) {
+  const photoAccents = [red, blue, green];
   return (
-    <group position={position} rotation={[0, ry, 0]}>
-      <mesh material={darkWood}><boxGeometry args={[3.8, 2.4, 0.12]} /></mesh>
-      <mesh position={[0, 0.7, 0.08]} material={cream}><boxGeometry args={[3.55, 0.78, 0.05]} /></mesh>
-      {[[-1.15, red], [0, blue], [1.15, green]].map(([x, material], i) => (
-        <mesh key={i} position={[x as number, 0.74, 0.13]} material={material as THREE.Material}>
-          <boxGeometry args={[0.82, 0.55, 0.03]} />
-        </mesh>
+    <group position={position} rotation={[0, ry, 0]} dispose={null}>
+      {/* A recessed timber display case, not a decorative board pasted on the wall. */}
+      <SculptedPart position={[0, 0, -0.12]} scale={[4.08, 2.58, 0.28]} material={darkWood} />
+      <SculptedPart position={[0, 0, 0.035]} scale={[3.72, 2.22, 0.16]} material={cream} castShadow={false} />
+      {[-1.91, 1.91].map((x) => (
+        <SculptedPart key={`case-side-${x}`} position={[x, 0, 0.19]} scale={[0.18, 2.52, 0.48]} material={wood} />
       ))}
-      {[-1.05, 0, 1.05].map((x, i) => (
-        <group key={x} position={[x, -0.45, 0.14]}>
-          <mesh position={[0, -0.22, 0]} material={gold}><cylinderGeometry args={[0.2, 0.28, 0.08, 16]} /></mesh>
-          <mesh material={i === 1 ? red : gold}><sphereGeometry args={[0.22, 16, 12]} /></mesh>
-          <mesh position={[0, 0.26, 0]} material={gold}><coneGeometry args={[0.11, 0.25, 8]} /></mesh>
+      {[-1.19, 1.19].map((y) => (
+        <SculptedPart key={`case-rail-${y}`} position={[0, y, 0.19]} scale={[4.0, 0.18, 0.48]} material={wood} />
+      ))}
+      <SculptedPart position={[0, -0.18, 0.21]} scale={[3.76, 0.13, 0.44]} material={darkWood} />
+      <SculptedPart position={[0, -0.08, 0.31]} scale={[3.58, 0.07, 0.5]} material={clubBrass} />
+
+      {/* Three individually framed memories with mats, glazing and offset picture layers. */}
+      {[-1.18, 0, 1.18].map((x, i) => (
+        <group key={`memory-${x}`} position={[x, 0.64, 0.32]} rotation={[0, 0, (i - 1) * 0.025]}>
+          <SculptedPart position={[0, 0, 0]} scale={[0.94, 0.77, 0.13]} material={darkWood} />
+          <SculptedPart position={[0, 0, 0.085]} scale={[0.76, 0.59, 0.07]} material={paper} castShadow={false} />
+          <SculptedPart position={[0, 0.03, 0.132]} scale={[0.61, 0.39, 0.035]} material={photoAccents[i]} castShadow={false} />
+          <SculptedPart position={[-0.15, 0.055, 0.155]} scale={[0.17, 0.21, 0.025]} material={creamFabric} castShadow={false} />
+          <SculptedPart position={[0.13, -0.055, 0.156]} scale={[0.25, 0.12, 0.025]} material={i === 1 ? lavender : gold} castShadow={false} />
         </group>
       ))}
+
+      {/* Three awards use different silhouettes so the shelf reads as collected history. */}
+      <group position={[-1.13, -0.65, 0.44]}>
+        <SculptedPart position={[0, -0.29, 0]} scale={[0.46, 0.12, 0.34]} material={darkWood} />
+        <mesh position={[0, -0.16, 0]} material={clubBrass} castShadow><cylinderGeometry args={[0.055, 0.07, 0.28, 10]} /></mesh>
+        <mesh position={[0, 0.04, 0]} material={clubBrass} castShadow><cylinderGeometry args={[0.22, 0.12, 0.24, 16]} /></mesh>
+        {[-0.23, 0.23].map((x) => (
+          <mesh key={`cup-handle-${x}`} position={[x, 0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={clubBrass} castShadow>
+            <torusGeometry args={[0.13, 0.028, 6, 12, Math.PI * 1.25]} />
+          </mesh>
+        ))}
+      </group>
+      <group position={[0, -0.61, 0.43]}>
+        <SculptedPart position={[0, -0.33, 0]} scale={[0.52, 0.12, 0.34]} material={darkWood} />
+        <mesh position={[0, -0.15, 0]} material={clubBrass} castShadow><cylinderGeometry args={[0.05, 0.065, 0.32, 10]} /></mesh>
+        <mesh position={[0, 0.12, 0]} rotation={[0, Math.PI / 4, Math.PI / 4]} material={red} castShadow>
+          <octahedronGeometry args={[0.26, 0]} />
+        </mesh>
+        <mesh position={[0, 0.12, 0]} rotation={[Math.PI / 2, 0, 0]} material={clubBrass} castShadow>
+          <torusGeometry args={[0.34, 0.035, 7, 18]} />
+        </mesh>
+      </group>
+      <group position={[1.13, -0.66, 0.44]}>
+        <SculptedPart position={[0, -0.28, 0]} scale={[0.48, 0.12, 0.34]} material={darkWood} />
+        <mesh position={[0, -0.1, 0]} material={clubBrass} castShadow><cylinderGeometry args={[0.055, 0.075, 0.27, 10]} /></mesh>
+        <mesh position={[0, 0.13, 0]} material={clubBrass} castShadow><coneGeometry args={[0.2, 0.34, 10]} /></mesh>
+        <mesh position={[0, 0.26, 0]} rotation={[Math.PI / 2, 0, 0]} material={blue} castShadow>
+          <torusGeometry args={[0.16, 0.06, 8, 16]} />
+        </mesh>
+      </group>
+
+      {/* Thin front glazing catches the warm room light while keeping the contents readable. */}
+      <mesh position={[0, 0, 0.52]} material={displayGlass} receiveShadow={false} castShadow={false}>
+        <boxGeometry args={[3.72, 2.18, 0.025]} />
+      </mesh>
     </group>
   );
 }
