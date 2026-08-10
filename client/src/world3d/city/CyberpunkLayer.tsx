@@ -91,14 +91,14 @@ const ROAD_EDGE_RUNS: Array<{
   scale: P3;
   accent: THREE.Material;
 }> = [
-  { position: [-20.5, 0.035, -4.18], scale: [8.2, 0.07, 0.16], accent: fxPink },
+  { position: [-20.5, 0.035, -4.18], scale: [8.2, 0.07, 0.16], accent: fxGold },
   { position: [4.5, 0.035, -4.18], scale: [6.8, 0.07, 0.16], accent: fxAqua },
-  { position: [18.2, 0.035, -4.18], scale: [5.4, 0.07, 0.16], accent: fxGold },
+  { position: [18.2, 0.035, -4.18], scale: [5.4, 0.07, 0.16], accent: fxPink },
   { position: [-20.5, 0.035, 6.18], scale: [8.2, 0.07, 0.16], accent: fxAqua },
   { position: [4.5, 0.035, 6.18], scale: [6.8, 0.07, 0.16], accent: fxGold },
-  { position: [18.2, 0.035, 6.18], scale: [5.4, 0.07, 0.16], accent: fxPink },
+  { position: [18.2, 0.035, 6.18], scale: [5.4, 0.07, 0.16], accent: fxAqua },
   { position: [-13.18, 0.035, -14.2], scale: [0.16, 0.07, 7.6], accent: fxGold },
-  { position: [-13.18, 0.035, 14.2], scale: [0.16, 0.07, 7.6], accent: fxPink },
+  { position: [-13.18, 0.035, 14.2], scale: [0.16, 0.07, 7.6], accent: fxAqua },
   { position: [-2.82, 0.035, -14.2], scale: [0.16, 0.07, 7.6], accent: fxAqua },
   { position: [-2.82, 0.035, 14.2], scale: [0.16, 0.07, 7.6], accent: fxGold },
 ];
@@ -149,18 +149,14 @@ function StreetFX() {
   const reduceMotion = useSettings((state) => state.reduceMotion);
   useFrame((_, delta) => {
     t.current += delta;
-    if (left.current) left.current.position.y = reduceMotion ? 0 : Math.sin(t.current * 2.1) * 0.06;
-    if (right.current) right.current.position.y = reduceMotion ? 0 : Math.sin(t.current * 1.8 + 1.4) * 0.05;
-    if (pulse.current) {
-      pulse.current.children.forEach((child, index) => {
-        const baseY = (child.userData.baseY as number | undefined) ?? child.position.y;
-        const baseRz = (child.userData.baseRz as number | undefined) ?? child.rotation.z;
-        child.userData.baseY = baseY;
-        child.userData.baseRz = baseRz;
-        child.position.y = baseY + (reduceMotion ? 0 : Math.sin(t.current * 2.7 + index * 0.55) * 0.045);
-        child.rotation.z = baseRz + (reduceMotion ? 0 : Math.sin(t.current * 0.8 + index) * 0.035);
+    [left.current, right.current, pulse.current].forEach((group, groupIndex) => {
+      group?.children.forEach((child, index) => {
+        if (!child.userData.streetPulse) return;
+        child.scale.y = reduceMotion
+          ? 1
+          : 0.98 + Math.sin(t.current * (2.05 + groupIndex * 0.24) + index * 0.62) * 0.035;
       });
-    }
+    });
   });
   const bars = [-2.8, -1.4, 0, 1.4, 2.8];
   return (
@@ -169,7 +165,7 @@ function StreetFX() {
       <StreetReflectionPools />
       <group ref={left} position={[-18.4, 5.0, -8.8]} rotation={[0, 0.08, -0.12]}>
         {bars.map((x, i) => (
-          <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, i % 2 ? -0.3 : 0.3]} material={i % 2 ? fxAqua : fxPink}>
+          <mesh key={x} userData={{ streetPulse: true }} position={[x, 0, 0]} rotation={[0, 0, i % 2 ? -0.3 : 0.3]} material={i % 2 ? fxAqua : fxGold}>
             <boxGeometry args={[0.12, 2.4 + (i % 3) * 0.55, 0.12]} />
           </mesh>
         ))}
@@ -177,7 +173,7 @@ function StreetFX() {
       </group>
       <group ref={right} position={[15.5, 4.0, 2.5]} rotation={[0, -0.12, 0.16]}>
         {bars.slice(0, 4).map((x, i) => (
-          <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, i % 2 ? 0.24 : -0.24]} material={i === 1 ? fxGold : fxAqua}>
+          <mesh key={x} userData={{ streetPulse: true }} position={[x, 0, 0]} rotation={[0, 0, i % 2 ? 0.24 : -0.24]} material={i === 1 ? fxPink : fxAqua}>
             <boxGeometry args={[0.14, 1.8 + (i % 2) * 0.7, 0.14]} />
           </mesh>
         ))}
@@ -188,7 +184,7 @@ function StreetFX() {
       <group ref={pulse} position={[20.6, 3.75, -6.8]} rotation={[0, -0.16, 0.08]}>
         <mesh position={[0, -1.7, 0]} material={supportMetal} castShadow><boxGeometry args={[5.4, 0.12, 0.18]} /></mesh>
         {[-2.1, -1.4, -0.7, 0, 0.7, 1.4, 2.1].map((x, index) => (
-          <mesh key={x} position={[x, 0, 0]} material={index % 2 ? fxAqua : fxPink} castShadow>
+          <mesh key={x} userData={{ streetPulse: true }} position={[x, 0, 0]} material={index % 2 ? fxAqua : fxPink} castShadow>
             <boxGeometry args={[0.24, 2.7 + (index % 3) * 0.28, 0.12]} />
           </mesh>
         ))}
