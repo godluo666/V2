@@ -7,6 +7,7 @@ import { useFrame } from '@react-three/fiber';
 import { useSettings, useWorld } from '../../state/stores';
 import { hot } from '../../state/hot';
 import { TRACKS, type Stroke, type TicTacToeState, type LightsOutState } from '@nexuspark/shared';
+import { surfaceMaterial } from '../city/materials';
 
 const mat = (color: string, rough = 0.7, metal = 0) =>
   new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
@@ -392,6 +393,21 @@ export function Jukebox({ position, rotation }: { position: [number, number, num
   const playing = !!music?.trackId;
   const track = TRACKS.find((item) => item.id === music?.trackId);
   const reduceMotion = useSettings((state) => state.reduceMotion);
+  const finishes = useMemo(() => {
+    const wood = surfaceMaterial('wood'); wood.color.set('#7a4b2c');
+    const darkWood = surfaceMaterial('wood'); darkWood.color.set('#3b2922');
+    const brass = surfaceMaterial('brushedMetal'); brass.color.set('#c69a55'); brass.roughness = 0.4;
+    const speaker = surfaceMaterial('acousticFabric'); speaker.color.set('#292632');
+    const glass = surfaceMaterial('glass', false, false);
+    glass.color.set('#d4eef0');
+    glass.transparent = true;
+    glass.opacity = 0.16;
+    glass.depthWrite = false;
+    return { wood, darkWood, brass, speaker, glass };
+  }, []);
+  useEffect(() => () => {
+    Object.values(finishes).forEach((material) => material.dispose());
+  }, [finishes]);
   const displayTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
@@ -441,22 +457,18 @@ export function Jukebox({ position, rotation }: { position: [number, number, num
   });
   return (
     <group position={position} rotation={[0, rotation, 0]} name="synchronised-jukebox">
-      <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.08, 0]} castShadow receiveShadow material={finishes.darkWood}>
         <boxGeometry args={[0.94, 0.16, 0.62]} />
-        <meshStandardMaterial color="#35261f" roughness={0.78} />
       </mesh>
-      <mesh position={[0, 0.66, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.66, 0]} castShadow receiveShadow material={finishes.wood}>
         <boxGeometry args={[0.92, 1.18, 0.58]} />
-        <meshStandardMaterial color="#754425" roughness={0.68} metalness={0.04} />
       </mesh>
-      <mesh position={[0, 1.28, 0]} castShadow>
+      <mesh position={[0, 1.28, 0]} castShadow material={finishes.wood}>
         <cylinderGeometry args={[0.46, 0.46, 0.58, 20, 1, false, 0, Math.PI]} />
-        <meshStandardMaterial color="#754425" roughness={0.68} metalness={0.04} />
       </mesh>
       {[-0.48, 0.48].map((x) => (
-        <mesh key={x} position={[x, 0.77, 0]} castShadow>
+        <mesh key={x} position={[x, 0.77, 0]} castShadow material={finishes.brass}>
           <boxGeometry args={[0.08, 1.34, 0.66]} />
-          <meshStandardMaterial color="#c49a58" roughness={0.42} metalness={0.46} />
         </mesh>
       ))}
       <mesh position={[0, 1.28, 0.19]} rotation={[0.1, 0, 0]}>
@@ -474,6 +486,13 @@ export function Jukebox({ position, rotation }: { position: [number, number, num
         </mesh>
         <mesh position={[0, 0, 0.012]}><circleGeometry args={[0.018, 12]} /><meshStandardMaterial color="#f3c86a" metalness={0.55} roughness={0.3} /></mesh>
       </group>
+      <mesh position={[0, 1.23, 0.235]} material={finishes.glass} castShadow={false} receiveShadow={false}>
+        <circleGeometry args={[0.285, 28]} />
+      </mesh>
+      <group position={[0.12, 1.25, 0.25]} rotation={[0, 0, -0.42]}>
+        <mesh material={finishes.brass} castShadow><cylinderGeometry args={[0.018, 0.018, 0.3, 8]} /></mesh>
+        <mesh position={[0, -0.17, 0]} material={finishes.darkWood} castShadow><sphereGeometry args={[0.04, 10, 7]} /></mesh>
+      </group>
       <mesh position={[0, 0.76, 0.306]}>
         <boxGeometry args={[0.68, 0.32, 0.045]} />
         <meshStandardMaterial color="#2f2730" roughness={0.48} metalness={0.16} />
@@ -490,17 +509,36 @@ export function Jukebox({ position, rotation }: { position: [number, number, num
           </mesh>
         ))}
       </group>
-      {[-0.27, 0.27].map((x, i) => (
-        <group key={i} position={[x, 0.27, 0.325]}>
-          <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
+      {/* Mechanical selection bank and coin hardware remain usable-looking
+          even when the animated equalizer is disabled. */}
+      <mesh position={[0, 0.405, 0.314]} material={finishes.brass} castShadow>
+        <boxGeometry args={[0.64, 0.055, 0.04]} />
+      </mesh>
+      {[-0.22, -0.11, 0, 0.11, 0.22].map((x, index) => (
+        <mesh key={`juke-select-${x}`} position={[x, 0.38, 0.345]} material={index === 2 ? finishes.brass : finishes.darkWood} castShadow>
+          <boxGeometry args={[0.07, 0.045, 0.035]} />
+        </mesh>
+      ))}
+      <mesh position={[0.34, 0.62, 0.344]} material={finishes.darkWood} castShadow>
+        <boxGeometry args={[0.08, 0.18, 0.035]} />
+      </mesh>
+      <mesh position={[0.34, 0.65, 0.366]} material={finishes.brass} castShadow={false}>
+        <boxGeometry args={[0.02, 0.1, 0.012]} />
+      </mesh>
+      {[-0.27, 0.27].map((x) => (
+        <group key={x} position={[x, 0.27, 0.325]}>
+          <mesh castShadow rotation={[Math.PI / 2, 0, 0]} material={finishes.brass}>
             <cylinderGeometry args={[0.12, 0.12, 0.055, 16]} />
-            <meshStandardMaterial color="#30251d" roughness={0.82} />
           </mesh>
-          <mesh position={[0, 0, 0.032]}>
+          <mesh position={[0, 0, 0.032]} material={finishes.speaker}>
             <circleGeometry args={[0.075, 16]} />
-            <meshStandardMaterial color="#11161d" roughness={0.92} />
           </mesh>
         </group>
+      ))}
+      {[-0.34, 0.34].map((x) => (
+        <mesh key={`juke-foot-${x}`} position={[x, 0.015, 0]} material={finishes.brass} castShadow>
+          <cylinderGeometry args={[0.045, 0.06, 0.07, 8]} />
+        </mesh>
       ))}
     </group>
   );
