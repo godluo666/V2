@@ -997,21 +997,13 @@ export function CWires({
     }
     return g;
   }, [position[0], position[1], position[2], ry, to, len, sag, strands]); // eslint-disable-line react-hooks/exhaustive-deps
-  const ref = useRef<THREE.Group>(null);
-  const phase = useMemo(() => posSeed(position) % 7, [position]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => {
     group.traverse((object) => {
       if ((object as THREE.Mesh).isMesh) (object as THREE.Mesh).geometry.dispose();
     });
   }, [group]);
-  useFrame((state) => {
-    if (ref.current) {
-      // 缓慢摆动(整束绕挂线轴微转,§4.3)
-      ref.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.45 + phase) * 0.012;
-    }
-  });
   return (
-    <group ref={ref} position={position}>
+    <group position={position}>
       <primitive object={group} dispose={null} />
     </group>
   );
