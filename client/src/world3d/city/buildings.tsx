@@ -763,6 +763,8 @@ function buildTower(
   const wall = jitterColor(WALL_BASES[Math.floor(rnd() * 2)], rnd);
   const { frontage: w, depth: d } = cityBuildingLocalSize(b);
   const { h } = b;
+  const frame = wall.clone().offsetHSL(0, 0, -0.085);
+  const reveal = wall.clone().offsetHSL(0, -0.015, 0.04);
   // 分段体块错落(2-3 段收分)
   const secs = h > 52 ? 3 : 2;
   const fr = secs === 3 ? [0.5, 0.34, 0.16] : [0.62, 0.38];
@@ -780,6 +782,47 @@ function buildTower(
     secDims.push({ y: y0, sh, sw, sd, ox, oz });
     y0 += sh;
   }
+
+  // Four-sided floor bands and corner piers turn the active intersection
+  // tower into a constructed high-rise.  All parts remain in the existing
+  // concrete/metal batches; no sign, emissive plane or new draw call is used.
+  for (const section of secDims) {
+    const front = section.oz + section.sd / 2;
+    const rear = section.oz - section.sd / 2;
+    const left = section.ox - section.sw / 2;
+    const right = section.ox + section.sw / 2;
+    const floorCount = Math.max(2, Math.floor(section.sh / 2.85));
+    for (let floor = 1; floor < floorCount; floor += 1) {
+      const fy = section.y + (floor * section.sh) / floorCount;
+      put(walls, b, ry, section.ox, fy, front + 0.09, section.sw + 0.22, 0.12, 0.24, frame);
+      put(walls, b, ry, section.ox, fy, rear - 0.09, section.sw + 0.22, 0.12, 0.24, frame);
+      put(walls, b, ry, left - 0.09, fy, section.oz, 0.24, 0.12, section.sd + 0.22, frame);
+      put(walls, b, ry, right + 0.09, fy, section.oz, 0.24, 0.12, section.sd + 0.22, frame);
+    }
+
+    for (const xFactor of [-0.33, 0, 0.33]) {
+      put(walls, b, ry, section.ox + section.sw * xFactor, section.y + section.sh / 2,
+        front + 0.12, 0.11, section.sh - 0.55, 0.22, xFactor === 0 ? reveal : frame);
+      put(walls, b, ry, section.ox + section.sw * xFactor, section.y + section.sh / 2,
+        rear - 0.12, 0.11, section.sh - 0.55, 0.22, frame);
+    }
+    for (const zFactor of [-0.3, 0, 0.3]) {
+      put(walls, b, ry, left - 0.12, section.y + section.sh / 2,
+        section.oz + section.sd * zFactor, 0.22, section.sh - 0.55, 0.11, frame);
+      put(walls, b, ry, right + 0.12, section.y + section.sh / 2,
+        section.oz + section.sd * zFactor, 0.22, section.sh - 0.55, 0.11, frame);
+    }
+  }
+
+  // An offset maintenance balcony supplies a human-scale datum on the broad
+  // west return.  It is high above navigation and physically tied to the wall.
+  const serviceY = Math.min(h * 0.46, 16.4);
+  put(walls, b, ry, -w / 2 - 0.48, serviceY, 0.65, 0.92, 0.14, Math.min(5.1, d * 0.46), frame);
+  put(walls, b, ry, -w / 2 - 0.9, serviceY + 0.62, 0.65, 0.08, 1.24, Math.min(5.0, d * 0.44), frame);
+  for (const zOffset of [-1.8, 0, 1.8]) {
+    put(walls, b, ry, -w / 2 - 0.9, serviceY + 0.6, 0.65 + zOffset, 0.08, 1.2, 0.08, frame);
+  }
+  put(walls, b, ry, -w / 2 - 0.94, serviceY + 0.9, 0.65, 0.07, 0.08, Math.min(4.85, d * 0.42), shade(ACCENT.lampSodium, -0.22));
   // 屋顶剪影:水塔 + 天线(§4.1)
   const top = secDims[secs - 1];
   const roofY = top.y + top.sh;
@@ -936,14 +979,19 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
   queue.add('路口高楼', () => {
     const geo = towerWalls.build();
     if (geo) {
-      const mesh = new THREE.Mesh(geo, vertexToonMat(4));
+      const structuralMaterial = surfaceMaterial('metal', true, false);
+      structuralMaterial.roughness = 0.62;
+      structuralMaterial.metalness = 0.58;
+      const mesh = new THREE.Mesh(geo, structuralMaterial);
       mesh.castShadow = true;
+      mesh.receiveShadow = true;
       addOutline(mesh);
       group.add(mesh);
     }
     const detailGeo = towerDetails.build();
     if (detailGeo) {
-      const mesh = new THREE.Mesh(detailGeo, vertexToonMat(4));
+      const towerConcrete = surfaceMaterial('paintedConcrete', true);
+      const mesh = new THREE.Mesh(detailGeo, towerConcrete);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       addOutline(mesh);
