@@ -51,6 +51,7 @@ const MATERIAL = {
   concrete: finish('oldConcrete', '#555960', { roughness: 0.94, metalness: 0.01, bumpScale: 0.15 }),
   painted: finish('paintedConcrete', '#747b84', { roughness: 0.82, metalness: 0.025, bumpScale: 0.075 }),
   blackMetal: finish('metal', '#18232d', { roughness: 0.58, metalness: 0.7, bumpScale: 0.045 }),
+  equipmentPolymer: finish('metal', '#3d4652', { roughness: 0.76, metalness: 0.2, bumpScale: 0.025 }),
   steel: finish('brushedMetal', '#9ba8b2', { roughness: 0.32, metalness: 0.88, bumpScale: 0.032 }),
   darkSteel: finish('brushedMetal', '#455560', { roughness: 0.43, metalness: 0.82, bumpScale: 0.036 }),
   glass: finish('darkGlass', '#19364a', { roughness: 0.2, metalness: 0.46, bumpScale: 0.01 }),
@@ -446,11 +447,11 @@ export function ArenaPlayerStation({
       <Part position={[0, 0.4, -0.34]} scale={[1.35, 0.54, 0.08]} material={MATERIAL.darkSteel} />
 
       {/* 双层显示器外壳、散热背板和实体支架。 */}
-      <Part position={[0, 1.48, -0.27]} scale={[1.24, 0.72, 0.16]} material={MATERIAL.blackMetal} />
+      <Part position={[0, 1.48, -0.27]} scale={[1.24, 0.72, 0.16]} material={MATERIAL.equipmentPolymer} />
       <Part position={[0, 1.48, -0.355]} scale={[1.08, 0.5, 0.045]} material={MATERIAL.steel} />
       <StationScreen seatIdx={seatIdx} />
       <InstancedParts specs={STATION_MONITOR_FINS} material={MATERIAL.blackMetal} />
-      <Part position={[0, 1.48, -0.405]} scale={[0.68, 0.34, 0.06]} material={MATERIAL.blackMetal} />
+      <Part position={[0, 1.48, -0.405]} scale={[0.68, 0.34, 0.06]} material={MATERIAL.equipmentPolymer} />
       <StationBackStatus seatIdx={seatIdx} active={stationLightsOn} />
       <CylinderPart position={[0, 1.03, -0.28]} scale={[0.045, 0.24, 0.045]} material={MATERIAL.steel} />
       <Part position={[0, 0.83, -0.26]} scale={[0.4, 0.04, 0.28]} material={MATERIAL.steel} />
@@ -459,14 +460,14 @@ export function ArenaPlayerStation({
       {/* 键鼠、耳机挂架和带进风格栅的主机。 */}
       <Part position={[0, 0.835, 0.12]} scale={[0.58, 0.035, 0.2]} material={MATERIAL.glass} />
       <InstancedParts specs={STATION_KEYCAPS} material={teamMaterial} />
-      <mesh position={[0.43, 0.855, 0.13]} material={MATERIAL.blackMetal} castShadow>
+      <mesh position={[0.43, 0.855, 0.13]} material={MATERIAL.equipmentPolymer} castShadow>
         <sphereGeometry args={[0.07, 10, 7]} />
       </mesh>
-      <Part position={[0.62, 0.35, -0.09]} scale={[0.28, 0.58, 0.56]} material={MATERIAL.blackMetal} />
+      <Part position={[0.62, 0.35, -0.09]} scale={[0.28, 0.58, 0.56]} material={MATERIAL.equipmentPolymer} />
       <Part position={[0.62, 0.35, 0.202]} scale={[0.21, 0.47, 0.025]} material={MATERIAL.glass} />
       <InstancedParts specs={STATION_TOWER_VENTS} material={teamMaterial} />
       <Part position={[-0.86, 1.12, 0.03]} scale={[0.035, 0.55, 0.22]} material={MATERIAL.steel} />
-      <mesh position={[-0.86, 1.33, 0.05]} rotation={[Math.PI / 2, 0, 0]} material={MATERIAL.blackMetal} castShadow>
+      <mesh position={[-0.86, 1.33, 0.05]} rotation={[Math.PI / 2, 0, 0]} material={MATERIAL.equipmentPolymer} castShadow>
         <torusGeometry args={[0.11, 0.027, 6, 14, Math.PI * 1.45]} />
       </mesh>
       <StationCable side={-1} />
@@ -958,7 +959,7 @@ function ArenaBroadcastPerch({ lightsOn }: { lightsOn: boolean }) {
         <CylinderPart position={[-0.38, 0.48, 0]} scale={[0.055, 0.92, 0.055]} material={MATERIAL.steel} />
         <CylinderPart position={[0.38, 0.48, 0]} scale={[0.055, 0.92, 0.055]} material={MATERIAL.steel} />
         <CylinderPart position={[0, 0.48, 0.48]} scale={[0.055, 0.92, 0.055]} material={MATERIAL.steel} />
-        <Part position={[0, 1.02, 0.06]} scale={[1.05, 0.56, 0.62]} material={MATERIAL.blackMetal} />
+        <Part position={[0, 1.02, 0.06]} scale={[1.05, 0.56, 0.62]} material={MATERIAL.equipmentPolymer} />
         <Part position={[0, 1.08, -0.34]} scale={[0.62, 0.32, 0.08]} material={MATERIAL.glass} castShadow={false} />
         <CylinderPart position={[0, 1.02, 0.55]} rotation={[Math.PI / 2, 0, 0]} scale={[0.24, 0.52, 0.24]} material={MATERIAL.darkSteel} />
         <Part position={[-0.43, 1.18, -0.36]} scale={[0.12, 0.12, 0.08]} material={tally} castShadow={false} />

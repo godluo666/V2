@@ -66,6 +66,64 @@ function roundedSolid(radius: number, bevel: number, segments: number): THREE.Ex
 const SOFT_SOLID = roundedSolid(0.16, 0.07, 3);
 const WOOD_SOLID = roundedSolid(0.07, 0.035, 2);
 
+function pennantGeometry(): THREE.ExtrudeGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.5, 0.5);
+  shape.lineTo(0.5, 0.5);
+  shape.lineTo(0, -0.5);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.08,
+    steps: 1,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    bevelSize: 0.025,
+    bevelThickness: 0.02,
+  });
+  geometry.translate(0, 0, -0.04);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+const PENNANT = pennantGeometry();
+const BUNTING_PATHS: Array<{ from: P3; to: P3 }> = [
+  { from: [-1.9, 3.55, -0.55], to: [-8.3, 3.26, -6.75] },
+  { from: [2.0, 3.5, 0.05], to: [7.55, 3.18, -3.75] },
+  { from: [-0.6, 3.58, 1.65], to: [-8.3, 3.2, 6.35] },
+];
+
+const BUNTING_CABLES = BUNTING_PATHS.map(({ from, to }) => {
+  const start = new THREE.Vector3(...from);
+  const end = new THREE.Vector3(...to);
+  const midpoint = start.clone().lerp(end, 0.5);
+  midpoint.y -= 0.24;
+  return new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3([start, midpoint, end]),
+    18,
+    0.014,
+    5,
+    false,
+  );
+});
+
+interface BuntingSpec { position: P3; rotation: P3; scale: P3 }
+const BUNTING_SPECS: BuntingSpec[][] = [[], [], [], []];
+BUNTING_PATHS.forEach(({ from, to }, pathIndex) => {
+  const yaw = Math.atan2(to[0] - from[0], to[2] - from[2]);
+  for (let flag = 1; flag <= 7; flag += 1) {
+    const t = flag / 8;
+    BUNTING_SPECS[(flag + pathIndex) % BUNTING_SPECS.length].push({
+      position: [
+        THREE.MathUtils.lerp(from[0], to[0], t),
+        THREE.MathUtils.lerp(from[1], to[1], t) - Math.sin(Math.PI * t) * 0.24 - 0.22,
+        THREE.MathUtils.lerp(from[2], to[2], t),
+      ],
+      rotation: [0, yaw, (flag % 3 - 1) * 0.035],
+      scale: [0.28 + (flag % 2) * 0.04, 0.36 + (flag % 3) * 0.025, 0.58],
+    });
+  }
+});
+
 function SculptedPart({
   position,
   scale,
@@ -267,11 +325,31 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
     <group position={position} rotation={[0, ry, 0]}>
       <SculptedPart position={[0, 0.18, 0]} scale={[7.2, 0.36, 2]} material={wood} />
       <mesh position={[0, 0.38, 0.92]} material={glowGold}><boxGeometry args={[7.2, 0.04, 0.07]} /></mesh>
-      <mesh position={[0, 1.75, -0.96]} material={red}><boxGeometry args={[7.2, 2.8, 0.08]} /></mesh>
-      {[-2.1, 0, 2.1].map((x) => (
-        <mesh key={x} position={[x, 1.75, -0.9]} rotation={[0, 0, 0.08 * Math.sign(x)]} material={pink}>
-          <boxGeometry args={[0.12, 2.7, 0.1]} />
-        </mesh>
+      {/* The stage backdrop is a real pleated soft-wall assembly.  Six offset
+          upholstered leaves, a timber pelmet and side returns replace the old
+          single red board that flattened every cloud close-up. */}
+      {[-3.0, -1.8, -0.6, 0.6, 1.8, 3.0].map((x, index) => (
+        <SculptedPart
+          key={x}
+          position={[x, 1.76 + (index % 2) * 0.035, -0.93 - (index % 3) * 0.025]}
+          scale={[1.08, 2.72 - (index % 2) * 0.08, 0.18]}
+          rotation={[0, 0, (index - 2.5) * 0.018]}
+          material={index % 3 === 0 ? blushFabric : index % 3 === 1 ? lavenderFabric : red}
+          soft
+        />
+      ))}
+      <SculptedPart position={[0, 3.18, -0.94]} scale={[7.35, 0.18, 0.3]} material={darkWood} />
+      {[-3.64, 3.64].map((x) => (
+        <SculptedPart key={x} position={[x, 1.72, -0.92]} scale={[0.18, 2.9, 0.3]} material={darkWood} />
+      ))}
+      {[-2.4, -1.2, 0, 1.2, 2.4].map((x, index) => (
+        <SculptedPart
+          key={`stage-divider-${x}`}
+          position={[x, 1.76, -0.79]}
+          scale={[0.045, 2.45 - (index % 2) * 0.18, 0.035]}
+          material={index === 2 ? glowGold : pink}
+          castShadow={false}
+        />
       ))}
       <mesh position={[0, 1.55, -0.8]} rotation={[Math.PI / 2, 0, 0]} material={cream} castShadow>
         <cylinderGeometry args={[0.62, 0.62, 0.09, 32]} />
@@ -751,6 +829,48 @@ function pendantLightIndices(count: number): ReadonlySet<number> {
   return new Set([0, 1, 2, 3, 4]);
 }
 
+function BuntingBatch({ specs, material }: { specs: BuntingSpec[]; material: THREE.Material }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const transform = new THREE.Object3D();
+    specs.forEach((spec, index) => {
+      transform.position.set(...spec.position);
+      transform.rotation.set(...spec.rotation);
+      transform.scale.set(...spec.scale);
+      transform.updateMatrix();
+      mesh.setMatrixAt(index, transform.matrix);
+    });
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [specs]);
+  return (
+    <instancedMesh
+      dispose={null}
+      ref={ref}
+      args={[PENNANT, material, specs.length]}
+      castShadow
+      receiveShadow
+    />
+  );
+}
+
+function ClubBunting() {
+  const materials = [blushFabric, lavenderFabric, sageFabric, creamFabric];
+  return (
+    <group name="club-asymmetric-bunting">
+      {BUNTING_CABLES.map((geometry, index) => (
+        <mesh key={index} dispose={null} geometry={geometry} material={darkWood} castShadow />
+      ))}
+      {BUNTING_SPECS.map((specs, index) => (
+        <BuntingBatch key={index} specs={specs} material={materials[index]} />
+      ))}
+    </group>
+  );
+}
+
 function ClubCeilingCanopy({ lightsOn }: { lightsOn: boolean }) {
   const lantern = lightsOn ? glowGold : darkWood;
   const accent = lightsOn ? lavender : darkWood;
@@ -839,6 +959,7 @@ export function ClubExtras({
         <mesh key={`beam-${x}`} position={[x, 4.08, 0]} material={darkWood}><boxGeometry args={[0.18, 0.22, 17.2]} /></mesh>
       ))}
       <ClubCeilingCanopy lightsOn={lightsOn} />
+      <ClubBunting />
       <ClubCelebrationValance lightsOn={lightsOn} />
       {[-7.2, -3.6, 0, 3.6, 7.2].map((x, i) => (
         <group key={`pendant-${x}`} position={[x, 3.74, -1.1 + (i % 2) * 2.4]}>

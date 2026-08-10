@@ -101,13 +101,33 @@ function SpaceRenderer({ spaceKey }: { spaceKey: string }) {
 function PostFX() {
   const quality = useSettings((s) => s.quality);
   const grain = useSettings((s) => s.grain);
+  const spaceKey = useWorld((s) => s.spaceKey);
   const caOffset = useMemo(() => new THREE.Vector2(0.0008, 0.0008), []);
   const highTier = quality === 'high' || quality === 'ultra';
+  // Colour grading follows each space's authored hierarchy instead of applying
+  // one corporate-looking filter to the entire game.  Street/arena receive the
+  // strongest chroma separation; cinema and club stay material-led and warm.
+  const saturation = spaceKey === SPACE.PLAZA
+    ? 0.15
+    : spaceKey === SPACE.NETCAFE
+      ? 0.12
+      : spaceKey === SPACE.GAMEROOM
+        ? 0.07
+        : spaceKey === SPACE.CINEMA
+          ? 0.045
+          : 0.08;
+  const bloomIntensity = spaceKey === SPACE.PLAZA
+    ? 0.42
+    : spaceKey === SPACE.NETCAFE
+      ? 0.4
+      : spaceKey === SPACE.CINEMA
+        ? 0.3
+        : 0.34;
   const children = [
     <SMAA key="smaa" />,
     // 只让招牌/灯芯起光晕,禁止大范围糊屏(§7)
-    <Bloom key="bloom" intensity={0.38} luminanceThreshold={0.78} luminanceSmoothing={0.2} mipmapBlur />,
-    <HueSaturation key="grade" saturation={0.08} />,
+    <Bloom key="bloom" intensity={bloomIntensity} luminanceThreshold={0.8} luminanceSmoothing={0.18} mipmapBlur />,
+    <HueSaturation key="grade" saturation={saturation} />,
     <Vignette key="vig" eskil={false} offset={0.38} darkness={0.22} />,
   ];
   // 胶片颗粒 0.035(settings.grain 开关,§10 Medium 档起默认关)
