@@ -729,6 +729,8 @@ function AisleGuidance({ lightsOn }: { lightsOn: boolean }) {
 interface RiserNosingSpec {
   position: P3;
   scale: P3;
+  facePosition: P3;
+  faceScale: P3;
 }
 
 const RISER_NOSING_SPECS: RiserNosingSpec[] = (() => {
@@ -738,7 +740,14 @@ const RISER_NOSING_SPECS: RiserNosingSpec[] = (() => {
     const z = seating.firstZ + row * seating.rowSpacing - 1.235;
     const y = seating.rowRise * row;
     for (const [x, width] of [[-10.8, 4.05], [0, 7.05], [10.8, 4.05]] as const) {
-      specs.push({ position: [x, y + 0.026, z], scale: [width, 0.052, 0.16] });
+      specs.push({
+        position: [x, y + 0.026, z],
+        scale: [width, 0.052, 0.16],
+        // The actual vertical face sits at the front edge of the authoritative
+        // 2.55m row band and spans the exact 0.38m rise from the previous deck.
+        facePosition: [x, y - seating.rowRise / 2, z - 0.04],
+        faceScale: [width, seating.rowRise - 0.035, 0.09],
+      });
     }
   }
   return specs;
@@ -747,10 +756,12 @@ const RISER_NOSING_SPECS: RiserNosingSpec[] = (() => {
 function CinemaRiserNosings({ lightsOn }: { lightsOn: boolean }) {
   const housingRef = useRef<THREE.InstancedMesh>(null);
   const accentRef = useRef<THREE.InstancedMesh>(null);
+  const faceRef = useRef<THREE.InstancedMesh>(null);
   useLayoutEffect(() => {
     const housing = housingRef.current;
     const accent = accentRef.current;
-    if (!housing || !accent) return;
+    const face = faceRef.current;
+    if (!housing || !accent || !face) return;
     const transform = new THREE.Object3D();
     RISER_NOSING_SPECS.forEach((spec, index) => {
       transform.position.set(...spec.position);
@@ -761,14 +772,27 @@ function CinemaRiserNosings({ lightsOn }: { lightsOn: boolean }) {
       transform.scale.set(spec.scale[0] - 0.18, 0.022, 0.045);
       transform.updateMatrix();
       accent.setMatrixAt(index, transform.matrix);
+      transform.position.set(...spec.facePosition);
+      transform.scale.set(...spec.faceScale);
+      transform.updateMatrix();
+      face.setMatrixAt(index, transform.matrix);
     });
     housing.instanceMatrix.needsUpdate = true;
     accent.instanceMatrix.needsUpdate = true;
+    face.instanceMatrix.needsUpdate = true;
     housing.computeBoundingSphere();
     accent.computeBoundingSphere();
+    face.computeBoundingSphere();
   }, []);
   return (
     <group name="cinema-riser-nosings">
+      <instancedMesh
+        dispose={null}
+        ref={faceRef}
+        args={[seatBox, burgundyFabric, RISER_NOSING_SPECS.length]}
+        castShadow
+        receiveShadow
+      />
       <instancedMesh dispose={null} ref={housingRef} args={[seatBox, blackSteel, RISER_NOSING_SPECS.length]} castShadow receiveShadow />
       <instancedMesh
         dispose={null}
