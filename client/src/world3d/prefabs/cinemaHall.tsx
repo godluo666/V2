@@ -726,6 +726,61 @@ function AisleGuidance({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+interface RiserNosingSpec {
+  position: P3;
+  scale: P3;
+}
+
+const RISER_NOSING_SPECS: RiserNosingSpec[] = (() => {
+  const specs: RiserNosingSpec[] = [];
+  const seating = CINEMA_SPATIAL_CONTRACT.seating;
+  for (let row = 1; row < seating.rows; row += 1) {
+    const z = seating.firstZ + row * seating.rowSpacing - 1.235;
+    const y = seating.rowRise * row;
+    for (const [x, width] of [[-10.8, 4.05], [0, 7.05], [10.8, 4.05]] as const) {
+      specs.push({ position: [x, y + 0.026, z], scale: [width, 0.052, 0.16] });
+    }
+  }
+  return specs;
+})();
+
+function CinemaRiserNosings({ lightsOn }: { lightsOn: boolean }) {
+  const housingRef = useRef<THREE.InstancedMesh>(null);
+  const accentRef = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const housing = housingRef.current;
+    const accent = accentRef.current;
+    if (!housing || !accent) return;
+    const transform = new THREE.Object3D();
+    RISER_NOSING_SPECS.forEach((spec, index) => {
+      transform.position.set(...spec.position);
+      transform.scale.set(...spec.scale);
+      transform.updateMatrix();
+      housing.setMatrixAt(index, transform.matrix);
+      transform.position.set(spec.position[0], spec.position[1] + 0.037, spec.position[2] - 0.055);
+      transform.scale.set(spec.scale[0] - 0.18, 0.022, 0.045);
+      transform.updateMatrix();
+      accent.setMatrixAt(index, transform.matrix);
+    });
+    housing.instanceMatrix.needsUpdate = true;
+    accent.instanceMatrix.needsUpdate = true;
+    housing.computeBoundingSphere();
+    accent.computeBoundingSphere();
+  }, []);
+  return (
+    <group name="cinema-riser-nosings">
+      <instancedMesh dispose={null} ref={housingRef} args={[seatBox, blackSteel, RISER_NOSING_SPECS.length]} castShadow receiveShadow />
+      <instancedMesh
+        dispose={null}
+        ref={accentRef}
+        args={[seatBox, guideOn, RISER_NOSING_SPECS.length]}
+        material={lightsOn ? guideOn : guideOff}
+        receiveShadow
+      />
+    </group>
+  );
+}
+
 function GrandCeilingCrown({ lightsOn }: { lightsOn: boolean }) {
   const accent = lightsOn ? guideOn : guideOff;
   const frames = [
@@ -788,6 +843,7 @@ export function CinemaHallArchitecture({
       <CinemaSideGalleries lightsOn={lightsOn} />
       <RearArchitecture lightsOn={lightsOn} />
       <AisleGuidance lightsOn={lightsOn} />
+      <CinemaRiserNosings lightsOn={lightsOn} />
       <GrandCeilingCrown lightsOn={lightsOn} />
 
       {/* Layered ceiling: side soffits, acoustic clouds, then supported trusses. */}

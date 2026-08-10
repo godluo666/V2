@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from '@nexuspark/shared';
 import {
-  ROADS, SIDEWALKS, BUILDINGS, cityBuildingLocalSize,
+  ROADS, SIDEWALKS, BUILDINGS, CROSSWALKS, VENUES, cityBuildingLocalSize,
 } from '@nexuspark/shared/src/cityplan';
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
@@ -77,6 +77,17 @@ function storefrontRy(b: (typeof BUILDINGS)[number]): number {
   return Math.round(Math.atan2(dirX, dirZ) / (Math.PI / 2)) * (Math.PI / 2);
 }
 
+function nearVenueEntrance(x: number, z: number, radius: number): boolean {
+  return VENUES.some((venue) => (venue.x - x) ** 2 + (venue.z - z) ** 2 < radius ** 2);
+}
+
+function insideCrosswalkFocus(x: number, z: number, margin = 2.8): boolean {
+  return CROSSWALKS.some((crosswalk) => (
+    Math.abs(x - crosswalk.x) <= crosswalk.w / 2 + margin
+    && Math.abs(z - crosswalk.z) <= crosswalk.d / 2 + margin
+  ));
+}
+
 // ── 悬挂店招贴图(4 款通用小灯箱,不构成完整店名)────────────────────────────
 const HANG_SIGNS: { text: string; color: string }[] = [
   { text: '呑', color: ACCENT.mahjongLantern },
@@ -128,10 +139,12 @@ export function enqueueForeground(queue: BuildQueue): THREE.Group {
         const run = 3 + Math.floor(rnd() * 3); // 3-5 连
         for (let k = 0; k < run && along < L / 2 - 2; k++) {
           if (rnd() < density) {
-            items.push({
-              x: edge.ex + (edge.alongX ? along : 0),
+            const x = edge.ex + (edge.alongX ? along : 0);
+            const z = edge.ez + (edge.alongX ? 0 : along);
+            if (!nearVenueEntrance(x, z, 4.2) && !insideCrosswalkFocus(x, z, 1.0)) items.push({
+              x,
               y: 0.05,
-              z: edge.ez + (edge.alongX ? 0 : along),
+              z,
               ry: (edge.alongX ? 0 : Math.PI / 2) + (rnd() - 0.5) * 0.06,
               s: 1 + (rnd() - 0.5) * 0.05,
               color: jitterColor(ENV.metal, rnd),
@@ -172,6 +185,14 @@ export function enqueueForeground(queue: BuildQueue): THREE.Group {
           const px = r.x + (alongX ? along : cross);
           const pz = r.z + (alongX ? cross : along);
           if (rnd() > density) continue;
+          // Keep the main crossing and public entrances legible.  Resetting
+          // the cable chain is essential: merely omitting the pole would make
+          // one extra-long wire span the protected view and still cut through
+          // the media tower or venue portal.
+          if (insideCrosswalkFocus(px, pz) || nearVenueEntrance(px, pz, 5.2)) {
+            prev[String(side)] = null;
+            continue;
+          }
           poleItems.push({
             x: px, y: 0, z: pz,
             ry: rnd() * Math.PI * 2, s: 1 + (rnd() - 0.5) * 0.06,
@@ -182,7 +203,7 @@ export function enqueueForeground(queue: BuildQueue): THREE.Group {
           if (p) { addCable(p, top, 1.0 + rnd() * 0.5); addCable(p.clone().add(new THREE.Vector3(0, -0.3, 0)), top.clone().add(new THREE.Vector3(0, -0.3, 0)), 1.2 + rnd() * 0.5); }
           prev[String(side)] = top;
           // 横跨街道的电缆(§4.3):约 1/3 的杆位拉一束过街线到对侧
-          if (rnd() < 0.35) {
+          if (rnd() < 0.18) {
             const across = new THREE.Vector3(
               alongX ? px + (rnd() - 0.5) * 4 : r.x - side * (T / 2 + 1.1),
               6.6,
@@ -216,7 +237,7 @@ export function enqueueForeground(queue: BuildQueue): THREE.Group {
     const variantBags = HANG_SIGNS.map(() => new MergeBag());
     const brackets = new MergeBag();
     for (const b of BUILDINGS) {
-      if (b.style !== 'shopfront') continue;
+      if (b.style !== 'shopfront' || b.venue) continue;
       const ry = storefrontRy(b);
       const { frontage, depth } = cityBuildingLocalSize(b);
       const c = Math.cos(ry), s = Math.sin(ry);

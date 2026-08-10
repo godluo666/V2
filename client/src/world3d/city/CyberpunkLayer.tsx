@@ -20,6 +20,72 @@ const fxAqua = toonMat('#37e8f1', { emissive: '#13c9e5', emissiveIntensity: 1.1 
 const fxGold = toonMat('#ffd34f', { emissive: '#ff9e2e', emissiveIntensity: 1.05 });
 const FX_BOX = new THREE.BoxGeometry(1, 1, 1);
 
+function reflectionMaterial(color: string, emissive: string): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive,
+    emissiveIntensity: 0.18,
+    roughness: 0.32,
+    metalness: 0.22,
+    transparent: true,
+    opacity: 0.32,
+    depthWrite: false,
+  });
+}
+
+const reflectionRed = reflectionMaterial('#db315c', '#8f183b');
+const reflectionAqua = reflectionMaterial('#24bccc', '#087c91');
+const reflectionGold = reflectionMaterial('#d9a53f', '#8a5519');
+
+function reflectionWedge(length: number, width: number, shear: number): THREE.ExtrudeGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-length / 2, -width * 0.34);
+  shape.lineTo(length / 2, -width / 2);
+  shape.lineTo(length * (0.3 + shear), width * 0.44);
+  shape.lineTo(-length * (0.42 - shear), width / 2);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.024,
+    bevelEnabled: false,
+    steps: 1,
+  });
+  geometry.translate(0, 0, -0.012);
+  geometry.rotateX(-Math.PI / 2);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+const STREET_REFLECTIONS: Array<{
+  geometry: THREE.ExtrudeGeometry;
+  material: THREE.Material;
+  position: P3;
+  yaw: number;
+}> = [
+  { geometry: reflectionWedge(7.8, 1.7, 0.08), material: reflectionRed, position: [12.8, 0.045, -2.65], yaw: -0.07 },
+  { geometry: reflectionWedge(6.2, 1.25, -0.05), material: reflectionAqua, position: [-19.0, 0.045, 4.35], yaw: 0.04 },
+  { geometry: reflectionWedge(5.3, 1.0, 0.02), material: reflectionGold, position: [-5.25, 0.046, -10.4], yaw: Math.PI / 2 - 0.06 },
+  { geometry: reflectionWedge(4.4, 0.75, -0.08), material: reflectionAqua, position: [-10.95, 0.046, 12.9], yaw: Math.PI / 2 + 0.08 },
+];
+
+function StreetReflectionPools() {
+  return (
+    <group name="street-local-reflection-pools">
+      {STREET_REFLECTIONS.map((patch, index) => (
+        <mesh
+          key={index}
+          dispose={null}
+          geometry={patch.geometry}
+          material={patch.material}
+          position={patch.position}
+          rotation={[0, patch.yaw, 0]}
+          receiveShadow
+          renderOrder={1}
+        />
+      ))}
+    </group>
+  );
+}
+
 const ROAD_EDGE_RUNS: Array<{
   position: P3;
   scale: P3;
@@ -100,6 +166,7 @@ function StreetFX() {
   return (
     <group name="street-saturated-fx">
       <StreetColorRunways />
+      <StreetReflectionPools />
       <group ref={left} position={[-18.4, 5.0, -8.8]} rotation={[0, 0.08, -0.12]}>
         {bars.map((x, i) => (
           <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, i % 2 ? -0.3 : 0.3]} material={i % 2 ? fxAqua : fxPink}>

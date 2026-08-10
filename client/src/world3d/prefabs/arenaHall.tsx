@@ -938,6 +938,41 @@ function ArenaVomitoryPortals({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+function ArenaBroadcastPerch({ lightsOn }: { lightsOn: boolean }) {
+  const tally = lightsOn ? MATERIAL.pink : MATERIAL.pinkDim;
+  return (
+    <group name="arena-asymmetric-broadcast-perch">
+      <Part position={[-17.7, 6.08, 0.2]} scale={[3.65, 0.3, 2.3]} material={MATERIAL.darkSteel} />
+      <Part position={[-17.7, 6.28, 0.2]} scale={[3.35, 0.1, 2.05]} material={MATERIAL.rubber} />
+      {([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => (
+        <Part
+          key={`${xSide}-${zSide}`}
+          position={[-17.7 + xSide * 1.52, 4.75, 0.2 + zSide * 0.88]}
+          scale={[0.14, 2.65, 0.14]}
+          material={MATERIAL.steel}
+        />
+      )))}
+      <RailRun position={[-17.7, 6.28, -0.92]} length={3.35} axis="x" />
+      <RailRun position={[-16.05, 6.28, 0.2]} length={2.05} axis="z" />
+      <group position={[-16.75, 6.36, 0.48]} rotation={[0, -Math.PI / 2.35, 0]}>
+        <CylinderPart position={[-0.38, 0.48, 0]} scale={[0.055, 0.92, 0.055]} material={MATERIAL.steel} />
+        <CylinderPart position={[0.38, 0.48, 0]} scale={[0.055, 0.92, 0.055]} material={MATERIAL.steel} />
+        <CylinderPart position={[0, 0.48, 0.48]} scale={[0.055, 0.92, 0.055]} material={MATERIAL.steel} />
+        <Part position={[0, 1.02, 0.06]} scale={[1.05, 0.56, 0.62]} material={MATERIAL.blackMetal} />
+        <Part position={[0, 1.08, -0.34]} scale={[0.62, 0.32, 0.08]} material={MATERIAL.glass} castShadow={false} />
+        <CylinderPart position={[0, 1.02, 0.55]} rotation={[Math.PI / 2, 0, 0]} scale={[0.24, 0.52, 0.24]} material={MATERIAL.darkSteel} />
+        <Part position={[-0.43, 1.18, -0.36]} scale={[0.12, 0.12, 0.08]} material={tally} castShadow={false} />
+        <Part position={[0, 0.72, 0.08]} scale={[0.16, 0.42, 0.16]} material={MATERIAL.steel} />
+      </group>
+      <Part position={[-19.22, 8.08, 0.2]} rotation={[0, 0, -0.12]} scale={[0.3, 3.7, 2.1]} material={MATERIAL.blackMetal} />
+      <Part position={[-19.03, 8.12, 0.2]} rotation={[0, 0, -0.12]} scale={[0.06, 3.12, 1.65]} material={tally} castShadow={false} />
+      {[-0.65, 0, 0.65].map((z, index) => (
+        <Part key={z} position={[-18.98, 7.28 + index * 0.82, 0.2 + z]} scale={[0.07, 0.18, 0.36]} material={index === 1 ? MATERIAL.cyan : MATERIAL.warning} castShadow={false} />
+      ))}
+    </group>
+  );
+}
+
 /* ─────────────────────────── 比赛台与大屏 ─────────────────────────── */
 
 function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
@@ -1488,6 +1523,7 @@ export function ArenaHallArchitecture({
       <TieredStands lightsOn={lightsOn} />
       <ArenaBowlRibbon lightsOn={lightsOn} />
       <ArenaVomitoryPortals lightsOn={lightsOn} />
+      <ArenaBroadcastPerch lightsOn={lightsOn} />
       <OverheadRig lightsOn={lightsOn} />
       <BroadcastAndControl lightsOn={lightsOn} />
       <WallArchitecture lightsOn={lightsOn} />
