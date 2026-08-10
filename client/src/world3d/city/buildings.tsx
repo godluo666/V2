@@ -309,6 +309,79 @@ function mediaTowerTexture(): THREE.CanvasTexture {
   return _mediaTowerTex;
 }
 
+const _mediaTowerSideTex = new Map<-1 | 1, THREE.CanvasTexture>();
+function mediaTowerSideTexture(side: -1 | 1): THREE.CanvasTexture {
+  const cached = _mediaTowerSideTex.get(side);
+  if (cached) return cached;
+  const [canvas, ctx] = makeCanvas(768);
+  canvas.height = 640;
+  const accent = side < 0 ? '#39d7d2' : '#f0c94e';
+  const opposing = side < 0 ? '#f0c94e' : '#39d7d2';
+
+  ctx.fillStyle = '#111722';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Side elevations use their own compressed editorial rhythm. They are not
+  // scaled copies of the 16:9 hero display, so the corner reads as a wrapped
+  // media volume from an oblique street camera.
+  ctx.fillStyle = '#f2ecdf';
+  ctx.beginPath();
+  ctx.moveTo(side < 0 ? 18 : 146, 50);
+  ctx.lineTo(side < 0 ? 612 : 750, 8);
+  ctx.lineTo(side < 0 ? 694 : 636, 456);
+  ctx.lineTo(side < 0 ? 88 : 24, 526);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.moveTo(side < 0 ? 526 : 0, -12);
+  ctx.lineTo(side < 0 ? 768 : 244, 22);
+  ctx.lineTo(side < 0 ? 768 : 304, 244);
+  ctx.lineTo(side < 0 ? 474 : 0, 302);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = opposing;
+  ctx.fillRect(0, 572, 768, 24);
+  ctx.save();
+  ctx.translate(side < 0 ? 92 : 676, 316);
+  ctx.rotate(side < 0 ? -0.07 : 0.07);
+  ctx.fillStyle = '#eb3c5d';
+  ctx.fillRect(-64, -248, 128, 496);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(side < 0 ? 142 : 626, 250);
+  ctx.rotate(side < 0 ? -0.08 : 0.08);
+  ctx.textAlign = side < 0 ? 'left' : 'right';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 94px "Arial Black", "Segoe UI", sans-serif';
+  ctx.lineWidth = 9;
+  ctx.strokeStyle = '#f2ecdf';
+  ctx.strokeText('CITY', side < 0 ? 4 : -4, 5);
+  ctx.fillStyle = '#141923';
+  ctx.fillText('CITY', 0, 0);
+  ctx.font = '900 42px "Arial Black", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#e83c5b';
+  ctx.fillText(side < 0 ? 'PULSE / A' : 'LOOP / B', 0, 82);
+  ctx.restore();
+
+  ctx.fillStyle = '#f2ecdf';
+  ctx.font = '800 22px "Segoe UI", sans-serif';
+  ctx.textAlign = side < 0 ? 'left' : 'right';
+  ctx.fillText('35.68 N / SIGNAL 07', side < 0 ? 28 : 740, 628);
+  ctx.fillStyle = 'rgba(17,23,34,.38)';
+  for (let y = 360; y < 516; y += 17) {
+    for (let x = 214 + ((y / 17) % 2) * 8; x < 566; x += 17) {
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const texture = canvasTexture(canvas, false);
+  _mediaTowerSideTex.set(side, texture);
+  return texture;
+}
+
 /** Project shared façade-sign data onto any building style. */
 function appendFacadeSigns(
   b: Building,
@@ -631,8 +704,19 @@ function buildMediaTower(b: Building, group: THREE.Group, signs: SignSpec[]): vo
   local.add(screen);
   // 转角包屏：在斜向路口镜头里也能看到连续的广告动势，不让主屏只像一面贴墙海报。
   for (const side of [-1, 1] as const) {
-    const sideScreen = new THREE.Mesh(new THREE.PlaneGeometry(d * 0.72, 4.9), screenMat);
-    sideScreen.position.set(side * (w / 2 + 0.12), 8.65, 0.2);
+    const sideTex = mediaTowerSideTexture(side);
+    const sideMat = toonMat(0xffffff, {
+      map: sideTex,
+      emissiveMap: sideTex,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.34,
+      fog: false,
+    });
+    const sideScreen = new THREE.Mesh(new THREE.PlaneGeometry(d * 0.72, 4.9), sideMat);
+    // The display surface sits 2 cm beyond the 28 cm-deep housing. The old
+    // 12 cm offset left it inside the shell's outer face and could disappear
+    // under depth testing at an oblique angle.
+    sideScreen.position.set(side * (w / 2 + 0.18), 8.65, 0.2);
     sideScreen.rotation.y = side * Math.PI / 2;
     local.add(sideScreen);
     const sideFrame = new THREE.Mesh(new THREE.BoxGeometry(0.28, 5.2, d * 0.76), inkMat);
