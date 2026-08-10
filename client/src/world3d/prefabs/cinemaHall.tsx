@@ -1049,27 +1049,6 @@ const cupInterior = tinted('darkGlass', '#313844');
 cupInterior.metalness = 0.16;
 cupInterior.roughness = 0.42;
 
-/**
- * Grounded premium cinema chair.  `position.y` is the exact deck contact
- * plane, matching seat snap points and height zones.  `variant` (or seat row
- * index modulo three) provides restrained fabric/pillow variation.
- */
-export function PremiumCinemaSeat({ position, rotation, variant = 0 }: {
-  position: P3;
-  rotation: number;
-  variant?: number;
-}) {
-  const fabric = seatFabrics[Math.abs(variant) % seatFabrics.length];
-  return (
-    <group position={position} rotation={[0, rotation, 0]} dispose={null}>
-      <mesh geometry={seatMetalGeometry} material={seatMetal} castShadow receiveShadow />
-      <mesh geometry={seatFabricGeometry} material={fabric} castShadow receiveShadow />
-      <mesh geometry={seatTrimGeometry} material={seatTrim} castShadow receiveShadow />
-      <mesh geometry={seatCupGeometry} material={cupInterior} castShadow receiveShadow />
-    </group>
-  );
-}
-
 interface CinemaSeatInstanceSpec {
   position: P3;
   rotation: number;
