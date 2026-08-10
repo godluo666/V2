@@ -234,9 +234,22 @@ export const Avatar = forwardRef<AvatarHandle, Props>(function Avatar(
       </group>
 
       {/* 柔和接触阴影: 被自重轻压在地面上的感觉 (羽化圆) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0.012]}>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.018, 0.025]}
+        scale={[1.16, 0.78, 1]}
+        renderOrder={1}
+      >
         <circleGeometry args={[0.54, 32]} />
-        <meshBasicMaterial map={contactShadowTexture()} transparent depthWrite={false} />
+        <meshBasicMaterial
+          map={contactShadowTexture()}
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+          toneMapped={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+        />
       </mesh>
       {/* nametag */}
       <sprite position={[0, 0.84, 0]} scale={[1.05, 0.26, 1]}>
