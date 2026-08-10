@@ -18,6 +18,53 @@ supportMetal.roughness = 0.5;
 const fxPink = toonMat('#ff3f83', { emissive: '#ff176b', emissiveIntensity: 1.15 });
 const fxAqua = toonMat('#37e8f1', { emissive: '#13c9e5', emissiveIntensity: 1.1 });
 const fxGold = toonMat('#ffd34f', { emissive: '#ff9e2e', emissiveIntensity: 1.05 });
+const FX_BOX = new THREE.BoxGeometry(1, 1, 1);
+
+const ROAD_EDGE_RUNS: Array<{
+  position: P3;
+  scale: P3;
+  accent: THREE.Material;
+}> = [
+  { position: [-20.5, 0.035, -4.18], scale: [8.2, 0.07, 0.16], accent: fxPink },
+  { position: [4.5, 0.035, -4.18], scale: [6.8, 0.07, 0.16], accent: fxAqua },
+  { position: [18.2, 0.035, -4.18], scale: [5.4, 0.07, 0.16], accent: fxGold },
+  { position: [-20.5, 0.035, 6.18], scale: [8.2, 0.07, 0.16], accent: fxAqua },
+  { position: [4.5, 0.035, 6.18], scale: [6.8, 0.07, 0.16], accent: fxGold },
+  { position: [18.2, 0.035, 6.18], scale: [5.4, 0.07, 0.16], accent: fxPink },
+  { position: [-13.18, 0.035, -14.2], scale: [0.16, 0.07, 7.6], accent: fxGold },
+  { position: [-13.18, 0.035, 14.2], scale: [0.16, 0.07, 7.6], accent: fxPink },
+  { position: [-2.82, 0.035, -14.2], scale: [0.16, 0.07, 7.6], accent: fxAqua },
+  { position: [-2.82, 0.035, 14.2], scale: [0.16, 0.07, 7.6], accent: fxGold },
+];
+
+/**
+ * Raised road-edge markers bind the saturated palette to the physical street
+ * instead of adding more floating signs.  A dark metal carrier remains visible
+ * when emissive rendering is reduced, and the broken runs keep every crossing
+ * and venue approach clear.
+ */
+function StreetColorRunways() {
+  return (
+    <group name="street-colour-runways">
+      {ROAD_EDGE_RUNS.map((run, index) => (
+        <group key={index} position={run.position}>
+          <mesh dispose={null} geometry={FX_BOX} position={[0, -0.018, 0]} scale={[run.scale[0] + 0.14, 0.055, run.scale[2] + 0.14]} material={supportMetal} receiveShadow />
+          <mesh dispose={null} geometry={FX_BOX} scale={run.scale} material={run.accent} castShadow={false} />
+          {index % 3 === 0 && (
+            <mesh
+              position={run.scale[0] > run.scale[2] ? [run.scale[0] * 0.32, 0.07, 0] : [0, 0.07, run.scale[2] * 0.32]}
+              scale={run.scale[0] > run.scale[2] ? [0.72, 0.025, 0.24] : [0.24, 0.025, 0.72]}
+              material={fxAqua}
+              castShadow={false}
+              dispose={null}
+              geometry={FX_BOX}
+            />
+          )}
+        </group>
+      ))}
+    </group>
+  );
+}
 
 function Cable({ points, color = '#11131a', radius = 0.035 }: { points: P3[]; color?: string; radius?: number }) {
   const geo = useMemo(() => {
@@ -52,6 +99,7 @@ function StreetFX() {
   const bars = [-2.8, -1.4, 0, 1.4, 2.8];
   return (
     <group name="street-saturated-fx">
+      <StreetColorRunways />
       <group ref={left} position={[-18.4, 5.0, -8.8]} rotation={[0, 0.08, -0.12]}>
         {bars.map((x, i) => (
           <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, i % 2 ? -0.3 : 0.3]} material={i % 2 ? fxAqua : fxPink}>

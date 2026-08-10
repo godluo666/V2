@@ -751,6 +751,46 @@ function pendantLightIndices(count: number): ReadonlySet<number> {
   return new Set([0, 1, 2, 3, 4]);
 }
 
+function ClubCeilingCanopy({ lightsOn }: { lightsOn: boolean }) {
+  const lantern = lightsOn ? glowGold : darkWood;
+  const accent = lightsOn ? lavender : darkWood;
+  return (
+    <group name="club-ceiling-canopy">
+      <mesh position={[0, 3.94, 0]} material={darkWood} castShadow receiveShadow>
+        <cylinderGeometry args={[2.85, 2.85, 0.22, 28]} />
+      </mesh>
+      <mesh position={[0, 3.81, 0]} material={cream} castShadow receiveShadow>
+        <cylinderGeometry args={[2.45, 2.45, 0.08, 28]} />
+      </mesh>
+      <mesh position={[0, 3.75, 0]} rotation={[Math.PI / 2, 0, 0]} material={accent} castShadow={false}>
+        <torusGeometry args={[2.12, 0.075, 10, 40]} />
+      </mesh>
+      <mesh position={[0, 3.7, 0]} material={lantern} castShadow={false}>
+        <cylinderGeometry args={[0.58, 0.72, 0.12, 20]} />
+      </mesh>
+      {Array.from({ length: 8 }, (_, index) => {
+        const angle = (index / 8) * Math.PI * 2;
+        const x = Math.cos(angle) * 2.38;
+        const z = Math.sin(angle) * 2.38;
+        return (
+          <group key={index} position={[x, 3.43, z]}>
+            <mesh position={[0, 0.25, 0]} material={darkWood}><cylinderGeometry args={[0.018, 0.018, 0.5, 6]} /></mesh>
+            <mesh material={index % 2 ? lantern : accent} castShadow>
+              <cylinderGeometry args={[0.14, 0.2, 0.34, 12]} />
+            </mesh>
+            <mesh position={[0, -0.19, 0]} material={gold}><cylinderGeometry args={[0.06, 0.03, 0.08, 8]} /></mesh>
+          </group>
+        );
+      })}
+      {([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => (
+        <mesh key={`${xSide}-${zSide}`} position={[xSide * 1.95, 3.86, zSide * 1.95]} rotation={[0, -xSide * zSide * 0.42, 0]} material={wood} castShadow>
+          <boxGeometry args={[1.65, 0.1, 0.16]} />
+        </mesh>
+      )))}
+    </group>
+  );
+}
+
 export function ClubExtras({
   lightsOn,
   lightBudget = 2,
@@ -767,6 +807,7 @@ export function ClubExtras({
       {[-8, -4, 0, 4, 8].map((x) => (
         <mesh key={`beam-${x}`} position={[x, 4.08, 0]} material={darkWood}><boxGeometry args={[0.18, 0.22, 17.2]} /></mesh>
       ))}
+      <ClubCeilingCanopy lightsOn={lightsOn} />
       {[-7.2, -3.6, 0, 3.6, 7.2].map((x, i) => (
         <group key={`pendant-${x}`} position={[x, 3.74, -1.1 + (i % 2) * 2.4]}>
           <mesh position={[0, 0.2, 0]} material={darkWood}><cylinderGeometry args={[0.018, 0.018, 0.35, 6]} /></mesh>

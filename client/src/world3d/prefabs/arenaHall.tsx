@@ -870,6 +870,48 @@ function TieredStands({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+function ArenaBowlRibbon({ lightsOn }: { lightsOn: boolean }) {
+  const cyan = lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim;
+  const violet = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
+  const pink = lightsOn ? MATERIAL.pink : MATERIAL.pinkDim;
+  const sideSegments = [
+    { center: -5.1, length: 8.8 },
+    { center: 5.8, length: 9.4 },
+  ];
+  return (
+    <group name="arena-bowl-event-ribbon">
+      {([-1, 1] as const).flatMap((side) => sideSegments.map((segment, index) => (
+        <group key={`${side}-${segment.center}`} position={[side * 15.18, 4.86, segment.center]}>
+          <Part position={[0, 0, 0]} scale={[0.3, 0.48, segment.length]} material={MATERIAL.blackMetal} />
+          <Part
+            position={[-side * 0.17, 0.03, 0]}
+            scale={[0.055, 0.15, segment.length - 0.42]}
+            material={index === 0 ? cyan : violet}
+            castShadow={false}
+          />
+          {Array.from({ length: 4 }, (_, bay) => (
+            <Part
+              key={bay}
+              position={[-side * 0.19, -0.16, -segment.length / 2 + 1.15 + bay * ((segment.length - 2.3) / 3)]}
+              scale={[0.07, 0.16, 0.5]}
+              material={bay % 2 ? pink : MATERIAL.warning}
+              castShadow={false}
+            />
+          ))}
+        </group>
+      )))}
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * 7.05, 3.08, 15.2]}>
+          <Part position={[0, 0, 0]} scale={[10.7, 0.44, 0.28]} material={MATERIAL.blackMetal} />
+          <Part position={[0, 0.04, -0.17]} scale={[10.15, 0.14, 0.055]} material={side < 0 ? violet : cyan} castShadow={false} />
+        </group>
+      ))}
+      <Part position={[0, 6.78, -10.12]} scale={[17.8, 0.42, 0.3]} material={MATERIAL.darkSteel} />
+      <Part position={[0, 6.8, -9.94]} scale={[17.2, 0.12, 0.055]} material={pink} castShadow={false} />
+    </group>
+  );
+}
+
 /* ─────────────────────────── 比赛台与大屏 ─────────────────────────── */
 
 function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
@@ -1418,6 +1460,7 @@ export function ArenaHallArchitecture({
       <CentralTeamBench lightsOn={lightsOn} />
       <OverheadScreenArray lightsOn={lightsOn} />
       <TieredStands lightsOn={lightsOn} />
+      <ArenaBowlRibbon lightsOn={lightsOn} />
       <OverheadRig lightsOn={lightsOn} />
       <BroadcastAndControl lightsOn={lightsOn} />
       <WallArchitecture lightsOn={lightsOn} />

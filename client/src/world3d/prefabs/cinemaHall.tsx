@@ -687,6 +687,48 @@ function AisleGuidance({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+function GrandCeilingCrown({ lightsOn }: { lightsOn: boolean }) {
+  const accent = lightsOn ? guideOn : guideOff;
+  const frames = [
+    { width: 22.8, depth: 17.6, y: 12.56, material: brushedSteel },
+    { width: 16.4, depth: 11.4, y: 12.36, material: burgundyFabric },
+    { width: 10.2, depth: 6.2, y: 12.2, material: walnut },
+  ];
+  return (
+    <group name="cinema-grand-ceiling-crown">
+      {frames.map((frame, index) => (
+        <group key={frame.width} position={[0, frame.y, 0]}>
+          {([-1, 1] as const).map((side) => (
+            <mesh key={`x-${side}`} position={[side * frame.width / 2, 0, 0]} material={frame.material} castShadow receiveShadow>
+              <boxGeometry args={[0.24 + index * 0.035, 0.26, frame.depth]} />
+            </mesh>
+          ))}
+          {([-1, 1] as const).map((side) => (
+            <mesh key={`z-${side}`} position={[0, 0, side * frame.depth / 2]} material={frame.material} castShadow receiveShadow>
+              <boxGeometry args={[frame.width, 0.26, 0.24 + index * 0.035]} />
+            </mesh>
+          ))}
+          <mesh position={[0, -0.145, frame.depth / 2 - 0.18]} material={accent} castShadow={false}>
+            <boxGeometry args={[frame.width - 0.7, 0.045, 0.09]} />
+          </mesh>
+        </group>
+      ))}
+      {([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => (
+        <group key={`${xSide}-${zSide}`} position={[xSide * 7.9, 12.86, zSide * 5.3]}>
+          <mesh material={blackSteel} castShadow><cylinderGeometry args={[0.055, 0.055, 0.92, 8]} /></mesh>
+          <mesh position={[0, -0.48, 0]} material={brushedSteel} castShadow><boxGeometry args={[0.52, 0.12, 0.52]} /></mesh>
+        </group>
+      )))}
+      <mesh position={[0, 12.07, 0]} material={lightsOn ? burgundyFabric : wallFabric} castShadow receiveShadow>
+        <cylinderGeometry args={[2.2, 2.2, 0.24, 24]} />
+      </mesh>
+      <mesh position={[0, 11.93, 0]} rotation={[Math.PI / 2, 0, 0]} material={accent} castShadow={false}>
+        <torusGeometry args={[1.72, 0.075, 10, 40]} />
+      </mesh>
+    </group>
+  );
+}
+
 /**
  * Complete architectural layer for the rebuilt giant-screen auditorium.
  * Mount once from Interior when spaceKey === 'cinema'.  The room shell and
@@ -706,6 +748,7 @@ export function CinemaHallArchitecture({
       <SideWallSystem lightsOn={lightsOn} />
       <RearArchitecture lightsOn={lightsOn} />
       <AisleGuidance lightsOn={lightsOn} />
+      <GrandCeilingCrown lightsOn={lightsOn} />
 
       {/* Layered ceiling: side soffits, acoustic clouds, then supported trusses. */}
       {([-1, 1] as const).map((side) => (
