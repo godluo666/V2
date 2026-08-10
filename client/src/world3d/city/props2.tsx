@@ -256,77 +256,127 @@ export function CLamp({ position, ry = 0 }: { position: P3; ry?: number }) {
 
 // ═══ c_vend 自动售货机(红/蓝两款,可互动外观)═══════════════════════════════
 
-function vendFrontTexture(kind: 'red' | 'blue'): THREE.CanvasTexture {
-  const base = kind === 'red' ? ACCENT.vendingRed : ACCENT.vendingBlue;
-  const rnd = seededRandom(kind === 'red' ? 4101 : 4102);
-  const [c, ctx] = makeCanvas(256);
-  ctx.fillStyle = cssShade(base, -0.04);
-  ctx.fillRect(0, 0, 256, 256);
-  // 展示窗(上 2/3):暗底 + 三排饮料
-  ctx.fillStyle = cssShade(ENV.outline, 0.02);
-  ctx.fillRect(18, 14, 220, 150);
-  for (let row = 0; row < 3; row++) {
-    for (let i = 0; i < 6; i++) {
-      const colors = [ACCENT.windowWarm, ACCENT.konbiniSign, ACCENT.vendingRed, ACCENT.vendingBlue, ENV.wallPale];
-      ctx.fillStyle = cssShade(colors[Math.floor(rnd() * colors.length)], -0.05);
-      ctx.fillRect(28 + i * 36, 26 + row * 48, 22, 34);
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fillRect(30 + i * 36, 28 + row * 48, 5, 30); // 高光
-    }
-    // 层板
-    ctx.fillStyle = cssShade(ENV.metal, 0.05);
-    ctx.fillRect(18, 62 + row * 48, 220, 4);
-  }
-  // 出货口 + 投币面板
-  ctx.fillStyle = cssShade(ENV.outline, 0.04);
-  ctx.fillRect(18, 190, 140, 52);
-  ctx.strokeStyle = cssShade(base, 0.1);
-  ctx.lineWidth = 3;
-  ctx.strokeRect(18, 190, 140, 52);
-  ctx.fillStyle = cssShade(base, 0.14);
-  ctx.fillRect(176, 178, 62, 64);
-  ctx.fillStyle = cssShade(ENV.outline, 0.02);
-  ctx.fillRect(196, 186, 22, 4);   // 投币口
-  ctx.fillRect(188, 200, 38, 26);  // 按钮区
-  // 品牌横条
-  ctx.fillStyle = cssShade(base, 0.12);
-  ctx.fillRect(0, 166, 256, 16);
-  return canvasTexture(c, false);
+function vendingShell(color: string): THREE.MeshStandardMaterial {
+  const material = surfaceMaterial('metal');
+  material.color.set(color);
+  material.roughness = 0.57;
+  material.metalness = 0.24;
+  return material;
 }
+const vendingRedMaterial = vendingShell('#a93148');
+const vendingBlueMaterial = vendingShell('#2d668f');
+const vendingDarkMaterial = surfaceMaterial('metal');
+vendingDarkMaterial.color.set('#222b33');
+vendingDarkMaterial.roughness = 0.69;
+vendingDarkMaterial.metalness = 0.3;
+const vendingTrimMaterial = surfaceMaterial('brushedMetal');
+vendingTrimMaterial.color.set('#9aa5a8');
+vendingTrimMaterial.roughness = 0.46;
+const vendingGlassMaterial = surfaceMaterial('glass', false, false);
+vendingGlassMaterial.color.set('#bbd8dd');
+vendingGlassMaterial.transparent = true;
+vendingGlassMaterial.opacity = 0.2;
+vendingGlassMaterial.depthWrite = false;
+const vendingProductMaterials = ['#e3b24c', '#39aab0', '#c34558', '#4f78a8'].map((color) => {
+  const material = surfaceMaterial('plasticLightbox');
+  material.color.set(color);
+  material.emissive.set(color);
+  material.emissiveIntensity = 0.08;
+  material.roughness = 0.42;
+  return material;
+});
 
-const vendMatCache = new Map<string, THREE.MeshToonMaterial>();
-function vendFrontMat(kind: 'red' | 'blue'): THREE.MeshToonMaterial {
-  let m = vendMatCache.get(kind);
-  if (!m) {
-    const tex = vendFrontTexture(kind);
-    m = toonMat(0xffffff, { map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.32 });
-    vendMatCache.set(kind, m);
-  }
-  return m;
+function VendingProduct({ col, row }: { col: number; row: number }) {
+  const x = -0.33 + col * 0.22;
+  const y = 1.16 + row * 0.27;
+  const material = vendingProductMaterials[(row * 4 + col) % vendingProductMaterials.length];
+  return (
+    <group position={[x, y, 0.466]}>
+      <mesh material={material} castShadow>
+        <cylinderGeometry args={[0.047, 0.055, 0.18, 8]} />
+      </mesh>
+      <mesh position={[0, 0.102, 0]} material={vendingTrimMaterial} castShadow>
+        <cylinderGeometry args={[0.032, 0.038, 0.026, 8]} />
+      </mesh>
+      <mesh position={[0, -0.125, 0.034]} material={material} castShadow={false}>
+        <boxGeometry args={[0.14, 0.025, 0.025]} />
+      </mesh>
+    </group>
+  );
 }
 
 export function CVend({ position, ry = 0, kind = 'red' }: { position: P3; ry?: number; kind?: 'red' | 'blue' }) {
   const j = useJitter(position);
-  const group = useMemo(() => {
-    const base = kind === 'red' ? ACCENT.vendingRed : ACCENT.vendingBlue;
-    const g = new THREE.Group();
-    const bag = new MergeBag();
-    bag.box(0, 0.95, 0, 1.1, 1.9, 0.78, shade(base, -0.02));
-    bag.box(0, 0.05, 0, 1.14, 0.1, 0.82, shade(ENV.metal, -0.03));
-    bag.box(0, 1.92, 0, 1.14, 0.06, 0.82, shade(base, -0.08));
-    const body = bagMesh(bag);
-    g.add(body);
-    const front = new THREE.Mesh(sharedPlane(), vendFrontMat(kind));
-    front.position.set(0, 1.0, 0.395);
-    front.scale.set(1.02, 1.7, 1);
-    g.add(front);
-    // 门口微光晕(生活感锚点,§4.3)
-    const halo = crossHalo(1.0, base, 0.35);
-    halo.position.set(0, 1.1, 0.55);
-    g.add(halo);
-    return g;
-  }, [kind]);
-  return <primitive object={group} position={position} rotation={[0, ry + j.ry, 0]} scale={[j.s, j.s, j.s]} />;
+  const shell = kind === 'red' ? vendingRedMaterial : vendingBlueMaterial;
+  return (
+    <group position={position} rotation={[0, ry + j.ry, 0]} scale={[j.s, j.s, j.s]}>
+      <mesh position={[0, 1.02, 0]} material={shell} castShadow receiveShadow>
+        <boxGeometry args={[1.12, 1.92, 0.8]} />
+      </mesh>
+      <mesh position={[0, 0.08, 0]} material={vendingDarkMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.2, 0.16, 0.88]} />
+      </mesh>
+      {[-0.42, 0.42].map((x) => (
+        <mesh key={`vend-foot-${x}`} position={[x, 0.025, 0]} material={vendingTrimMaterial} castShadow>
+          <cylinderGeometry args={[0.055, 0.07, 0.16, 8]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 2.015, -0.02]} material={vendingTrimMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.2, 0.1, 0.86]} />
+      </mesh>
+
+      {/* Deep product cabinet: rear liner, shelves, bottles and front glass. */}
+      <mesh position={[0, 1.43, 0.405]} material={vendingDarkMaterial} castShadow receiveShadow>
+        <boxGeometry args={[0.94, 0.94, 0.12]} />
+      </mesh>
+      {[-0.48, 0.48].map((x) => (
+        <mesh key={`vend-window-side-${x}`} position={[x, 1.43, 0.465]} material={vendingTrimMaterial} castShadow>
+          <boxGeometry args={[0.06, 1.02, 0.14]} />
+        </mesh>
+      ))}
+      {[1.01, 1.28, 1.55, 1.82].map((y) => (
+        <mesh key={`vend-shelf-${y}`} position={[0, y, 0.475]} material={vendingTrimMaterial} castShadow>
+          <boxGeometry args={[0.9, 0.035, 0.16]} />
+        </mesh>
+      ))}
+      {[0, 1, 2].flatMap((row) => [0, 1, 2, 3].map((col) => (
+        <VendingProduct key={`vend-product-${row}-${col}`} row={row} col={col} />
+      )))}
+      <mesh position={[0, 1.43, 0.548]} material={vendingGlassMaterial} castShadow={false} receiveShadow>
+        <boxGeometry args={[0.88, 0.9, 0.024]} />
+      </mesh>
+
+      {/* Lower service zone has actual recesses and controls. */}
+      <mesh position={[-0.16, 0.48, 0.438]} material={vendingDarkMaterial} castShadow receiveShadow>
+        <boxGeometry args={[0.58, 0.34, 0.12]} />
+      </mesh>
+      <mesh position={[-0.16, 0.43, 0.512]} material={phoneBodyMaterial} castShadow>
+        <boxGeometry args={[0.48, 0.16, 0.055]} />
+      </mesh>
+      <mesh position={[-0.16, 0.31, 0.49]} material={vendingTrimMaterial} castShadow>
+        <boxGeometry args={[0.55, 0.055, 0.18]} />
+      </mesh>
+      <mesh position={[0.35, 0.56, 0.445]} material={shell} castShadow receiveShadow>
+        <boxGeometry args={[0.26, 0.5, 0.11]} />
+      </mesh>
+      <mesh position={[0.35, 0.72, 0.51]} material={vendingDarkMaterial} castShadow={false}>
+        <boxGeometry args={[0.12, 0.025, 0.03]} />
+      </mesh>
+      {[-0.08, 0.02, 0.12].map((y, index) => (
+        <mesh key={`vend-button-${y}`} position={[0.35, 0.54 + y, 0.515]} material={vendingProductMaterials[index]} castShadow={false}>
+          <boxGeometry args={[0.11, 0.055, 0.03]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.86, 0.47]} material={shell} castShadow>
+        <boxGeometry args={[1.02, 0.1, 0.12]} />
+      </mesh>
+      {([-1, 1] as const).flatMap((side) => [0.62, 0.88, 1.14].map((y) => (
+        <mesh key={`vend-vent-${side}-${y}`} position={[side * 0.566, y, -0.1]} material={vendingDarkMaterial} castShadow={false}>
+          <boxGeometry args={[0.025, 0.045, 0.36]} />
+        </mesh>
+      )))}
+    </group>
+  );
 }
 
 // ═══ c_bench 街头长椅 ═══════════════════════════════════════════════════════
