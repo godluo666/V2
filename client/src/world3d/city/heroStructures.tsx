@@ -133,22 +133,22 @@ function materials(): HeroMaterials {
   darkGlass.metalness = 0.34;
   darkGlass.roughness = 0.28;
   darkGlass.emissive.set('#0d303a');
-  darkGlass.emissiveIntensity = 0.12;
+  darkGlass.emissiveIntensity = 0.18;
 
   const warmGlass = surfaceMaterial('glass');
   warmGlass.color.set('#caa66e');
   warmGlass.emissive.set('#6e421c');
-  warmGlass.emissiveIntensity = 0.14;
+  warmGlass.emissiveIntensity = 0.26;
 
   const cinemaAccent = surfaceMaterial('plasticLightbox');
   cinemaAccent.color.set(ACCENT.cinemaSign);
   cinemaAccent.emissive.set('#7c122f');
-  cinemaAccent.emissiveIntensity = 0.12;
+  cinemaAccent.emissiveIntensity = 0.34;
 
   const arenaAccent = surfaceMaterial('plasticLightbox');
   arenaAccent.color.set(ACCENT.netcafeSign);
   arenaAccent.emissive.set('#073d62');
-  arenaAccent.emissiveIntensity = 0.14;
+  arenaAccent.emissiveIntensity = 0.38;
 
   const clubWood = surfaceMaterial('wood');
   clubWood.color.set('#6b422c');
@@ -388,6 +388,9 @@ function addCinemaEastClosure(
   for (const y of floorLevels) {
     batch.box('brightMetal', wingStartX + wingWidth / 2, y, facadeZ - 0.28, wingWidth + 0.32, 0.3, 0.9);
   }
+  for (const y of [4.88, 13.6, 22.32]) {
+    batch.box('cinemaAccent', wingStartX + wingWidth / 2, y, facadeZ + 0.22, wingWidth - 0.7, 0.09, 0.16);
+  }
   for (let bay = 0; bay < 3; bay++) {
     const x = wingStartX + (bay + 0.5) * frontBayWidth;
     const apertureWidth = frontBayWidth - 0.54;
@@ -431,6 +434,9 @@ function addCinemaEastClosure(
   }
   for (const y of floorLevels) {
     batch.box('brightMetal', wingEndX - 0.08, y, wingCenterZ, 0.58, 0.3, wingDepth + 0.24);
+  }
+  for (const y of [4.88, 13.6, 22.32]) {
+    batch.box('cinemaAccent', wingEndX + 0.23, y, wingCenterZ, 0.12, 0.09, wingDepth - 0.7);
   }
   for (let bay = 0; bay < sideBayCount; bay++) {
     const z = facadeZ - (bay + 0.5) * sideBayDepth;

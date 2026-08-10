@@ -791,6 +791,37 @@ function ClubCeilingCanopy({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+function ClubCelebrationValance({ lightsOn }: { lightsOn: boolean }) {
+  const fabrics = [blushFabric, lavenderFabric, sageFabric, creamFabric];
+  const accent = lightsOn ? glowGold : gold;
+  return (
+    <group name="club-celebration-valance">
+      {[-7.5, -4.5, -1.5, 1.5, 4.5, 7.5].map((x, index) => (
+        <group key={x} position={[x, 3.48, -8.64]}>
+          <SculptedPart
+            position={[0, 0, 0]}
+            scale={[2.72, 0.48 + (index % 2) * 0.09, 0.16]}
+            material={fabrics[index % fabrics.length]}
+            soft
+          />
+          <SculptedPart position={[0, 0.22, 0.02]} scale={[2.45, 0.08, 0.18]} material={darkWood} />
+          <mesh position={[0, -0.2, 0.13]} material={accent} castShadow={false}>
+            <sphereGeometry args={[0.075, 10, 7]} />
+          </mesh>
+        </group>
+      ))}
+      {([-1, 1] as const).map((side) => (
+        <group key={side} position={[side * 9.75, 3.28, -8.58]}>
+          <SculptedPart position={[0, 0, 0]} scale={[0.42, 0.8, 0.18]} material={side < 0 ? blushFabric : lavenderFabric} soft />
+          <mesh position={[0, -0.1, 0.15]} material={gold} castShadow>
+            <torusGeometry args={[0.13, 0.025, 7, 16]} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 export function ClubExtras({
   lightsOn,
   lightBudget = 2,
@@ -808,6 +839,7 @@ export function ClubExtras({
         <mesh key={`beam-${x}`} position={[x, 4.08, 0]} material={darkWood}><boxGeometry args={[0.18, 0.22, 17.2]} /></mesh>
       ))}
       <ClubCeilingCanopy lightsOn={lightsOn} />
+      <ClubCelebrationValance lightsOn={lightsOn} />
       {[-7.2, -3.6, 0, 3.6, 7.2].map((x, i) => (
         <group key={`pendant-${x}`} position={[x, 3.74, -1.1 + (i % 2) * 2.4]}>
           <mesh position={[0, 0.2, 0]} material={darkWood}><cylinderGeometry args={[0.018, 0.018, 0.35, 6]} /></mesh>

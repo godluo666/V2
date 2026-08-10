@@ -478,6 +478,45 @@ function SideWallSystem({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+function CinemaSideGalleries({ lightsOn }: { lightsOn: boolean }) {
+  const accent = lightsOn ? guideOn : guideOff;
+  return (
+    <group name="cinema-side-galleries">
+      {([-1, 1] as const).map((side) => (
+        <group key={side}>
+          <mesh position={[side * 15.72, 9.62, 1.1]} material={paintedSteel} castShadow receiveShadow>
+            <boxGeometry args={[1.08, 0.34, 18.6]} />
+          </mesh>
+          <mesh position={[side * 15.18, 9.37, 1.1]} material={side < 0 ? burgundyFabric : wallFabric} castShadow receiveShadow>
+            <boxGeometry args={[0.18, 0.64, 18.1]} />
+          </mesh>
+          <mesh position={[side * 15.06, 9.52, 1.1]} material={accent} castShadow={false}>
+            <boxGeometry args={[0.055, 0.085, 17.55]} />
+          </mesh>
+          <mesh position={[side * 15.04, 10.72, 1.1]} material={brushedSteel} castShadow>
+            <boxGeometry args={[0.1, 0.1, 17.7]} />
+          </mesh>
+          {[-7.3, -3.1, 1.1, 5.3, 9.5].map((z, index) => (
+            <group key={z}>
+              <mesh position={[side * 15.04, 10.18, z]} material={brushedSteel} castShadow>
+                <boxGeometry args={[0.1, 1.1, 0.1]} />
+              </mesh>
+              <mesh
+                position={[side * 15.42, 9.05, z]}
+                rotation={[0, 0, side * (index % 2 ? 0.52 : -0.52)]}
+                material={blackSteel}
+                castShadow
+              >
+                <boxGeometry args={[0.09, 1.18, 0.12]} />
+              </mesh>
+            </group>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function CeilingTruss({ z, lightsOn }: { z: number; lightsOn: boolean }) {
   const spans = Array.from({ length: 8 }, (_, i) => -14 + i * 4);
   return (
@@ -746,6 +785,7 @@ export function CinemaHallArchitecture({
     <group>
       <ScreenProscenium lightsOn={lightsOn} />
       <SideWallSystem lightsOn={lightsOn} />
+      <CinemaSideGalleries lightsOn={lightsOn} />
       <RearArchitecture lightsOn={lightsOn} />
       <AisleGuidance lightsOn={lightsOn} />
       <GrandCeilingCrown lightsOn={lightsOn} />

@@ -912,6 +912,32 @@ function ArenaBowlRibbon({ lightsOn }: { lightsOn: boolean }) {
   );
 }
 
+function ArenaVomitoryPortals({ lightsOn }: { lightsOn: boolean }) {
+  const cyan = lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim;
+  const violet = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
+  return (
+    <group name="arena-vomitory-portals">
+      {([-1, 1] as const).map((side) => {
+        const accent = side < 0 ? cyan : violet;
+        return (
+          <group key={side}>
+            {[-0.72, 1.92].map((z) => (
+              <group key={z} position={[side * 13.02, 1.35, z]}>
+                <Part position={[0, 0, 0]} scale={[0.72, 2.7, 0.46]} material={MATERIAL.concrete} />
+                <Part position={[-side * 0.4, 0.08, 0]} scale={[0.09, 2.16, 0.3]} material={MATERIAL.steel} />
+              </group>
+            ))}
+            <Part position={[side * 13.02, 2.82, 0.6]} scale={[0.72, 0.48, 3.1]} material={MATERIAL.blackMetal} />
+            <Part position={[side * 12.6, 2.82, 0.6]} scale={[0.08, 0.17, 2.62]} material={accent} castShadow={false} />
+            <Part position={[side * 13.18, 3.18, 0.6]} scale={[1.05, 0.16, 3.35]} material={MATERIAL.darkSteel} />
+            <Part position={[side * 12.57, 1.24, 0.6]} scale={[0.07, 1.66, 0.1]} material={MATERIAL.warning} castShadow={false} />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 /* ─────────────────────────── 比赛台与大屏 ─────────────────────────── */
 
 function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
@@ -1461,6 +1487,7 @@ export function ArenaHallArchitecture({
       <OverheadScreenArray lightsOn={lightsOn} />
       <TieredStands lightsOn={lightsOn} />
       <ArenaBowlRibbon lightsOn={lightsOn} />
+      <ArenaVomitoryPortals lightsOn={lightsOn} />
       <OverheadRig lightsOn={lightsOn} />
       <BroadcastAndControl lightsOn={lightsOn} />
       <WallArchitecture lightsOn={lightsOn} />
