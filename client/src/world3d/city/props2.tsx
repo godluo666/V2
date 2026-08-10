@@ -381,30 +381,65 @@ export function CVend({ position, ry = 0, kind = 'red' }: { position: P3; ry?: n
 
 // ═══ c_bench 街头长椅 ═══════════════════════════════════════════════════════
 
-let _benchGeo: THREE.BufferGeometry | null = null;
-function benchGeo(): THREE.BufferGeometry {
-  if (_benchGeo) return _benchGeo;
-  const bag = new MergeBag();
-  const wood = shade(ENV.wallB, -0.06, 0.01);
-  for (let i = 0; i < 3; i++) bag.box(0, 0.42 + i * 0.001, -0.12 + i * 0.14, 1.7, 0.05, 0.11, shade(wood, i * 0.012));
-  for (let i = 0; i < 2; i++) bag.box(0, 0.62 + i * 0.14, -0.24 - i * 0.045, 1.7, 0.05, 0.1, shade(wood, 0.02 + i * 0.012), 0);
-  for (const sx of [-0.72, 0.72]) {
-    bag.box(sx, 0.21, 0, 0.07, 0.42, 0.5, ENV.metal);
-    bag.box(sx, 0.55, -0.26, 0.07, 0.5, 0.07, ENV.metal);
-  }
-  _benchGeo = bag.build() ?? new THREE.BufferGeometry();
-  return _benchGeo;
-}
+const benchWoodMaterial = surfaceMaterial('wood');
+benchWoodMaterial.color.set('#77543b');
+benchWoodMaterial.roughness = 0.82;
+const benchMetalMaterial = surfaceMaterial('brushedMetal');
+benchMetalMaterial.color.set('#657079');
+benchMetalMaterial.roughness = 0.5;
+benchMetalMaterial.metalness = 0.54;
+const benchFootMaterial = surfaceMaterial('sidewalk');
+benchFootMaterial.color.set('#666a6c');
 
 export function CBench({ position, ry = 0 }: { position: P3; ry?: number }) {
   const j = useJitter(position);
-  const mesh = useMemo(() => {
-    const m = new THREE.Mesh(benchGeo(), vertexToonMat(4));
-    m.castShadow = true; m.receiveShadow = true;
-    addOutline(m);
-    return m;
-  }, []);
-  return <primitive object={mesh} position={position} rotation={[0, ry + j.ry, 0]} scale={[j.s, j.s, j.s]} />;
+  return (
+    <group position={position} rotation={[0, ry + j.ry, 0]} scale={[j.s, j.s, j.s]}>
+      {/* Independent slats retain real gaps, edge highlights and wood response
+          instead of collapsing the whole bench into one toon-coloured mesh. */}
+      {[-0.19, -0.06, 0.07, 0.2].map((z, index) => (
+        <mesh key={`bench-seat-${z}`} position={[0, 0.46 + index * 0.002, z]} material={benchWoodMaterial} castShadow receiveShadow>
+          <boxGeometry args={[1.84, 0.075, 0.105]} />
+        </mesh>
+      ))}
+      {[-0.18, 0, 0.18].map((y, index) => (
+        <mesh
+          key={`bench-back-${y}`}
+          position={[0, 0.72 + y, -0.31 - index * 0.018]}
+          rotation={[-0.08, 0, 0]}
+          material={benchWoodMaterial}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[1.84, 0.11, 0.075]} />
+        </mesh>
+      ))}
+      {([-1, 1] as const).map((side) => (
+        <group key={`bench-frame-${side}`} position={[side * 0.76, 0, 0]}>
+          <mesh position={[0, 0.25, 0]} material={benchMetalMaterial} castShadow>
+            <cylinderGeometry args={[0.045, 0.052, 0.5, 8]} />
+          </mesh>
+          <mesh position={[0, 0.58, -0.27]} rotation={[-0.16, 0, 0]} material={benchMetalMaterial} castShadow>
+            <boxGeometry args={[0.075, 0.68, 0.075]} />
+          </mesh>
+          <mesh position={[0, 0.6, 0.18]} material={benchMetalMaterial} castShadow>
+            <boxGeometry args={[0.1, 0.08, 0.58]} />
+          </mesh>
+          <mesh position={[0, 0.08, 0]} material={benchFootMaterial} castShadow receiveShadow>
+            <boxGeometry args={[0.25, 0.16, 0.5]} />
+          </mesh>
+          {[-0.13, 0.13].map((z) => (
+            <mesh key={`bench-bolt-${side}-${z}`} position={[0, 0.505, z]} rotation={[0, 0, Math.PI / 2]} material={benchMetalMaterial} castShadow>
+              <cylinderGeometry args={[0.025, 0.025, 0.09, 8]} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      <mesh position={[0, 0.4, -0.1]} material={benchMetalMaterial} castShadow>
+        <boxGeometry args={[1.62, 0.07, 0.08]} />
+      </mesh>
+    </group>
+  );
 }
 
 // ═══ c_fence 施工围栏(黄黑条)═══════════════════════════════════════════════
