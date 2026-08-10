@@ -1282,7 +1282,8 @@ function ScreenCable({ points }: { points: P3[] }) {
     const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)));
     return new THREE.TubeGeometry(curve, Math.max(8, points.length * 5), 0.035, 5, false);
   }, [points]);
-  return <mesh geometry={geometry} material={MATERIAL.darkSteel} castShadow receiveShadow />;
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return <mesh geometry={geometry} material={MATERIAL.darkSteel} castShadow receiveShadow dispose={null} />;
 }
 
 function overheadScreenTexture(index: number): THREE.CanvasTexture {
@@ -1293,6 +1294,13 @@ function overheadScreenTexture(index: number): THREE.CanvasTexture {
   canvas.height = 360;
   const ctx = canvas.getContext('2d')!;
   const colors = ['#25d7e8', '#a67bff', '#ff4f9a', '#ffd25a'];
+  const roles = [
+    { eyebrow: 'MATCH CONTROL', hero: '00 : 00', detail: 'ROUND 01 / READY' },
+    { eyebrow: 'TEAM ROSTER', hero: '5 + 5', detail: 'STARTERS / OPPONENT' },
+    { eyebrow: 'TACTICAL VIEW', hero: 'MAP 01', detail: 'OBJECTIVE / ROUTE' },
+    { eyebrow: 'EVENT STREAM', hero: 'LIVE', detail: 'CROWD / REPLAY / DATA' },
+  ];
+  const role = roles[index] ?? roles[0];
   const accent = colors[index % colors.length];
   const gradient = ctx.createLinearGradient(0, 0, 640, 360);
   gradient.addColorStop(0, '#101724');
@@ -1311,12 +1319,17 @@ function overheadScreenTexture(index: number): THREE.CanvasTexture {
   ctx.fillStyle = accent;
   ctx.fillRect(36, 38, 150, 9);
   ctx.font = '700 30px Arial';
-  ctx.fillText(`LIVE FEED 0${index + 1}`, 36, 94);
+  ctx.fillText(role.eyebrow, 36, 94);
   ctx.font = '700 58px Arial';
-  ctx.fillText(index % 2 ? 'VS' : 'ON AIR', 36, 177);
+  ctx.fillText(role.hero, 36, 177);
   ctx.font = '700 22px Arial';
   ctx.fillStyle = '#e9f4ff';
-  ctx.fillText('MOONLIGHT CUP / STAGE CAM', 36, 226);
+  ctx.fillText(role.detail, 36, 226);
+  ctx.fillStyle = `${accent}bb`;
+  const meterCount = 4 + index;
+  for (let meter = 0; meter < meterCount; meter += 1) {
+    ctx.fillRect(36 + meter * 52, 264, 34, 8 + ((meter + index) % 3) * 8);
+  }
   ctx.strokeStyle = `${accent}bb`;
   ctx.lineWidth = 3;
   ctx.strokeRect(28, 28, 584, 302);
@@ -1327,13 +1340,21 @@ function overheadScreenTexture(index: number): THREE.CanvasTexture {
   return texture;
 }
 
+const OVERHEAD_SCREENS: Array<{ position: P3; ry: number }> = [
+  { position: [0, 9.55, -0.55], ry: 0 },
+  { position: [3.9, 9.55, -2.5], ry: Math.PI / 2 },
+  { position: [0, 9.55, -4.45], ry: Math.PI },
+  { position: [-3.9, 9.55, -2.5], ry: -Math.PI / 2 },
+];
+const OVERHEAD_SCREEN_CABLES: P3[][] = ([-1, 1] as const).flatMap((xSide) => (
+  [-1, 1] as const
+).map((zSide) => [
+  [xSide * 3.82, 12.72, -2.5 + zSide * 1.88],
+  [xSide * 3.82, 11.5, -2.5 + zSide * 1.88],
+  [xSide * 3.72, 10.95, -2.5 + zSide * 1.78],
+] as P3[]));
+
 function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
-  const screens: Array<{ position: P3; ry: number }> = [
-    { position: [0, 9.55, -0.55], ry: 0 },
-    { position: [3.9, 9.55, -2.5], ry: Math.PI / 2 },
-    { position: [0, 9.55, -4.45], ry: Math.PI },
-    { position: [-3.9, 9.55, -2.5], ry: -Math.PI / 2 },
-  ];
   return (
     <group name="arena-four-sided-scoreboard">
       {/* A four-sided suspended scoreboard serves the U-shaped audience bowl.
@@ -1362,7 +1383,7 @@ function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
         </group>
       )))}
       <Part position={[0, 9.55, -2.5]} scale={[7.16, 2.9, 3.5]} material={MATERIAL.blackMetal} />
-      {screens.map((screen, index) => {
+      {OVERHEAD_SCREENS.map((screen, index) => {
         const accent = index % 2 === 0 ? (lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim) : (lightsOn ? MATERIAL.violet : MATERIAL.violetDim);
         return (
           <group key={`scoreboard-face-${index}`} position={screen.position} rotation={[0, screen.ry, 0]}>
@@ -1385,15 +1406,8 @@ function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
           </group>
         );
       })}
-      {([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => (
-        <ScreenCable
-          key={`screen-cable-${xSide}-${zSide}`}
-          points={[
-            [xSide * 3.82, 12.72, -2.5 + zSide * 1.88],
-            [xSide * 3.82, 11.5, -2.5 + zSide * 1.88],
-            [xSide * 3.72, 10.95, -2.5 + zSide * 1.78],
-          ]}
-        />
+      {OVERHEAD_SCREEN_CABLES.map((points, index) => (
+        <ScreenCable key={`screen-cable-${index}`} points={points} />
       ))}
     </group>
   );
