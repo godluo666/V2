@@ -503,46 +503,122 @@ export function CFence({ position, ry = 0, w = 1.8 }: { position: P3; ry?: numbe
 
 // ═══ c_bike 自行车(含倒地 variant)═════════════════════════════════════════
 
-let _bikeGeo: THREE.BufferGeometry | null = null;
-let _wheelGeo: THREE.TorusGeometry | null = null;
-function bikeParts(): { frame: THREE.BufferGeometry; wheel: THREE.TorusGeometry } {
-  if (!_bikeGeo || !_wheelGeo) {
-    const bag = new MergeBag();
+let _bikeFrameGeo: THREE.BufferGeometry | null = null;
+let _bikeTireGeo: THREE.TorusGeometry | null = null;
+let _bikeWheelMetalGeo: THREE.BufferGeometry | null = null;
+let _bikeBasketGeo: THREE.BufferGeometry | null = null;
+function bikeParts(): {
+  frame: THREE.BufferGeometry;
+  tire: THREE.TorusGeometry;
+  wheelMetal: THREE.BufferGeometry;
+  basket: THREE.BufferGeometry;
+} {
+  if (!_bikeFrameGeo || !_bikeTireGeo || !_bikeWheelMetalGeo || !_bikeBasketGeo) {
+    const frame = new MergeBag();
     const fc = shade(ENV.metal, 0.03, 0.01);
     // 车架三角 + 前叉 + 座杆 + 把手
-    cylBetween(bag, -0.42, 0.32, 0, 0.1, 0.62, 0, 0.022, fc);
-    cylBetween(bag, -0.42, 0.32, 0, -0.05, 0.6, 0, 0.022, fc);
-    cylBetween(bag, -0.05, 0.6, 0, 0.1, 0.62, 0, 0.02, fc);
-    cylBetween(bag, 0.1, 0.62, 0, 0.44, 0.32, 0, 0.02, fc);
-    cylBetween(bag, -0.05, 0.6, 0, -0.42, 0.32, 0, 0.02, fc);
-    cylBetween(bag, -0.09, 0.72, 0, -0.02, 0.6, 0, 0.02, fc); // 座杆
-    bag.box(-0.1, 0.75, 0, 0.24, 0.05, 0.08, shade(ENV.outline, 0.04)); // 车座
-    cylBetween(bag, 0.44, 0.32, 0, 0.36, 0.78, 0, 0.02, fc); // 前叉→把
-    bag.box(0.36, 0.8, 0, 0.05, 0.04, 0.42, fc); // 横把
-    // 车筐
-    bag.box(0.42, 0.62, 0, 0.24, 0.18, 0.26, shade(ENV.metal, -0.02));
-    _bikeGeo = bag.build() ?? new THREE.BufferGeometry();
-    _wheelGeo = new THREE.TorusGeometry(0.3, 0.024, 8, 20);
+    cylBetween(frame, -0.42, 0.32, 0, 0.1, 0.62, 0, 0.022, fc);
+    cylBetween(frame, -0.42, 0.32, 0, -0.05, 0.6, 0, 0.022, fc);
+    cylBetween(frame, -0.05, 0.6, 0, 0.1, 0.62, 0, 0.02, fc);
+    cylBetween(frame, 0.1, 0.62, 0, 0.44, 0.32, 0, 0.02, fc);
+    cylBetween(frame, -0.05, 0.6, 0, -0.42, 0.32, 0, 0.02, fc);
+    cylBetween(frame, -0.09, 0.72, 0, -0.02, 0.6, 0, 0.02, fc); // 座杆
+    cylBetween(frame, 0.44, 0.32, 0, 0.36, 0.78, 0, 0.02, fc); // 前叉→把
+    frame.box(0.36, 0.8, 0, 0.05, 0.04, 0.42, fc); // 横把
+    cylBetween(frame, -0.12, 0.27, 0.03, -0.25, 0.03, 0.12, 0.012, fc); // 实体脚撑
+    _bikeFrameGeo = frame.build() ?? new THREE.BufferGeometry();
+
+    _bikeTireGeo = new THREE.TorusGeometry(0.3, 0.024, 8, 24);
+    const wheelMetal = new MergeBag();
+    const rim = new THREE.TorusGeometry(0.267, 0.008, 6, 24);
+    wheelMetal.add(rim, { x: 0, y: 0, z: 0, color: '#d8dde0' });
+    rim.dispose();
+    for (let index = 0; index < 10; index += 1) {
+      const angle = (index / 10) * Math.PI * 2;
+      cylBetween(
+        wheelMetal,
+        0, 0, 0,
+        Math.cos(angle) * 0.258, Math.sin(angle) * 0.258, 0,
+        0.0035,
+        '#b7c0c5',
+      );
+    }
+    wheelMetal.add(unitCylinder(), {
+      x: 0, y: 0, z: 0, rx: Math.PI / 2,
+      sx: 0.026, sy: 0.1, sz: 0.026, color: '#eef1ef',
+    });
+    _bikeWheelMetalGeo = wheelMetal.build() ?? new THREE.BufferGeometry();
+
+    // The basket is an open cage rather than a solid placeholder cube. Its
+    // rails retain side thickness and expose the front wheel behind them.
+    const basket = new MergeBag();
+    for (const y of [0.54, 0.7]) {
+      basket.box(0.48, y, -0.14, 0.32, 0.018, 0.018, '#9aa3a8');
+      basket.box(0.48, y, 0.14, 0.32, 0.018, 0.018, '#9aa3a8');
+      basket.box(0.32, y, 0, 0.018, 0.018, 0.28, '#9aa3a8');
+      basket.box(0.64, y, 0, 0.018, 0.018, 0.28, '#9aa3a8');
+    }
+    for (const x of [0.32, 0.4, 0.48, 0.56, 0.64]) {
+      basket.box(x, 0.62, -0.14, 0.012, 0.16, 0.012, '#879197');
+      basket.box(x, 0.62, 0.14, 0.012, 0.16, 0.012, '#879197');
+    }
+    _bikeBasketGeo = basket.build() ?? new THREE.BufferGeometry();
   }
-  return { frame: _bikeGeo, wheel: _wheelGeo };
+  return {
+    frame: _bikeFrameGeo,
+    tire: _bikeTireGeo,
+    wheelMetal: _bikeWheelMetalGeo,
+    basket: _bikeBasketGeo,
+  };
 }
 
-let _wheelMat: THREE.MeshToonMaterial | null = null;
+const bikeFrameMaterials = ['#d96a72', '#55a5ad', '#dfc77b'].map((color) => {
+  const material = surfaceMaterial('brushedMetal', true, false);
+  material.color.set(color);
+  material.roughness = 0.46;
+  material.metalness = 0.62;
+  return material;
+});
+const bikeMetalMaterial = surfaceMaterial('brushedMetal', true, false);
+bikeMetalMaterial.roughness = 0.34;
+bikeMetalMaterial.metalness = 0.86;
+const bikeTireMaterial = surfaceMaterial('wetAsphalt', false, false);
+bikeTireMaterial.color.set('#171a1d');
+bikeTireMaterial.roughness = 0.93;
+bikeTireMaterial.metalness = 0;
+const bikeSaddleMaterial = surfaceMaterial('seatFabric');
+bikeSaddleMaterial.color.set('#3e2e39');
+
 export function CBike({ position, ry = 0, fallen = false }: { position: P3; ry?: number; fallen?: boolean }) {
   const j = useJitter(position);
+  const frameMaterial = bikeFrameMaterials[posSeed(position) % bikeFrameMaterials.length];
   const group = useMemo(() => {
-    const { frame, wheel } = bikeParts();
-    if (!_wheelMat) _wheelMat = toonMat(shade(ENV.outline, 0.05));
+    const { frame, tire, wheelMetal, basket } = bikeParts();
     const g = new THREE.Group();
-    const fm = new THREE.Mesh(frame, vertexToonMat(4));
+    const fm = new THREE.Mesh(frame, frameMaterial);
     fm.castShadow = true;
+    fm.receiveShadow = true;
     addOutline(fm);
     g.add(fm);
+    const cage = new THREE.Mesh(basket, bikeMetalMaterial);
+    cage.castShadow = true;
+    g.add(cage);
+    const saddle = new THREE.Mesh(unitBox(), bikeSaddleMaterial);
+    saddle.position.set(-0.1, 0.75, 0);
+    saddle.scale.set(0.24, 0.05, 0.1);
+    saddle.castShadow = true;
+    g.add(saddle);
     for (const wx of [-0.42, 0.44]) {
-      const w = new THREE.Mesh(wheel, _wheelMat);
-      w.position.set(wx, 0.31, 0);
-      w.castShadow = true;
-      g.add(w);
+      const wheelRoot = new THREE.Group();
+      wheelRoot.position.set(wx, 0.31, 0);
+      const rubber = new THREE.Mesh(tire, bikeTireMaterial);
+      rubber.castShadow = true;
+      rubber.receiveShadow = true;
+      wheelRoot.add(rubber);
+      const hardware = new THREE.Mesh(wheelMetal, bikeMetalMaterial);
+      hardware.castShadow = true;
+      wheelRoot.add(hardware);
+      g.add(wheelRoot);
     }
     if (fallen) {
       g.rotation.z = 0;
@@ -552,10 +628,10 @@ export function CBike({ position, ry = 0, fallen = false }: { position: P3; ry?:
       g.rotation.z = 0.09; // 斜靠
     }
     return g;
-  }, [fallen]);
+  }, [fallen, frameMaterial]);
   return (
     <group position={position} rotation={[0, ry + j.ry, 0]} scale={[j.s, j.s, j.s]}>
-      <primitive object={group} />
+      <primitive object={group} dispose={null} />
     </group>
   );
 }
