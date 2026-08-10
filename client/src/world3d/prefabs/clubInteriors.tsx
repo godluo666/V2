@@ -384,6 +384,13 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
 }
 
 const FLIGHT_TRACK_CELL = new THREE.CylinderGeometry(1, 1, 1, 10);
+const FLIGHT_HOME_SOCKET = new THREE.TorusGeometry(1, 0.14, 6, 14);
+const FLIGHT_HOME_CENTRES: Array<[number, number]> = [
+  [-0.42, -0.42], [0.42, -0.42], [0.42, 0.42], [-0.42, 0.42],
+];
+const FLIGHT_HOME_OFFSETS: Array<[number, number]> = [
+  [-0.075, -0.075], [0.075, -0.075], [-0.075, 0.075], [0.075, 0.075],
+];
 
 function flightTrackPoint(colour: number, progress: number): P3 {
   const cell = (colour * 13 + progress) % 52;
@@ -433,13 +440,49 @@ function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
   );
 }
 
+function flightHomePoint(colour: number, pawn: number): P3 {
+  const centre = FLIGHT_HOME_CENTRES[colour] ?? FLIGHT_HOME_CENTRES[0];
+  const offset = FLIGHT_HOME_OFFSETS[pawn] ?? FLIGHT_HOME_OFFSETS[0];
+  return [centre[0] + offset[0], 0.805, centre[1] + offset[1]];
+}
+
+function FlyingChessHomeSockets({ materials }: { materials: THREE.Material[] }) {
+  const refs = useRef<Array<THREE.InstancedMesh | null>>([]);
+  useLayoutEffect(() => {
+    const transform = new THREE.Object3D();
+    refs.current.forEach((mesh, colour) => {
+      if (!mesh) return;
+      for (let pawn = 0; pawn < 4; pawn += 1) {
+        const [x, y, z] = flightHomePoint(colour, pawn);
+        transform.position.set(x, y - 0.016, z);
+        transform.rotation.set(Math.PI / 2, 0, 0);
+        transform.scale.setScalar(0.055);
+        transform.updateMatrix();
+        mesh.setMatrixAt(pawn, transform.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    });
+  }, []);
+  return (
+    <group>
+      {materials.map((material, colour) => (
+        <instancedMesh
+          key={colour}
+          ref={(node) => { refs.current[colour] = node; }}
+          args={[FLIGHT_HOME_SOCKET, material, 4]}
+          castShadow={false}
+          receiveShadow
+          dispose={null}
+        />
+      ))}
+    </group>
+  );
+}
+
 export function FlyingChessTable({ position, ry }: { position: P3; ry: number }) {
   const colors = [red, blue, gold, green];
   const game = useWorld((state) => state.flying['gr-flight']);
-  const homeSpots: P3[] = [
-    [-0.42, 0.805, -0.42], [0.42, 0.805, -0.42],
-    [0.42, 0.805, 0.42], [-0.42, 0.805, 0.42],
-  ];
   return (
     <group position={position} rotation={[0, ry, 0]}>
       {/* A woven floor-stall mat makes this a sit-down street game rather than
@@ -462,14 +505,12 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
         <mesh key={`v-${v}`} position={[v, 0.763, 0]} material={darkWood}><boxGeometry args={[0.018, 0.014, 1.05]} /></mesh>,
       ])}
       <FlyingChessTrack materials={colors} />
-      {[
-        [-0.42, -0.42], [0.42, -0.42], [0.42, 0.42], [-0.42, 0.42],
-      ].map(([x, z], i) => (
+      <FlyingChessHomeSockets materials={colors} />
+      {FLIGHT_HOME_CENTRES.map(([x, z], i) => (
         <group key={i}>
           <mesh position={[x, 0.772, z]} material={colors[i]}>
             <cylinderGeometry args={[0.23, 0.23, 0.018, 20]} />
           </mesh>
-          <mesh position={[x, 0.82, z]} material={colors[i]}><sphereGeometry args={[0.065, 12, 8]} /></mesh>
         </group>
       ))}
       {/* The board is a live view of the authoritative server state.  Pawns
@@ -478,7 +519,7 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           surface, while the physical stall visibly reflects every move. */}
       {game?.pawns.flatMap((pawns, colour) => pawns.map((progress, pawn) => {
         const p = progress < 0
-          ? homeSpots[colour]
+          ? flightHomePoint(colour, pawn)
           : progress >= 52
           ? [((pawn % 2) - 0.5) * 0.18, 0.805, (Math.floor(pawn / 2) - 0.5) * 0.18] as P3
           : flightTrackPoint(colour, progress);
