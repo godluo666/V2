@@ -225,12 +225,20 @@ function poolMat(): THREE.MeshToonMaterial {
   return _poolMat;
 }
 
+// High-frequency street infrastructure uses one calibrated physical metal
+// response. Vertex colours still preserve each prop's paint scheme, while the
+// shared roughness/metalness separates load-bearing hardware from light cores.
+const streetInfrastructureMetal = surfaceMaterial('brushedMetal', true, false);
+streetInfrastructureMetal.roughness = 0.49;
+streetInfrastructureMetal.metalness = 0.72;
+
 export function CLamp({ position, ry = 0 }: { position: P3; ry?: number }) {
   const j = useJitter(position);
   const group = useMemo(() => {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(lampGeo(), vertexToonMat(4));
+    const body = new THREE.Mesh(lampGeo(), streetInfrastructureMetal);
     body.castShadow = true;
+    body.receiveShadow = true;
     addOutline(body);
     g.add(body);
     const halo = crossHalo(1.5, ACCENT.lampSodium, 0.8);
@@ -1035,8 +1043,9 @@ export function CSignal({ position, ry = 0 }: { position: P3; ry?: number }) {
     cylBetween(bag, 0, 5.1, 0, 0, 5.35, 2.6, 0.06, metal); // 悬臂伸向路面上方
     bag.box(0, 5.32, 2.9, 0.3, 0.42, 0.92, shade(ENV.metal, 0.015)); // 灯箱(纵排两灯,面向 +x)
     bag.box(0.18, 5.55, 2.9, 0.2, 0.06, 1.0, shade(ENV.outline, 0.03)); // 遮光檐
-    const body = new THREE.Mesh(bag.build() ?? new THREE.BufferGeometry(), vertexToonMat(4));
+    const body = new THREE.Mesh(bag.build() ?? new THREE.BufferGeometry(), streetInfrastructureMetal);
     body.castShadow = true;
+    body.receiveShadow = true;
     addOutline(body);
     const haloRed = crossHalo(0.55, ACCENT.trafficRed, 0.7);
     haloRed.position.set(0.3, 5.32, 2.62);
@@ -1399,8 +1408,9 @@ function hydrantGeo(): THREE.BufferGeometry {
 export function CHydrant({ position, ry = 0 }: { position: P3; ry?: number }) {
   const j = useJitter(position);
   const mesh = useMemo(() => {
-    const m = new THREE.Mesh(hydrantGeo(), vertexToonMat(4));
+    const m = new THREE.Mesh(hydrantGeo(), streetInfrastructureMetal);
     m.castShadow = true;
+    m.receiveShadow = true;
     addOutline(m);
     return m;
   }, []);
