@@ -23,6 +23,17 @@ export const CINEMA_SPATIAL_CONTRACT = {
     rowRise: 0.38,
     aisleX: [-6.3, 6.3] as const,
   },
+  rearAisleTransition: {
+    // Five real treads descend from the 1.9m highest row to the rear
+    // base-floor concourse.  Both visible geometry and floorHeightAt consume
+    // this contract, so the entrance route never relies on a vertical snap.
+    x: [-6.3, 6.3] as const,
+    frontZ: 8.825,
+    width: 1.55,
+    stepDepth: 0.42,
+    steps: 5,
+    stepRise: 0.38,
+  },
 } as const;
 
 export const ARENA_SPATIAL_CONTRACT = {
@@ -44,6 +55,17 @@ export const ARENA_SPATIAL_CONTRACT = {
     seatZ: [-5.05, -2.85] as const,
     deckY: 0.6,
     seatY: 1.07,
+  },
+  sideStandAisles: {
+    x: [-1, 1] as const,
+    firstCenterX: 13.85,
+    rowSpacing: 1.35,
+    rows: 4,
+    centerZ: 0.58,
+    treadWidth: 1.32,
+    treadDepth: 2.2,
+    firstRise: 0.42,
+    rowRise: 0.62,
   },
 } as const;
 

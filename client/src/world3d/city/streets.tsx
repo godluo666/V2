@@ -12,16 +12,17 @@
  * canvas 贴图辅助),避免三个模块各写一份。
  */
 import { useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from '@nexuspark/shared';
-import { ROADS, CROSSING, CROSSWALKS, SIDEWALKS } from '@nexuspark/shared/src/cityplan';
-import { ENV, ACCENT } from './palette';
+import { ROADS, CROSSINGS, CROSSWALKS, SIDEWALKS } from '@nexuspark/shared/src/cityplan';
+import { ENV } from './palette';
 import { toonMat } from './toon';
 import { surfaceMaterial } from './materials';
 import { applyPhysicalUv } from './physicalUv';
 import type { BuildQueue } from './progressive';
-import { manholeResources, drainResources } from './props2';
+import { useWorld } from '../../state/stores';
 
 // ═══ 通用构建工具(streets/buildings/foreground 共用)═══════════════════════
 
@@ -267,11 +268,8 @@ export function sidewalkTexture(): THREE.CanvasTexture {
     for (let bx = 0; bx < 8; bx++) {
       const offset = by % 2 === 0 ? 0 : cell / 2;
       const x = ((bx * cell + offset) % 512);
-      const accent = (bx + by * 5) % 19 === 0;
-      ctx.globalAlpha = accent ? 0.2 : 0.42;
-      ctx.fillStyle = accent
-        ? (by % 3 === 0 ? ACCENT.cinemaSign : ACCENT.lampSodium)
-        : cssShade(ENV.sidewalk, (rnd() * 2 - 1) * 0.034, (rnd() - 0.5) * 0.006);
+      ctx.globalAlpha = 0.42;
+      ctx.fillStyle = cssShade(ENV.sidewalk, (rnd() * 2 - 1) * 0.034, (rnd() - 0.5) * 0.006);
       ctx.fillRect(x + 2, by * cell + 2, cell - 4, cell - 4);
       if (x + cell > 512) ctx.fillRect(2, by * cell + 2, x + cell - 514, cell - 4);
     }
@@ -328,7 +326,7 @@ export function crosswalkTexture(): THREE.CanvasTexture {
 }
 
 let _crossingTex: THREE.CanvasTexture | null = null;
-/** 中央路口贴花:外框虚线 + 对角线(§4.1「斑马线×4 中央菱形」),透明底磨损白线。 */
+/** 巷口停止框：磨损白线与日文止まれ标记，不再铺漫画式彩色地画。 */
 export function crossingTexture(): THREE.CanvasTexture {
   if (_crossingTex) return _crossingTex;
   const rnd = seededRandom(20260704);
@@ -336,40 +334,20 @@ export function crossingTexture(): THREE.CanvasTexture {
   ctx.clearRect(0, 0, 512, 512);
   const line = cssShade(ENV.wallPale, 0.3, 0, -0.12);
 
-  // Original manga-urban graphic: asymmetric color wedges and hard ink cuts.
-  ctx.globalAlpha = 0.72;
-  ctx.fillStyle = ACCENT.cinemaSign;
-  ctx.beginPath(); ctx.moveTo(0, 34); ctx.lineTo(225, 196); ctx.lineTo(0, 286); ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 0.62;
-  ctx.fillStyle = ACCENT.netcafeSign;
-  ctx.beginPath(); ctx.moveTo(512, 80); ctx.lineTo(294, 218); ctx.lineTo(512, 318); ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 0.76;
-  ctx.fillStyle = ACCENT.lampSodium;
-  ctx.beginPath(); ctx.moveTo(104, 512); ctx.lineTo(250, 286); ctx.lineTo(348, 512); ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 0.88;
-  ctx.strokeStyle = ENV.outline;
-  ctx.lineWidth = 22;
-  ctx.beginPath(); ctx.moveTo(-20, 408); ctx.lineTo(532, 114); ctx.stroke();
-
   ctx.strokeStyle = line;
-  ctx.globalAlpha = 0.65;
+  ctx.globalAlpha = 0.78;
+  ctx.lineWidth = 13;
+  ctx.beginPath(); ctx.moveTo(52, 92); ctx.lineTo(460, 92); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(88, 138); ctx.lineTo(424, 138); ctx.stroke();
+  ctx.font = '700 92px "Noto Sans JP", "Yu Gothic", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = line;
+  ctx.fillText('止まれ', 256, 300);
   ctx.lineWidth = 10;
-  ctx.setLineDash([34, 22]);
-  ctx.strokeRect(26, 26, 460, 460);
-  // 对角线菱形
   ctx.beginPath();
-  ctx.moveTo(256, 40); ctx.lineTo(472, 256); ctx.lineTo(256, 472); ctx.lineTo(40, 256); ctx.closePath();
+  ctx.moveTo(256, 386); ctx.lineTo(202, 466); ctx.lineTo(310, 466); ctx.closePath();
   ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.globalAlpha = 0.82;
-  ctx.lineWidth = 7;
-  for (let i = 0; i < 5; i++) {
-    ctx.beginPath();
-    ctx.moveTo(54 + i * 25, 360 + i * 18);
-    ctx.lineTo(174 + i * 25, 296 + i * 18);
-    ctx.stroke();
-  }
   // 磨损
   ctx.globalCompositeOperation = 'destination-out';
   for (let i = 0; i < 60; i++) {
@@ -400,11 +378,22 @@ function groundPlane(r: Rect, y: number, tileMeters: number): THREE.BufferGeomet
   return g;
 }
 
+function groundMarkPlane(r: Rect, y: number, ry: number): THREE.BufferGeometry {
+  const g = new THREE.PlaneGeometry(r.w, r.d);
+  g.rotateX(-Math.PI / 2);
+  g.rotateY(ry);
+  g.translate(r.x, y, r.z);
+  return g;
+}
+
 const ROAD_Y = 0.01;
 const SIDEWALK_Y = 0.05;   // 视觉抬高(玩家 y=0 行走,只做薄抬避免陷脚)
 const CURB_H = 0.06;
 
 let streetsGroup: THREE.Group | null = null;
+let roadSurfaceMaterial: THREE.MeshStandardMaterial | null = null;
+const ROAD_DRY_TINT = new THREE.Color('#c8c8c8');
+const ROAD_WET_TINT = new THREE.Color('#a2a9ad');
 
 /** 把路网构建任务挂进队列(幂等:只构建一次,City 重入直接复用)。 */
 export function enqueueStreets(queue: BuildQueue): THREE.Group {
@@ -417,12 +406,18 @@ export function enqueueStreets(queue: BuildQueue): THREE.Group {
   queue.add('路面', () => {
     const parts: THREE.BufferGeometry[] = [];
     for (const r of ROADS) parts.push(groundPlane(r, ROAD_Y, 8));
-    parts.push(groundPlane(CROSSING, ROAD_Y, 8));
     const merged = mergeGeometries(parts);
     parts.forEach((p) => p.dispose());
     if (!merged) return;
     const roadMat = surfaceMaterial('wetAsphalt');
     roadMat.map = asphaltTexture();
+    // A texture replaces the generated wet-asphalt albedo here.  Keep the
+    // material tint close to white so the asphalt map is not multiplied by a
+    // second charcoal value (which previously made the street read as black).
+    roadMat.color.set('#c8c8c8');
+    roadMat.roughness = 0.86;
+    roadMat.metalness = 0.02;
+    roadSurfaceMaterial = roadMat;
     const mesh = new THREE.Mesh(merged, roadMat);
     mesh.receiveShadow = true;
     group.add(mesh);
@@ -459,7 +454,7 @@ export function enqueueStreets(queue: BuildQueue): THREE.Group {
     }
   }, 88);
 
-  // 3) 斑马线贴花 + 中央路口贴花 → 2 mesh
+  // 3) 小型斑马线 + 巷口停止标识 → 2 mesh
   queue.add('斑马线', () => {
     const parts: THREE.BufferGeometry[] = [];
     for (const cw of CROSSWALKS) {
@@ -483,55 +478,17 @@ export function enqueueStreets(queue: BuildQueue): THREE.Group {
       mat.polygonOffsetFactor = -1;
       group.add(new THREE.Mesh(merged, mat));
     }
-    const cg = groundPlane(CROSSING, ROAD_Y + 0.012, Math.max(CROSSING.w, CROSSING.d));
+    const crossingParts = CROSSINGS.map((crossing) => (
+      groundMarkPlane(crossing, ROAD_Y + 0.012, crossing.ry)
+    ));
+    const cg = mergeGeometries(crossingParts);
+    crossingParts.forEach((part) => part.dispose());
     const cmat = toonMat(0xffffff, { map: crossingTexture(), transparent: true });
     cmat.depthWrite = false;
     cmat.polygonOffset = true;
     cmat.polygonOffsetFactor = -1;
-    group.add(new THREE.Mesh(cg, cmat));
+    if (cg) group.add(new THREE.Mesh(cg, cmat));
   }, 86);
-
-  // 4) 井盖 + 排水篦(props2 网格,按路段种子散布)→ 2 instanced mesh
-  queue.add('街面细节', () => {
-    const rnd = seededRandom(20260710);
-    const manholes: InstanceItem[] = [];
-    const drains: InstanceItem[] = [];
-    for (const r of ROADS) {
-      const horizontal = r.w >= r.d;
-      const L = horizontal ? r.w : r.d;
-      const T = horizontal ? r.d : r.w;
-      const put = (along: number, cross: number): [number, number] =>
-        horizontal ? [r.x + along, r.z + cross] : [r.x + cross, r.z + along];
-      // 井盖:~26m 一个,靠近路中线,轻微散布
-      const n = Math.max(1, Math.floor(L / 26));
-      for (let i = 0; i < n; i++) {
-        const along = -L / 2 + ((i + 0.5) / n) * L + (rnd() - 0.5) * 8;
-        const [x, z] = put(along, (rnd() - 0.5) * T * 0.35);
-        manholes.push({
-          x, y: ROAD_Y + 0.012, z,
-          ry: rnd() * Math.PI * 2, s: 0.92 + rnd() * 0.16,
-          color: jitterColor(ENV.metal, rnd),
-        });
-      }
-      // 排水篦:沿两侧路缘,~20m 一个
-      const n2 = Math.max(1, Math.floor(L / 20));
-      for (let i = 0; i < n2; i++) {
-        const along = -L / 2 + ((i + 0.5) / n2) * L + (rnd() - 0.5) * 6;
-        const side = (rnd() > 0.5 ? 1 : -1) * (T / 2 - 0.6);
-        const [x, z] = put(along, side);
-        drains.push({
-          x, y: ROAD_Y + 0.01, z,
-          ry: (horizontal ? 0 : Math.PI / 2) + (rnd() - 0.5) * 0.07,
-          s: 0.92 + rnd() * 0.16,
-          color: jitterColor(shade(ENV.metal, -0.03), rnd),
-        });
-      }
-    }
-    const mh = manholeResources();
-    const dr = drainResources();
-    group.add(makeInstanced(mh.geo, mh.mat, manholes));
-    group.add(makeInstanced(dr.geo, dr.mat, drains));
-  }, 84);
 
   return group;
 }
@@ -539,5 +496,15 @@ export function enqueueStreets(queue: BuildQueue): THREE.Group {
 /** 路网组件:挂载合并组(构建由 City 的 BuildQueue 分帧执行;组模块级缓存,重进秒开)。 */
 export function Streets({ queue }: { queue: BuildQueue }) {
   const group = useMemo(() => enqueueStreets(queue), [queue]);
+  const weather = useWorld((state) => state.env.weather);
+  useFrame((_, dt) => {
+    const material = roadSurfaceMaterial;
+    if (!material) return;
+    const wet = weather === 'rain';
+    const k = 1 - Math.exp(-dt * 1.8);
+    material.color.lerp(wet ? ROAD_WET_TINT : ROAD_DRY_TINT, k);
+    material.roughness += ((wet ? 0.4 : 0.86) - material.roughness) * k;
+    material.metalness += ((wet ? 0.1 : 0.02) - material.metalness) * k;
+  });
   return <primitive object={group} />;
 }

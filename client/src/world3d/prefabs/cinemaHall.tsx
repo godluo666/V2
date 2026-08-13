@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CINEMA_SPATIAL_CONTRACT } from '@nexuspark/shared';
 import { surfaceMaterial, type SurfaceKind } from '../city/materials';
+import { EmergencyExitSign } from './EmergencyExitSign';
 
 type P3 = [number, number, number];
 
@@ -62,14 +63,54 @@ const guideOff = new THREE.MeshStandardMaterial({
   color: '#5b3c35', emissive: '#3a1415', emissiveIntensity: 0.08,
   roughness: 0.7, metalness: 0.1,
 });
-const exitOn = new THREE.MeshStandardMaterial({
-  color: '#bfe9cc', emissive: '#48d878', emissiveIntensity: 1.15,
-  roughness: 0.42, metalness: 0.06,
-});
-const exitOff = new THREE.MeshStandardMaterial({
-  color: '#405649', emissive: '#16351f', emissiveIntensity: 0.12,
-  roughness: 0.7,
-});
+const lobbyPosterTextures = new Map<number, THREE.CanvasTexture>();
+
+function lobbyPosterTexture(index: number): THREE.CanvasTexture {
+  const cached = lobbyPosterTextures.get(index);
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = 600;
+  canvas.height = 900;
+  const ctx = canvas.getContext('2d')!;
+  const palette = index === 0
+    ? { bg: '#162b39', accent: '#8bd6db', warm: '#f0b07d', title: '海辺の手紙', subtitle: 'LETTERS FROM THE SHORE' }
+    : { bg: '#3d1d2b', accent: '#e08b9e', warm: '#f2d7a5', title: '月影列車', subtitle: 'THE MOONLIGHT EXPRESS' };
+  ctx.fillStyle = palette.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, palette.accent);
+  gradient.addColorStop(0.48, 'transparent');
+  gradient.addColorStop(1, palette.warm);
+  ctx.globalAlpha = 0.58;
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.moveTo(0, 180);
+  ctx.lineTo(600, 50);
+  ctx.lineTo(600, 560);
+  ctx.lineTo(0, 760);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = palette.warm;
+  ctx.lineWidth = 9;
+  ctx.strokeRect(20, 20, 560, 860);
+  ctx.fillStyle = '#f6ecdc';
+  ctx.font = '700 72px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(palette.title, 300, 660);
+  ctx.font = '600 26px sans-serif';
+  ctx.fillStyle = palette.warm;
+  ctx.fillText(palette.subtitle, 300, 712);
+  ctx.font = '500 27px sans-serif';
+  ctx.fillStyle = '#f6ecdc';
+  ctx.fillText(index === 0 ? '本日  14:20 / 18:40' : '本日  16:10 / 20:30', 300, 785);
+  ctx.fillText('AURORA GRAND SCREEN', 300, 835);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  lobbyPosterTextures.set(index, texture);
+  return texture;
+}
 
 /** Bevelled solid used for panels and upholstery; unlike a Plane it exposes
  * a side wall and catches a readable highlight around every edge. */
@@ -660,7 +701,6 @@ function ProjectionBooth({ lightsOn }: { lightsOn: boolean }) {
 }
 
 function RearArchitecture({ lightsOn }: { lightsOn: boolean }) {
-  const exitMaterial = lightsOn ? exitOn : exitOff;
   return (
     <group>
       {/* Rear wall returns leave a real central entrance opening. */}
@@ -681,9 +721,22 @@ function RearArchitecture({ lightsOn }: { lightsOn: boolean }) {
       <mesh position={[0, 3.03, 14.42]} material={paintedSteel} castShadow>
         <boxGeometry args={[4.38, 0.26, 0.74]} />
       </mesh>
-      <mesh position={[0, 3.45, 14.05]} material={exitMaterial}>
-        <boxGeometry args={[1.75, 0.32, 0.14]} />
-      </mesh>
+      <EmergencyExitSign position={[0, 3.45, 13.94]} ry={Math.PI} width={1.7} />
+      {/* Two real schedule lightboxes occupy the solid wall returns. They add
+          lobby information without placing props or collision in the exit bay. */}
+      {[-6.25, 6.25].map((x, index) => (
+        <group key={`lobby-poster-${x}`} position={[x, 2.45, 14.42]}>
+          <mesh position={[0, 0, 0.05]} material={paintedSteel} castShadow>
+            <boxGeometry args={[2.52, 3.62, 0.18]} />
+          </mesh>
+          <mesh position={[0, 0, -0.052]} rotation={[0, Math.PI, 0]} castShadow={false}>
+            <planeGeometry args={[2.28, 3.38]} />
+            <meshBasicMaterial map={lobbyPosterTexture(index)} toneMapped={false} />
+          </mesh>
+          <pointLight position={[0, 0, -0.7]} color={index === 0 ? '#9adbe0' : '#edacb7'}
+            intensity={lightsOn ? 2.1 : 0.35} distance={3.5} decay={2} />
+        </group>
+      ))}
       <ProjectionBooth lightsOn={lightsOn} />
     </group>
   );
@@ -698,7 +751,8 @@ const AISLE_LIGHTS: Array<[number, number]> = [
   [1.5, 1.14], [2.7, 1.14],
   [3.9, 1.52], [5.1, 1.52],
   [6.4, 1.9], [7.6, 1.9], [8.75, 1.9],
-  [10.6, 0], [12.4, 0],
+  [9.05, 1.9], [9.47, 1.52], [9.89, 1.14], [10.31, 0.76], [10.73, 0.38],
+  [12.4, 0],
 ];
 const AISLE_LIGHT_HOUSINGS = mergeParts(
   [-6.3, 6.3].flatMap((x) => AISLE_LIGHTS.map(([z, deckY]) => ({
@@ -743,6 +797,76 @@ function AisleGuidance({ lightsOn }: { lightsOn: boolean }) {
       {/* Outer escape route markers remain wall-mounted at ankle height. */}
       <mesh geometry={WALL_GUIDE_HOUSINGS} material={blackSteel} castShadow receiveShadow />
       <mesh geometry={WALL_GUIDE_CORES} material={material} receiveShadow />
+    </group>
+  );
+}
+
+/** Physical rear transition shared with floorHeightAt via the venue contract. */
+function RearAisleTransition({ lightsOn }: { lightsOn: boolean }) {
+  const transition = CINEMA_SPATIAL_CONTRACT.rearAisleTransition;
+  const railLength = Math.hypot(
+    transition.stepDepth * transition.steps,
+    transition.stepRise * transition.steps,
+  );
+  const railPitch = Math.atan2(
+    transition.stepRise * transition.steps,
+    transition.stepDepth * transition.steps,
+  );
+  const railCentreZ = transition.frontZ + transition.stepDepth * transition.steps / 2;
+  const railCentreY = transition.stepRise * transition.steps / 2 + 0.84;
+  return (
+    <group name="cinema-rear-aisle-transition">
+      {transition.x.flatMap((aisleX) => Array.from({ length: transition.steps }, (_, step) => {
+        const height = (transition.steps - step) * transition.stepRise;
+        const z = transition.frontZ + (step + 0.5) * transition.stepDepth;
+        return (
+          <group key={`${aisleX}-${step}`}>
+            <mesh position={[aisleX, height / 2, z]} material={cinemaCarpet} castShadow receiveShadow>
+              <boxGeometry args={[transition.width, height, transition.stepDepth]} />
+            </mesh>
+            <mesh
+              position={[aisleX, height + 0.025, z - transition.stepDepth / 2 + 0.035]}
+              material={lightsOn ? guideOn : guideOff}
+              castShadow={false}
+            >
+              <boxGeometry args={[transition.width - 0.16, 0.05, 0.07]} />
+            </mesh>
+          </group>
+        );
+      }))}
+      {transition.x.flatMap((aisleX) => ([-1, 1] as const).map((side) => (
+        <group key={`rail-${aisleX}-${side}`}>
+          <mesh
+            position={[
+              aisleX + side * (transition.width / 2 - 0.06),
+              railCentreY,
+              railCentreZ,
+            ]}
+            rotation={[railPitch, 0, 0]}
+            material={brushedSteel}
+            castShadow
+          >
+            <boxGeometry args={[0.07, 0.07, railLength]} />
+          </mesh>
+          {[0.5, 2.5, 4.5].map((step) => {
+            const deckY = (transition.steps - step) * transition.stepRise;
+            return (
+              <mesh
+                key={step}
+                position={[
+                  aisleX + side * (transition.width / 2 - 0.06),
+                  deckY + 0.43,
+                  transition.frontZ + step * transition.stepDepth,
+                ]}
+                material={blackSteel}
+                castShadow
+              >
+                <boxGeometry args={[0.07, 0.86, 0.07]} />
+              </mesh>
+            );
+          })}
+        </group>
+      )))}
     </group>
   );
 }
@@ -957,6 +1081,7 @@ export function CinemaHallArchitecture({
       <CinemaSideGalleries lightsOn={lightsOn} />
       <RearArchitecture lightsOn={lightsOn} />
       <AisleGuidance lightsOn={lightsOn} />
+      <RearAisleTransition lightsOn={lightsOn} />
       <CinemaAisleHandrails lightsOn={lightsOn} />
       <CinemaRiserNosings lightsOn={lightsOn} />
       <CinemaSeatInstances />

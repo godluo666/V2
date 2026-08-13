@@ -12,7 +12,6 @@ import { sampleEnv, currentTod, createEnvSample } from './env/daynight';
 import LocalPlayer from './LocalPlayer';
 import RemotePlayers from './RemotePlayers';
 import City from './city/City';
-import { CityAnomalies } from './city/anomalies';
 import { ENV, ACCENT } from './city/palette';
 import Interior from './spaces/Interior';
 import PersonalRoom from './spaces/PersonalRoom';
@@ -108,7 +107,7 @@ function PostFX() {
   // one corporate-looking filter to the entire game.  Street/arena receive the
   // strongest chroma separation; cinema and club stay material-led and warm.
   const saturation = spaceKey === SPACE.PLAZA
-    ? 0.15
+    ? 0.045
     : spaceKey === SPACE.NETCAFE
       ? 0.12
       : spaceKey === SPACE.GAMEROOM
@@ -117,7 +116,7 @@ function PostFX() {
           ? 0.045
           : 0.08;
   const bloomIntensity = spaceKey === SPACE.PLAZA
-    ? 0.42
+    ? 0.18
     : spaceKey === SPACE.NETCAFE
       ? 0.4
       : spaceKey === SPACE.CINEMA
@@ -162,7 +161,6 @@ export default function Scene() {
           <ambientLight color={ENV.fogNear} intensity={0.14} />
           <PlayerRimLight />
           {/* 超自然异常(§6,四项;City.tsx 归 P3,故在此挂) */}
-          <CityAnomalies />
         </>
       )}
       <LocalPlayer />

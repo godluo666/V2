@@ -10,8 +10,10 @@ import {
   WALK_SPEED, RUN_SPEED, JUMP_VELOCITY, GRAVITY, PLAYER_RADIUS,
   resolveCollisions, clampToBounds, floorHeightAt, LAYOUTS, isRoomSpace,
   ROOM_BOUNDS, SPACE, Anim, EMOTES, INTERACT_RANGE, dist2d,
-  GRAB_RANGE, HOLD_MIN, HOLD_MAX, LIFT_MAX, GRABBER_SLOW, INPUT_RATE, VENUES,
+  GRAB_RANGE, HOLD_MIN, HOLD_MAX, LIFT_MAX, GRABBER_SLOW, INPUT_RATE,
+  ROADS,
 } from '@nexuspark/shared';
+import type { SpaceLayout } from '@nexuspark/shared';
 import { hot } from '../state/hot';
 import { useWorld, useUI, useSession, useVoice, useSettings, useSocial } from '../state/stores';
 import { connection } from '../net/connection';
@@ -26,7 +28,6 @@ import { audio } from '../audio/engine';
 // trusses; clamping either venue to the old low-room ceiling made the first frame
 // show wall paint instead of the screen, stage, and stands.
 const CEILINGS: Record<string, number> = { cafe: 3.4, cinema: 13.5, arcade: 3.6, shop: 3.4, lobby: 4.2, netcafe: 13.2, gameroom: 4.2 };
-const STREET_CINEMA = VENUES.find((venue) => venue.key === 'cinema');
 const STREET_LAYOUT = LAYOUTS[SPACE.PLAZA];
 const STREET_SPAWN_CAMERA_YAW = STREET_LAYOUT.spawn[3] + Math.PI;
 const CINEMA_LAYOUT = LAYOUTS[SPACE.CINEMA];
@@ -34,6 +35,45 @@ const CINEMA_SPAWN_CAMERA_YAW = CINEMA_LAYOUT.spawn[3] + Math.PI;
 const CINEMA_SPAWN_CAMERA_PITCH = -0.05;
 const ARENA_LAYOUT = LAYOUTS[SPACE.NETCAFE];
 const ARENA_SPAWN_CAMERA_YAW = ARENA_LAYOUT.spawn[3] + Math.PI;
+const LAYOUT_CAMERA_RADIUS = 0.32;
+
+function clipLayoutCamera(
+  cameraLayout: SpaceLayout,
+  playerX: number,
+  playerY: number,
+  playerZ: number,
+  desiredX: number,
+  desiredY: number,
+  desiredZ: number,
+): [number, number] {
+  const dx = desiredX - playerX;
+  const dz = desiredZ - playerZ;
+  const distance = Math.hypot(dx, dz);
+  if (distance < 0.01) return [desiredX, desiredZ];
+  const blocked = (x: number, y: number, z: number) => cameraLayout.colliders.some((collider) => {
+    if (collider.cameraHeight == null || y > collider.cameraHeight + 0.08) return false;
+    if (collider.kind === 'circle') {
+      return Math.hypot(x - collider.x, z - collider.z) < collider.r + LAYOUT_CAMERA_RADIUS;
+    }
+    return Math.abs(x - collider.x) < collider.w / 2 + LAYOUT_CAMERA_RADIUS
+      && Math.abs(z - collider.z) < collider.d / 2 + LAYOUT_CAMERA_RADIUS;
+  });
+  const steps = Math.max(1, Math.ceil(distance / 0.12));
+  let safeT = 0;
+  for (let step = 1; step <= steps; step++) {
+    const t = step / steps;
+    if (blocked(
+      playerX + dx * t,
+      playerY + (desiredY - playerY) * t,
+      playerZ + dz * t,
+    )) {
+      const clippedT = Math.max(0, safeT - 0.42 / distance);
+      return [playerX + dx * clippedT, playerZ + dz * clippedT];
+    }
+    safeT = t;
+  }
+  return [desiredX, desiredZ];
+}
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -51,7 +91,6 @@ export default function LocalPlayer() {
   const seatTargets = useRef(new Map<string, Target>());
   // ── 抓取 / 第一人称状态 ──
   const grabCandidate = useRef<number | null>(null);
-  const cinemaFacadeFrameRef = useRef(0);
   const cinemaHeroFrameRef = useRef(0);
   const grabHeld = useRef<false | 'key' | 'mouse'>(false);
   const lastGrabMove = useRef(0);
@@ -375,42 +414,7 @@ export default function LocalPlayer() {
       const facing = 1 - THREE.MathUtils.smoothstep(Math.abs(yawDelta), 0.16, 0.72);
       portraitStreetFrame = portrait * proximity * facing;
     }
-    // The cinema door is close to a tall facade, so the generic follow rig can
-    // only frame its threshold. When the player deliberately faces the lobby
-    // from its shared approach, ease the same player camera backward and lift
-    // its target to the entrance crown. Turning away or leaving the pavement
-    // removes the blend immediately; this is not a cloud-test camera branch.
-    let cinemaFacadeTarget = 0;
-    if (streetView && STREET_CINEMA) {
-      const dx = l.x - STREET_CINEMA.approach[0];
-      const dz = l.z - STREET_CINEMA.approach[1];
-      const distance = Math.hypot(dx, dz);
-      const yawDelta = Math.atan2(
-        Math.sin(cam.yaw - STREET_CINEMA.ry),
-        Math.cos(cam.yaw - STREET_CINEMA.ry),
-      );
-      const proximity = 1 - THREE.MathUtils.smoothstep(distance, 1.6, 5.2);
-      const facing = 1 - THREE.MathUtils.smoothstep(Math.abs(yawDelta), 0.06, 0.42);
-      cinemaFacadeTarget = proximity * facing * (moving ? 0 : 1);
-    }
     const cameraBlendK = 1 - Math.exp(-dt * 12);
-    if (!streetView) cinemaFacadeFrameRef.current = 0;
-    else cinemaFacadeFrameRef.current += (cinemaFacadeTarget - cinemaFacadeFrameRef.current) * cameraBlendK;
-    const cinemaFacadeFrame = cinemaFacadeFrameRef.current;
-    // Aim just west of the door rather than at its exact centre. The entrance
-    // then sits on the right visual third and the dense continuing facade fills
-    // the frame; the east street termination no longer consumes a third of the
-    // evidence/player view as empty sky and black road. Derive the lateral
-    // offset from the venue rotation so the framing remains data-aligned.
-    const cinemaFacadeAimOffset = -2.0 * cinemaFacadeFrame;
-    const cinemaFacadeAimX = STREET_CINEMA
-      ? (STREET_CINEMA.x - l.x) * cinemaFacadeFrame
-        + Math.cos(STREET_CINEMA.ry) * cinemaFacadeAimOffset
-      : 0;
-    const cinemaFacadeAimZ = STREET_CINEMA
-      ? (STREET_CINEMA.z - l.z) * cinemaFacadeFrame
-        - Math.sin(STREET_CINEMA.ry) * cinemaFacadeAimOffset
-      : 0;
     // The cinema entrance opens at the rear of the highest seating tier.  Its
     // ordinary low follow camera therefore sees seat backs rather than the
     // stepped auditorium.  While an unseated player is still at the shared
@@ -429,7 +433,10 @@ export default function LocalPlayer() {
         Math.cos(cam.yaw - CINEMA_SPAWN_CAMERA_YAW),
       );
       const pitchDelta = Math.abs(cam.pitch - CINEMA_SPAWN_CAMERA_PITCH);
-      const proximity = 1 - THREE.MathUtils.smoothstep(spawnDistance, 0.8, 3.8);
+      // Keep the establishing lift local to the arrival mark. Rear lobby
+      // services need the normal role-height camera as soon as the player
+      // deliberately leaves the spawn composition.
+      const proximity = 1 - THREE.MathUtils.smoothstep(spawnDistance, 0.7, 1.65);
       const facing = 1 - THREE.MathUtils.smoothstep(Math.abs(yawDelta), 0.08, 0.5);
       const pitchMatch = 1 - THREE.MathUtils.smoothstep(pitchDelta, 0.035, 0.22);
       cinemaHeroTarget = proximity * facing * pitchMatch;
@@ -475,7 +482,7 @@ export default function LocalPlayer() {
     // 画面下三分之一，同时保留略向上的都市峡谷视角。
     const streetCompositionLift = THREE.MathUtils.lerp(1.72, 3.75, portraitStreetFrame);
     const compositionLift = streetView
-      ? THREE.MathUtils.lerp(streetCompositionLift, 5.1, cinemaFacadeFrame)
+      ? streetCompositionLift
       : spaceKey === SPACE.CINEMA ? THREE.MathUtils.lerp(2.25, 8.3, cinemaHeroFrame)
         : spaceKey === SPACE.NETCAFE ? THREE.MathUtils.lerp(1.9, 3.85, arenaHeroFrame)
           : 0.8;
@@ -485,24 +492,19 @@ export default function LocalPlayer() {
       Math.max(cam.dist, 10.2),
       portraitStreetFrame,
     );
+    const inShortAlley = streetView && ROADS.slice(1).some((road) => (
+      Math.abs(l.x - road.x) <= road.w / 2 + 0.12
+      && Math.abs(l.z - road.z) <= road.d / 2 + 0.12
+    ));
     const viewDistance = streetView
-      // 11.5m frames the 9.7m portal while keeping the lens north of the
-      // opposite apartment's projecting balcony line at world z≈7.3.
-      ? THREE.MathUtils.lerp(streetPosterDistance, Math.max(streetPosterDistance, 11.5), cinemaFacadeFrame)
+      ? inShortAlley ? Math.min(streetPosterDistance, 3.25) : streetPosterDistance
       : spaceKey === SPACE.NETCAFE
         ? THREE.MathUtils.lerp(cam.dist, Math.max(cam.dist, 12.4), arenaHeroFrame)
         : cam.dist;
-    // Shift the lens slightly west of the approach while it keeps aiming at the
-    // physical door.  The east-side shoulder used by the previous pass pushed
-    // the entrance left and exposed the end of the street as empty sky/black
-    // road; this opposite parallax keeps the vestibule and its side return in
-    // frame without inventing test-only scenery.
-    const facadeShoulder = cinemaFacadeFrame * -0.55;
-    let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * viewDistance
-      + Math.cos(cam.yaw) * facadeShoulder;
-    let cz = l.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * viewDistance
-      - Math.sin(cam.yaw) * facadeShoulder;
+    let cx = l.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * viewDistance;
+    let cz = l.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * viewDistance;
     let cy = headY + Math.sin(cam.pitch) * viewDistance;
+    if (layout) [cx, cz] = clipLayoutCamera(layout, l.x, headY, l.z, cx, cy, cz);
     // keep the camera inside small interiors instead of behind their walls
     const ceiling = CEILINGS[spaceKey] ?? (isRoomSpace(spaceKey) ? 3.0 : 0);
     if (ceiling > 0) {
@@ -541,6 +543,16 @@ export default function LocalPlayer() {
     camera.position.x += (px - camera.position.x) * kPos;
     camera.position.y += (py - camera.position.y) * kPos;
     camera.position.z += (pz - camera.position.z) * kPos;
+    // The target above is collision-safe, but interpolation starts at the
+    // previous frame's camera position.  In a narrow alley that old position
+    // can still cross a facade for several frames.  Clip the actual lens after
+    // interpolation as well so a slow frame or abrupt turn never shows the
+    // inside of a wall.
+    if (layout) {
+      [camera.position.x, camera.position.z] = clipLayoutCamera(
+        layout, l.x, headY, l.z, camera.position.x, camera.position.y, camera.position.z,
+      );
+    }
     const portraitAimRight = portraitStreetFrame * 1.0;
     // In a portrait viewport the near-player target leaves only asphalt in
     // the narrow vertical cone. Aim down the actual northbound street so the
@@ -549,14 +561,14 @@ export default function LocalPlayer() {
     const cinemaAimForward = cinemaHeroFrame * 18;
     const cinemaAimDown = cinemaHeroFrame * 3.25;
     const arenaAimForward = arenaHeroFrame * 10.2;
-    const thirdLookX = l.x + cinemaFacadeAimX
+    const thirdLookX = l.x
       + Math.cos(cam.yaw) * portraitAimRight
       - Math.sin(cam.yaw) * portraitAimForward
       - Math.sin(cam.yaw) * arenaAimForward;
     const thirdLookY = headY - (streetView ? 0.08 : 0.22)
       + portraitStreetFrame * 0.3 + arenaHeroFrame * 0.18
       - cinemaAimDown;
-    const thirdLookZ = l.z + cinemaFacadeAimZ
+    const thirdLookZ = l.z
       - Math.sin(cam.yaw) * portraitAimRight
       - Math.cos(cam.yaw) * portraitAimForward
       - Math.cos(cam.yaw) * cinemaAimForward

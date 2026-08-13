@@ -65,8 +65,9 @@ export default function WorldApp() {
             dpr={dpr}
             camera={{ fov: 42, near: 0.1, far: 600, position: [0, 3, 8] }}
             gl={{ antialias: true, powerPreference: 'high-performance' }}
-            onCreated={({ scene }) => {
+            onCreated={({ scene, camera }) => {
               (window as unknown as { __nxScene?: unknown }).__nxScene = scene;
+              (window as unknown as { __nxCamera?: unknown }).__nxCamera = camera;
               window.__nxRenderFrame = 0;
             }}
           >

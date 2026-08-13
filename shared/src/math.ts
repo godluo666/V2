@@ -33,8 +33,8 @@ export function seededRandom(seed: number): () => number {
 
 // ── Colliders ───────────────────────────────────────────────────────────────
 export type Collider =
-  | { kind: 'box'; x: number; z: number; w: number; d: number }
-  | { kind: 'circle'; x: number; z: number; r: number };
+  | { kind: 'box'; x: number; z: number; w: number; d: number; cameraHeight?: number }
+  | { kind: 'circle'; x: number; z: number; r: number; cameraHeight?: number };
 
 /**
  * Push a circle (player) out of static colliders. Returns corrected [x, z].

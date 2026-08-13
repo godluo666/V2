@@ -10,7 +10,7 @@ import {
   Sofa, CoffeeTable, Chair, Plant, Fireplace,
 } from '../prefabs/furniture';
 import {
-  CafeCounter, CinemaRiser, Concession, RopeBarrier, ShopShelf, ShopCounter,
+  CafeCounter, CinemaRiser, Concession, CinemaTicketGate, RopeBarrier, ShopShelf, ShopCounter,
   Directory, Mailboxes, WindowFrame, TableRound, HedgeRing,
 } from '../prefabs/interiors';
 import { MirrorStanding } from '../prefabs/furniture';
@@ -22,14 +22,15 @@ import MediaScreen from '../media/MediaScreen';
 import { Bookshelf } from '../prefabs/furniture';
 import { XiangqiTablePrefab, MahjongTablePrefab, RiichiTablePrefab } from '../prefabs/gameTables';
 import { GrTea, GrLantern } from '../prefabs/clubVenueProps';
-import { ArenaPlayerStation } from '../prefabs/arenaHall';
+import { ArenaPlayerStation, ArenaServiceBar, ArenaStaffDesk } from '../prefabs/arenaHall';
 import {
   ClubRug, ClubSofa, ClubStage, FlyingChessTable, FloorCushion, ClubTrophyWall,
   ClubStorageCabinet, ClubReadingNook, ClubChair, ClubCraftTable,
 } from '../prefabs/clubInteriors';
 import {
-  CLamp, CVend, CBench, CFence, CBike, CTrash, CPoster, CAc, CWires, CSignal,
-  CPhone, CLocker, CManhole, CHydrant, CPlanter, CPier, CStreetBanner,
+  CLamp, CWallLight, CServiceMeters, CConvexMirror, CReflectorPost,
+  CVend, CBench, CFence, CBike, CTrash, CRecyclingStation, CPoster, CAc, CWires, CSignal,
+  CPhone, CLocker, CManhole, CDrain, CHydrant, CPlanter, CPier, CStreetBanner,
 } from '../city/props2';
 
 export function renderProp(p: Prop, key: string | number): ReactNode {
@@ -60,6 +61,9 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
         h={(p.data?.h as number) ?? 0.24} />
     );
     case 'concession': return <Concession key={key} position={pos} rotation={p.ry} />;
+    case 'cinema_ticket_gate': return (
+      <CinemaTicketGate key={key} position={pos} rotation={p.ry} side={(p.data?.side as number) ?? 1} />
+    );
     case 'rope_barrier': return <RopeBarrier key={key} position={pos} rotation={p.ry} />;
     case 'arcade_deco': return <ArcadeDeco key={key} position={pos} rotation={p.ry} variant={(p.data?.variant as number) ?? 0} />;
     case 'shop_shelf': return <ShopShelf key={key} position={pos} rotation={p.ry} />;
@@ -81,6 +85,8 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'fireplace': return <group key={key} position={pos} rotation={[0, p.ry, 0]}><Fireplace color="#8a8078" state={{ on: true }} /></group>;
     // ── 网吧 NEXUS / 雀庄「东风阁」室内专属件(P5,总纲 §4.4)──────────────
     case 'nc_station': return <ArenaPlayerStation key={key} position={pos} ry={p.ry} seatIdx={(p.data?.seatIdx as number) ?? 0} />;
+    case 'arena_staff_desk': return <ArenaStaffDesk key={key} position={pos} ry={p.ry} />;
+    case 'arena_service_bar': return <ArenaServiceBar key={key} position={pos} ry={p.ry} />;
     case 'gr_tea': return <GrTea key={key} position={pos} ry={p.ry} />;
     case 'gr_lantern': return <GrLantern key={key} position={pos} />;
     case 'club_rug': return (
@@ -96,6 +102,10 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'club_reading_nook': return <ClubReadingNook key={key} position={pos} ry={p.ry} />;
     // ── 「月汐町·晴日生活街」c_* 城市道具(cityplan/P2 布局 → city/props2 组件)──
     case 'c_lamp': return <CLamp key={key} position={pos} ry={p.ry} />;
+    case 'c_wall_light': return <CWallLight key={key} position={pos} ry={p.ry} />;
+    case 'c_service_meters': return <CServiceMeters key={key} position={pos} ry={p.ry} />;
+    case 'c_convex_mirror': return <CConvexMirror key={key} position={pos} ry={p.ry} />;
+    case 'c_reflector_post': return <CReflectorPost key={key} position={pos} ry={p.ry} />;
     case 'c_vend': return (
       <CVend key={key} position={pos} ry={p.ry}
         kind={p.data?.variant === 'blue' || p.data?.kind === 'blue' ? 'blue' : 'red'} />
@@ -108,6 +118,7 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
         fallen={p.data?.fallen === true || p.data?.variant === 1} />
     );
     case 'c_trash': return <CTrash key={key} position={pos} ry={p.ry} crow={p.data?.crow !== false} />;
+    case 'c_recycling_station': return <CRecyclingStation key={key} position={pos} ry={p.ry} />;
     case 'c_poster': return <CPoster key={key} position={pos} ry={p.ry} variant={(p.data?.variant as number) ?? 0} />;
     case 'c_ac': return <CAc key={key} position={pos} ry={p.ry} />;
     case 'c_wires': return (
@@ -132,6 +143,7 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'c_phone': return <CPhone key={key} position={pos} ry={p.ry} />;
     case 'c_locker': return <CLocker key={key} position={pos} ry={p.ry} />;
     case 'c_manhole': return <CManhole key={key} position={pos} />;
+    case 'c_drain': return <CDrain key={key} position={pos} ry={p.ry} />;
     case 'c_hydrant': return <CHydrant key={key} position={pos} ry={p.ry} />;
     case 'c_planter': return <CPlanter key={key} position={pos} ry={p.ry} />;
     // 未知类型一律返回 null 保底(向前兼容 P2 后续新增)

@@ -85,8 +85,12 @@ class B {
   npcs: NpcDef[] = [];
   heightZones: HeightZone[] = [];
 
-  box(x: number, z: number, w: number, d: number) { this.colliders.push({ kind: 'box', x, z, w, d }); return this; }
-  circle(x: number, z: number, r: number) { this.colliders.push({ kind: 'circle', x, z, r }); return this; }
+  box(x: number, z: number, w: number, d: number, cameraHeight?: number) {
+    this.colliders.push({ kind: 'box', x, z, w, d, cameraHeight }); return this;
+  }
+  circle(x: number, z: number, r: number, cameraHeight?: number) {
+    this.colliders.push({ kind: 'circle', x, z, r, cameraHeight }); return this;
+  }
   prop(type: string, x: number, y: number, z: number, ry = 0, data?: Record<string, unknown>) {
     this.props.push({ type, pos: [x, y, z], ry, data }); return this;
   }
@@ -119,15 +123,12 @@ class B {
     return this;
   }
   /** 街灯:视觉 prop + 小圆碰撞(渲染归 P3)。 */
-  lamp(x: number, z: number) { this.prop('c_lamp', x, 0, z); this.circle(x, z, 0.22); return this; }
+  lamp(x: number, z: number) { this.prop('c_lamp', x, 0, z); this.circle(x, z, 0.22, 4.8); return this; }
 }
 
 /** Safe fallback used by archived rooms that no longer have a public façade. */
-/** South crosswalk reveal: camera starts down the short street and frames the sign canyon. */
-// Aim the establishing view at the media-tower arcade rather than the blind
-// edge between it and the north vista. This remains a player camera, not a
-// screenshot-only override, and keeps both crosswalk arms inside the frame.
-const STREET_SPAWN: [number, number, number, number] = [-8, 0, 5.2, Math.PI - 0.6];
+/** 从生活主街西段进入；出生镜头沿街看向连续店面而不是正对大路口。 */
+const STREET_SPAWN: [number, number, number, number] = [-17, 0, 1.2, Math.PI / 2];
 
 function streetReturnFor(key: (typeof VENUES)[number]['key']): [number, number, number, number] {
   const venue = VENUES.find((candidate) => candidate.key === key);
@@ -142,14 +143,14 @@ function buildCity(): SpaceLayout {
 
   // 连续住宅街墙全部参与碰撞；远景剪影纯视觉。
   for (const bd of BUILDINGS) {
-    if (bd.style === 'silhouette') continue;
+    if (bd.style === 'silhouette' || bd.backdrop) continue;
     // Convert the renderer's local frontage/depth back to the world-aligned
     // footprint used by the shared AABB collision solver.  A quarter turn
     // exchanges the local axes; keeping that conversion explicit prevents a
     // door from being trapped behind an invisible side wall.
     const { frontage, depth } = cityBuildingLocalSize(bd);
     const quarterTurn = Math.abs(Math.round((bd.ry ?? 0) / (Math.PI / 2))) % 2 === 1;
-    b.box(bd.x, bd.z, quarterTurn ? depth : frontage, quarterTurn ? frontage : depth);
+    b.box(bd.x, bd.z, quarterTurn ? depth : frontage, quarterTurn ? frontage : depth, bd.h);
   }
 
   // 首阶段严格只开放三个入口。
@@ -157,80 +158,117 @@ function buildCity(): SpaceLayout {
     b.inter(`d-${v.key}`, 'door', v.x, 0, v.z, v.ry, `进入${v.label}`, { target: v.key });
   }
 
-  // 四向路口设施：靠边成组，让中央仅承担通行，转身即见店面与高楼。
-  b.inter('city-board', 'board', 12.2, 0, 7.35, Math.PI, '月汐町社团公告栏', {});
-  b.box(12.2, 7.35, 1.6, 0.45);
-  b.inter('v-vend1', 'vending', -23.4, 0, 7.15, Math.PI, '草莓汽水机', { items: ['soda', 'pizza'] });
-  b.box(-23.4, 7.15, 0.8, 0.9);
-  b.inter('v-vend2', 'vending', 26.8, 0, -5.2, 0, '海盐汽水机', { items: ['soda', 'pizza'] });
-  b.box(26.8, -5.2, 0.8, 0.9);
+  // 设施按用途成组贴墙：公告栏在社区一侧，售货机靠店铺服务面，座椅避开入口。
+  b.inter('city-board', 'board', 13.2, 0, 4.62, Math.PI, '月汐町社团公告栏', {});
+  b.box(13.2, 4.62, 1.6, 0.45, 2.25);
+  b.inter('v-vend1', 'vending', -18.25, 0, -4.55, 0, '草莓汽水机', { items: ['soda', 'pizza'] });
+  b.box(-18.25, -4.55, 0.8, 0.9, 1.95);
+  b.inter('v-vend2', 'vending', 24.8, 0, 4.55, Math.PI, '蓝色海盐汽水机', { items: ['soda', 'pizza'] });
+  b.box(24.8, 4.55, 0.8, 0.9, 1.95);
 
-  b.bench('sb0', -13.6, 10, Math.PI / 2);
-  b.bench('sb1', 10.2, -5.15, 0);
-  b.bench('sb2', 20.8, 6.75, Math.PI);
+  b.bench('sb0', -18.5, 4.58, Math.PI);
+  b.bench('sb1', 1.5, -4.58, 0);
+  b.bench('sb2', 15.7, 4.58, Math.PI);
 
   const lamps: Array<[number, number]> = [
-    [-14.2, -5.15], [-2.1, -5.15], [-14.2, 5.7], [-1.8, 5.7],
-    [8.2, -5.15], [20.2, -5.15], [10.2, 6.75], [27.2, 6.75],
-    [-13.9, -12], [-2.1, -16.5],
+    [-26.5, -4.65], [-16.8, 4.65], [-7.2, 4.65], [2.5, -4.65],
+    [11.5, 4.65], [21.5, -4.65], [27.2, 4.65], [-9.85, -13],
+    [11, 13.5],
   ];
   for (const [lx, lz] of lamps) b.lamp(lx, lz);
 
-  // 路口信号灯与原创街旗加强垂直层次，但不创建新入口。
+  // Short alleys use small building-mounted service lights instead of more
+  // full-height lamp posts. Their alternating sides preserve the 3.4m clear
+  // lane while lighting residential doors and the small restaurant at dusk.
   for (const [x, z, ry] of [
-    [-14.3, -4.9, 0], [-1.8, -4.9, Math.PI],
-    [-14.3, 5.6, 0], [-1.8, 5.6, Math.PI],
+    [-9.64, -11, Math.PI / 2], [-9.64, -18.3, Math.PI / 2],
+    [7.46, 11.5, Math.PI / 2], [10.74, 18.2, -Math.PI / 2],
   ] as const) {
-    b.prop('c_signal', x, 0, z, ry); b.circle(x, z, 0.22);
+    b.prop('c_wall_light', x, 2.45, z, ry);
   }
-  const arcadeBanners = [
-    [-8.5, '月汐町 · ICHIBAN STREET', '#ff3f6c', '#ffd34f'],
-    [-13.2, 'SHOPPING LOOP // 07', '#171a22', '#42d7c7'],
-    [-17.6, 'CLUB · CINEMA · ARENA', '#ffd34f', '#ff3f6c'],
-  ] as const;
-  for (const [z, text, color, accent] of arcadeBanners) {
-    b.prop('c_banner', -8, 0, z, 0, { text, color, accent, width: 8.4 });
-    b.circle(-12.35, z, 0.2);
-    b.circle(-3.65, z, 0.2);
+  b.prop('c_ac', -9.66, 2.05, -16.7, Math.PI / 2);
+  b.prop('c_ac', 7.44, 2.05, 16.4, Math.PI / 2);
+
+  // Utility meters occupy the otherwise blank ground-floor side elevations at
+  // both alley mouths. They are wall-mounted and deliberately have no ground
+  // collider, preserving the full shared lane.
+  b.prop('c_service_meters', -6.34, 1.18, -7.45, -Math.PI / 2);
+  b.prop('c_service_meters', 7.44, 1.18, 7.55, Math.PI / 2);
+
+  // Orange convex traffic mirrors are common at Japanese blind corners. Keep
+  // their slim poles within 0.3m of the alley wall and make only the pole base
+  // collidable so the mirror head cannot create an invisible shoulder-height
+  // obstruction.
+  for (const [x, z, ry] of [
+    [-9.43, -5.78, Math.PI / 4],
+    [10.53, 5.78, -Math.PI * 3 / 4],
+  ] as const) {
+    b.prop('c_convex_mirror', x, 0, z, ry);
+    b.circle(x, z, 0.14, 2.75);
   }
 
-  // 住宅生活细节：自行车、花槽、电话、海报和电线形成近景层次。
-  for (const [x, z] of [[-23.5, -5.45], [-3.7, 7.3], [15, 7.2], [24.2, -5.4]] as const) {
+  // Four low reflector posts mark the finite playable road without turning
+  // either end into a gate. The centre 4.6m remains completely clear.
+  for (const [x, z] of [
+    [-28.15, -2.58], [-28.15, 2.58],
+    [28.15, -2.58], [28.15, 2.58],
+  ] as const) {
+    b.prop('c_reflector_post', x, 0, z);
+    b.circle(x, z, 0.11);
+  }
+
+  // 住宅生活细节沿实际店面服务边布置，不占道路中心或门厅缓冲区。
+  for (const [x, z] of [[-12.2, -4.65], [6.2, -4.65], [10.8, 4.65], [27.2, 4.65]] as const) {
     b.prop('c_planter', x, 0, z);
     b.box(x, z, 0.9, 0.9);
   }
-  b.prop('c_phone', 16.3, 0, 7.15, Math.PI); b.box(16.3, 7.15, 0.9, 0.9);
-  b.prop('c_locker', 5.2, 0, -5.45, 0); b.box(5.2, -5.45, 1.4, 0.6);
+  b.prop('c_phone', 17.5, 0, 4.65, Math.PI); b.box(17.5, 4.65, 0.9, 0.9, 2.25);
+  // One organised neighbourhood collection point is more credible than
+  // scattered loose bags. It sits against the south residential facade,
+  // clear of its entrance/service window and the west bench.
+  b.prop('c_recycling_station', -23.2, 0, 4.84, Math.PI);
+  b.box(-23.2, 4.84, 2.1, 0.62, 1.58);
+  // Lockers live on the cinema's service wing, not across the narrow
+  // stationery storefront where they previously hid most of the display.
+  b.prop('c_locker', 12.25, 0, -4.68, 0); b.box(12.25, -4.68, 1.4, 0.6, 1.78);
   for (const [x, z, ry] of [
-    [-20.5, -5.25, 0.2], [-17.3, 7.05, 2.8],
-    [14.5, -5.25, 0.35], [24.5, 7.05, 2.7],
-    [-13.1, -17.2, 1.4], [-2.8, -11.2, -1.4],
+    [-21.5, -4.62, 0.2], [-10.8, 4.62, 2.8],
+    [5.0, -4.62, 0.35], [21.8, 4.62, 2.7],
+    [-9.8, -15.6, 1.4], [10.8, 15.4, -1.4],
   ] as const) {
     b.prop('c_bike', x, 0, z, ry); b.circle(x, z, 0.35);
   }
   for (const [x, z, ry] of [
-    [7.3, -6.05, 0], [9.5, 8.05, Math.PI],
-    [27.3, -6.05, 0], [-15.05, -19.2, Math.PI / 2],
+    [3.8, -5.22, 0], [13.8, 5.22, Math.PI],
+    [26.8, -5.22, 0], [-12.7, -19.2, Math.PI / 2],
   ] as const) {
     b.prop('c_poster', x, 1.45, z, ry);
   }
-  b.prop('c_hydrant', -2.2, 0, 7); b.circle(-2.2, 7, 0.25);
-  b.prop('c_manhole', -18, 0, 1.7);
-  b.prop('c_manhole', 13, 0, 0.2);
+  b.prop('c_hydrant', -1.2, 0, 4.7); b.circle(-1.2, 4.7, 0.25);
+  b.prop('c_manhole', -18, 0, 0.7);
+  b.prop('c_manhole', 13, 0, -0.6);
   b.prop('c_manhole', -8.5, 0, -12.5);
-  for (const [x, z, ry, len] of [
-    [-24.5, -5.7, Math.PI / 2, 13],
-    [4.3, -5.8, 0, 14],
-    [25.5, 7.5, Math.PI / 2, 12],
-    [-13.9, -20, 0, 12],
-    [-2.1, -18.5, 0, 11],
+  for (const [x, z, ry] of [
+    [-21, -3.04, 0], [-14, 3.04, 0], [-1, -3.04, 0],
+    [16, 3.04, 0], [25.5, -3.04, 0], [-6.34, -10.5, Math.PI / 2],
+    [7.44, 10.8, Math.PI / 2], [10.76, 17.2, Math.PI / 2],
   ] as const) {
-    // Keep the supported utility bundles above storefront headers.  At the old
-    // 5.2m default they crossed the hero screens and cinema portal at normal
-    // eye height; explicit 8.2m anchors preserve the urban service layer
-    // without turning the first frame into a tangle of foreground strokes.
-    b.prop('c_wires', x, 8.2, z, ry, { len, sag: 0.8, strands: 2 });
-    b.circle(x, z, 0.18);
+    b.prop('c_drain', x, 0, z, ry);
+  }
+  for (const [x, z, ry, len] of [
+    [-26, -4.85, Math.PI / 2, 11],
+    [-12, 4.85, Math.PI / 2, 12],
+    [3, -4.85, Math.PI / 2, 11],
+    [19, 4.85, Math.PI / 2, 9],
+    [-10.35, -19.5, 0, 10],
+    [11.45, 19.4, Math.PI, 10],
+  ] as const) {
+    b.prop('c_wires', x, 7.4, z, ry, { len, sag: 0.65, strands: 2 });
+    // CWires renders a grounded pole at both cable anchors. Keep the shared
+    // collision contract on both supports and expose their true height to the
+    // third-person camera instead of allowing the lens through either pole.
+    b.circle(x, z, 0.18, 7.4);
+    b.circle(x + Math.sin(ry) * len, z + Math.cos(ry) * len, 0.18, 7.4);
   }
 
   return {
@@ -339,20 +377,20 @@ function buildCinema(): SpaceLayout {
   // Architectural collision follows cinemaHall.tsx's actual inner faces.
   // The front wall blocks the recessed screen/proscenium, side leaves protect
   // acoustic panels and sconces, and rear returns preserve the 7.1m exit bay.
-  b.box(0, -14.28, 30.4, 1.0);
-  b.box(-16.55, 0, 1.1, 29.4);
-  b.box(16.55, 0, 1.1, 29.4);
-  b.box(-10.25, 14.55, 13.4, 0.5);
-  b.box(10.25, 14.55, 13.4, 0.5);
-  b.box(-2.05, 14.43, 0.28, 0.72);
-  b.box(2.05, 14.43, 0.28, 0.72);
+  b.box(0, -14.28, 30.4, 1.0, 13.5);
+  b.box(-16.55, 0, 1.1, 29.4, 13.5);
+  b.box(16.55, 0, 1.1, 29.4, 13.5);
+  b.box(-10.25, 14.55, 13.4, 0.5, 10.8);
+  b.box(10.25, 14.55, 13.4, 0.5, 10.8);
+  b.box(-2.05, 14.43, 0.28, 0.72, 2.9);
+  b.box(2.05, 14.43, 0.28, 0.72, 2.9);
   // Subwoofer cabinets project beyond the proscenium wall onto the stage.
-  b.box(-14.15, -13.15, 1.75, 1.0);
-  b.box(14.15, -13.15, 1.75, 1.0);
+  b.box(-14.15, -13.15, 1.75, 1.0, 2.25);
+  b.box(14.15, -13.15, 1.75, 1.0, 2.25);
   // The six central low-frequency cabinets form one continuous physical bank.
   // Keep the screen approach around z=-11 clear while preventing players from
   // walking through the visible enclosures at the foot of the giant screen.
-  b.box(0, -13.22, 22.12, 0.76);
+  b.box(0, -13.22, 22.12, 0.76, 1.82);
 
   // 六排 × 十二座，按 3-6-3 分区。双主过道中心位于 x=±6.3，和实体导视灯一致。
   const seatX = CINEMA_SPATIAL_CONTRACT.seating.x;
@@ -371,9 +409,28 @@ function buildCinema(): SpaceLayout {
       b.prop('cinema_seat', x, lift, z, Math.PI, { row, seatIdx });
       b.inter(`cine-s${seatIdx++}`, 'seat', x, 0.47 + lift, z, Math.PI, '坐下');
     }
-    b.box(-10.8, z, 4.2, 0.66);
-    b.box(0, z, 7.2, 0.66);
-    b.box(10.8, z, 4.2, 0.66);
+    const seatBackHeight = lift + 1.12;
+    b.box(-10.8, z, 4.2, 0.66, seatBackHeight);
+    b.box(0, z, 7.2, 0.66, seatBackHeight);
+    b.box(10.8, z, 4.2, 0.66, seatBackHeight);
+  }
+
+  // Connect the rear base-floor concourse to both 1.9m auditorium aisles with
+  // five physical treads.  The stepped zones match the client boxes exactly;
+  // the existing seating decks continue forward from the top tread.
+  const rearTransition = CINEMA_SPATIAL_CONTRACT.rearAisleTransition;
+  for (const x of rearTransition.x) {
+    for (let step = 0; step < rearTransition.steps; step++) {
+      const minZ = rearTransition.frontZ + step * rearTransition.stepDepth;
+      b.heightZones.push({
+        minX: x - rearTransition.width / 2,
+        maxX: x + rearTransition.width / 2,
+        minZ,
+        maxZ: minZ + rearTransition.stepDepth,
+        kind: 'deck',
+        y: (rearTransition.steps - step) * rearTransition.stepRise,
+      });
+    }
   }
 
   // The bowed 0.58m stage is walkable so approaching the shared screen never
@@ -394,11 +451,21 @@ function buildCinema(): SpaceLayout {
   }
 
   // 后部集散区与小卖部收在两侧，中轴保持 6m 净宽，进场镜头直接看向巨幕。
-  b.prop('concession', 13.4, 0, 12.8, Math.PI);
-  b.box(13.4, 12.8, 4.0, 1.1);
-  b.inter('cine-vend', 'vending', 16.2, 0, 10.8, -Math.PI / 2, '零食贩卖机', { items: ['soda', 'pizza'] });
-  b.box(16.2, 10.8, 0.8, 0.9);
-  b.prop('sofa', -13.3, 0, 12.8, Math.PI); b.box(-13.3, 12.8, 2.1, 0.95);
+  // The concession runs parallel to the east wall and faces west into its
+  // approach bay. The previous east-west bar exposed only its narrow end to
+  // arriving players and did not read as a staffed service counter.
+  b.prop('concession', 15.4, 0, 12.45, -Math.PI / 2);
+  b.box(15.4, 12.45, 1.1, 3.4, 1.9);
+  // Two narrow ticket pedestals sit inside the 4.1m rear door opening. Their
+  // 2.58m clear centre supports two abreast arrivals without disappearing
+  // behind the architectural jambs.
+  for (const side of [-1, 1] as const) {
+    b.prop('cinema_ticket_gate', side * 1.55, 0, 11.75, 0, { side });
+    b.box(side * 1.55, 11.75, 0.52, 1.25, 1.28);
+  }
+  b.inter('cine-vend', 'vending', 16.2, 0, 10.1, -Math.PI / 2, '零食贩卖机', { items: ['soda', 'pizza'] });
+  b.box(16.2, 10.1, 0.8, 0.9, 1.95);
+  b.prop('sofa', -13.3, 0, 12.8, Math.PI); b.box(-13.3, 12.8, 2.1, 0.95, 1.0);
   b.inter('cine-sofa-s0', 'seat', -13.85, 0.44, 12.75, Math.PI, '等候入场');
   b.inter('cine-sofa-s1', 'seat', -12.75, 0.44, 12.75, Math.PI, '等候入场');
   b.prop('coffee_table', -13.3, 0, 11.25); b.circle(-13.3, 11.25, 0.5);
@@ -409,7 +476,9 @@ function buildCinema(): SpaceLayout {
 
   return {
     key: SPACE.CINEMA, label: '极光影院·巨幕厅', indoor: true, bounds,
-    spawn: [0, 0, 10.6, Math.PI],
+    // Arrive in the rear lobby buffer, then pass between the two admission
+    // pedestals at z=11.75 before entering the auditorium proper.
+    spawn: [0, 0, 13.25, Math.PI],
     colliders: b.colliders, interactables: b.interactables, props: b.props,
     npcs: [], heightZones: b.heightZones, mediaPolicy: 'everyone',
   };
@@ -562,12 +631,12 @@ function buildNetcafe(): SpaceLayout {
   const reserveCols = ARENA_SPATIAL_CONTRACT.stations.reserveX;
   mainCols.forEach((x, i) => {
     b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 0, { row: 0, seatIdx: i });
-    b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 1.85, 0.9);
+    b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 1.85, 0.9, 2.5);
     b.inter(`nc-s${i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[0], Math.PI, '进入选手席');
   });
   reserveCols.forEach((x, i) => {
     b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], Math.PI, { row: 1, seatIdx: 5 + i });
-    b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], 1.85, 0.9);
+    b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], 1.85, 0.9, 2.5);
     b.inter(`nc-s${5 + i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[1], 0, '进入选手席');
   });
 
@@ -586,30 +655,54 @@ function buildNetcafe(): SpaceLayout {
   for (const x of [-5.4, 0, 5.4]) {
     b.heightZones.push({ minX: x - 1.8, maxX: x + 1.8, minZ: 1.125, maxZ: 1.775, kind: 'deck', y: 0.24 });
   }
+  // The visible east/west evacuation stairs are walkable architecture, not
+  // decorative stand faces. Register every tread so server movement and the
+  // third-person lens land on the same top surfaces as ArenaHallArchitecture.
+  const standAisles = ARENA_SPATIAL_CONTRACT.sideStandAisles;
+  for (const side of standAisles.x) {
+    for (let row = 0; row < standAisles.rows; row++) {
+      const centerX = side * (standAisles.firstCenterX + row * standAisles.rowSpacing);
+      b.heightZones.push({
+        minX: centerX - standAisles.treadWidth / 2,
+        maxX: centerX + standAisles.treadWidth / 2,
+        minZ: standAisles.centerZ - standAisles.treadDepth / 2,
+        maxZ: standAisles.centerZ + standAisles.treadDepth / 2,
+        kind: 'deck',
+        y: standAisles.firstRise + row * standAisles.rowRise,
+      });
+    }
+  }
 
   // 赛事建筑实体碰撞：与 ArenaHallArchitecture 的看台/后勤体块一一对应。
   // 东西看台在 z=-1.0..1.7 留出 2.7m 横向疏散口，外侧保留维护通道。
   for (const x of [-15.875, 15.875]) {
-    b.box(x, -4.55, 5.35, 7.1);
-    b.box(x, 6.05, 5.35, 8.7);
+    b.box(x, -4.55, 5.35, 7.1, 3.45);
+    b.box(x, 6.05, 5.35, 8.7, 3.45);
   }
   // 后看台与两侧解说/控制平台在实体上连续，左右各合并成一个碰撞体；
   // 中央 x=-1.7..1.7 保留从入口通往赛台的 3.4m 主疏散轴。
-  b.box(-10.65, 13.0, 17.9, 5.3);
-  b.box(10.65, 13.0, 17.9, 5.3);
+  b.box(-10.65, 13.0, 17.9, 5.3, 3.35);
+  b.box(10.65, 13.0, 17.9, 5.3, 3.35);
   // 北端八角主持台使用紧包围盒；两侧仍各有 4.5m 通路前往主屏。
-  b.box(0, -12.15, 11.2, 6.4);
+  b.box(0, -12.15, 11.2, 6.4, 4.2);
 
   // 主屏墙仅封闭 0.28m 厚的背壳；与主持台之间保留 1.35m 实体净距，
   // 玩家可由两侧绕到屏前，并在 nc-wall 的 5m 服务端互动范围内停留。
-  b.box(0, -16.84, 24.6, 0.28);
-  for (const x of [-12.15, 12.15]) b.box(x, -16.72, 0.7, 1.05);
+  b.box(0, -16.84, 24.6, 0.28, 13.0);
+  for (const x of [-12.15, 12.15]) b.box(x, -16.72, 0.7, 1.05, 12.0);
   // 折角侧屏只为落地检修柱生成旋转后的紧 AABB，不封死屏幕下方空间。
-  for (const x of [-15.86, 15.86]) b.box(x, -14.83, 0.6, 0.96);
+  for (const x of [-15.86, 15.86]) b.box(x, -14.83, 0.6, 0.96, 10.0);
   // CompetitionFloor 两侧的实体设备机柜。
-  for (const x of [-10.6, 10.6]) b.box(x, -7.1, 1.45, 2.1);
+  for (const x of [-10.6, 10.6]) b.box(x, -7.1, 1.45, 2.1, 1.7);
 
   // 后场解说席、控制室和机柜由赛事建筑模块统一建模，中轴保持入口至赛台净空。
+  // Staff and refreshment services occupy the two narrow side bands between
+  // the competition deck and stands.  Neither crosses the 3.4m centre axis or
+  // the east/west vomitory at z≈0.6.
+  b.prop('arena_staff_desk', -11.65, 0, 5.25, Math.PI / 2);
+  b.box(-11.65, 5.25, 1.15, 3.2, 1.85);
+  b.prop('arena_service_bar', 11.65, 0, 5.25, -Math.PI / 2);
+  b.box(11.65, 5.25, 1.15, 3.2, 2.1);
 
   return {
     key: SPACE.NETCAFE, label: '镜界电竞观战馆·主赛场', indoor: true, bounds,
@@ -663,13 +756,13 @@ function buildGameroom(): SpaceLayout {
   b.prop('club_rug', -3.55, 0.012, 1.05, 0, { w: 6.9, d: 5.9 });
   b.prop('club_rug', 4.25, 0.012, -0.15, 0, { w: 6.6, d: 7.35 });
   const westSofa = { x: -6.35, z: 1.05, ry: Math.PI / 2 };
-  b.prop('club_sofa', westSofa.x, 0, westSofa.z, westSofa.ry); b.box(westSofa.x, westSofa.z, 1.05, 3.8);
+  b.prop('club_sofa', westSofa.x, 0, westSofa.z, westSofa.ry); b.box(westSofa.x, westSofa.z, 1.05, 3.8, 1.18);
   [1.15, 0, -1.15].forEach((localX, i) => {
     const [x, y, z] = clubSeatPosition(westSofa.x, 0.6, westSofa.z, westSofa.ry, localX, 0.2);
     b.inter(`gr-sofa-w${i}`, 'seat', x, y, z, westSofa.ry, '窝进沙发');
   });
   const northSofa = { x: -3.35, z: -1.55, ry: 0 };
-  b.prop('club_sofa', northSofa.x, 0, northSofa.z, northSofa.ry); b.box(northSofa.x, northSofa.z, 3.8, 1.05);
+  b.prop('club_sofa', northSofa.x, 0, northSofa.z, northSofa.ry); b.box(northSofa.x, northSofa.z, 3.8, 1.05, 1.18);
   [-1.15, 0, 1.15].forEach((localX, i) => {
     const [x, y, z] = clubSeatPosition(northSofa.x, 0.6, northSofa.z, northSofa.ry, localX, 0.2);
     b.inter(`gr-sofa-n${i}`, 'seat', x, y, z, northSofa.ry, '窝进沙发');
@@ -679,14 +772,14 @@ function buildGameroom(): SpaceLayout {
   // 社团棋桌：象棋和地摊飞行棋均为服务端权威玩法；四个 floor-style
   // chair prop 是飞行棋坐垫的唯一渲染来源，棋盘 prefab 不得重复绘制。
   b.inter('gr-xq', 'xiangqi', 4.35, 0, 2.45, 0, '社团象棋桌');
-  b.box(4.35, 2.45, 1.0, 1.0);
+  b.box(4.35, 2.45, 1.0, 1.0, 0.78);
   for (const [x, z, ry, i] of [
     [3.17, 2.45, Math.PI / 2, 0], [5.53, 2.45, -Math.PI / 2, 1],
   ] as const) {
     addClubChair(`gr-xq-s${i}`, x, z, ry, i, '坐下下棋');
   }
   b.prop('club_flying_chess', 4.35, 0, -2.75);
-  b.box(4.35, -2.75, 1.25, 1.25);
+  b.box(4.35, -2.75, 1.25, 1.25, 0.42);
   for (const [x, z, ry, i] of [
     [4.35, -1.4, Math.PI, 0], [5.7, -2.75, -Math.PI / 2, 1],
     [4.35, -4.1, 0, 2], [3.0, -2.75, Math.PI / 2, 3],
@@ -700,23 +793,25 @@ function buildGameroom(): SpaceLayout {
   // 中央后段的社团筹备桌把两个功能区串成一体；桌体阻挡与实体一致，
   // 左右仍各保留超过 1.5m 的绕行空间，不堵入口主轴。
   b.prop('club_craft_table', 0.35, 0, -5.05, 0);
-  b.box(0.35, -5.05, 1.9, 1.05);
+  b.box(0.35, -5.05, 1.9, 1.05, 0.86);
   for (const [x, ry, i] of [[-1.23, Math.PI / 2, 0], [1.93, -Math.PI / 2, 1]] as const) {
     addClubChair(`gr-craft-s${i}`, x, -5.05, ry, i + 2, '一起筹备活动');
   }
 
   // 小舞台、点歌机、茶水零食台、社团墙与安静阅读角。
-  b.prop('club_stage', -5.2, 0, -7.3, 0); b.box(-5.2, -7.3, 7.4, 2.2);
+  b.prop('club_stage', -5.2, 0, -7.3, 0); b.box(-5.2, -7.3, 7.4, 2.2, 0.42);
   b.inter('gr-jukebox', 'jukebox', -10.9, 0, -5.7, Math.PI / 2, '社团点歌机');
-  b.box(-10.9, -5.7, 0.8, 0.6);
-  b.prop('gr_tea', 10.9, 0, 5.7, -Math.PI / 2); b.box(10.9, 5.7, 0.8, 2.2);
+  b.box(-10.9, -5.7, 0.8, 0.6, 1.75);
+  b.prop('gr_tea', 10.9, 0, 5.7, -Math.PI / 2); b.box(10.9, 5.7, 0.8, 2.2, 1.72);
   b.prop('club_trophy_wall', 11.85, 1.8, -0.2, -Math.PI / 2);
-  b.prop('club_storage', 6.8, 0, 7.95, Math.PI);
-  b.box(6.8, 7.95, 3.7, 0.72);
+  b.prop('club_storage', 6.8, 0, 7.95, Math.PI, {
+    zone: 'entry', usage: 'shoes-coats-personal-items',
+  });
+  b.box(6.8, 7.95, 3.7, 0.72, 2.15);
   b.prop('club_reading_nook', -9.25, 0, 5.15, Math.PI / 2);
-  b.box(-9.25, 5.15, 1.3, 4.5);
+  b.box(-9.25, 5.15, 1.3, 4.5, 1.6);
   b.inter('gr-books', 'bookshelf', -11.55, 0, 5.8, Math.PI / 2, '社团书架');
-  b.box(-11.55, 5.8, 0.45, 1.3);
+  b.box(-11.55, 5.8, 0.45, 1.3, 2.25);
   b.inter('gr-wb', 'whiteboard', 2.5, 1.55, -8.85, 0, '社团活动板', { boardId: 'gr-wb' });
   b.prop('gr_lantern', -8.8, 2.5, 7.6);
   b.prop('gr_lantern', 8.8, 2.5, 7.6);

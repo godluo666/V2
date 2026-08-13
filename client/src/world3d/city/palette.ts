@@ -24,7 +24,7 @@ export const ENV = {
   /** 远景楼第 3 层(融入空气透视)。 */
   bgSilhouetteC: '#8fa6b7',
   /** 晴日中性沥青，避免大片黑灰。 */
-  roadAsphalt: '#292c36',
+  roadAsphalt: '#414448',
   /** 暖浅灰人行道砖。 */
   sidewalk: '#e4ddd0',
   /** 人行道砖缝。 */

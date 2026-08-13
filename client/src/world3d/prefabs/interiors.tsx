@@ -141,18 +141,81 @@ export function CinemaRiser({
   );
 }
 
+let concessionMenuTex: THREE.CanvasTexture | null = null;
+
+function concessionMenuTexture(): THREE.CanvasTexture {
+  if (concessionMenuTex) return concessionMenuTex;
+  const canvas = document.createElement('canvas');
+  canvas.width = 960;
+  canvas.height = 240;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#281b1d';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#d9ad73';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+  ctx.fillStyle = '#f7dfbd';
+  ctx.font = '700 66px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('売 店  ·  POPCORN  ·  DRINK', canvas.width / 2, 90);
+  ctx.fillStyle = '#d9ad73';
+  ctx.font = '500 38px sans-serif';
+  ctx.fillText('注文  •  受取  •  キャッシュレス', canvas.width / 2, 164);
+  concessionMenuTex = new THREE.CanvasTexture(canvas);
+  concessionMenuTex.colorSpace = THREE.SRGBColorSpace;
+  concessionMenuTex.needsUpdate = true;
+  return concessionMenuTex;
+}
+
 export function Concession({ position, rotation }: { position: [number, number, number]; rotation: number }) {
   const body = useMemo(() => mat('#8a2f3f', 0.6), []);
   const top = useMemo(() => mat('#e8dcc8', 0.4), []);
+  const dark = useMemo(() => mat('#2f2928', 0.58), []);
+  const steel = useMemo(() => mat('#8f9aa2', 0.32, 0.72), []);
+  const glass = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color: '#cfe5e8', roughness: 0.12, transparent: true, opacity: 0.34,
+  }), []);
+  const menu = useMemo(() => {
+    const material = mat('#f2d39b', 0.44);
+    material.emissive.set('#e29e55');
+    material.emissiveIntensity = 0.34;
+    return material;
+  }, []);
+  const menuTexture = useMemo(() => concessionMenuTexture(), []);
   return (
     <group position={position} rotation={[0, rotation, 0]}>
-      <mesh position={[0, 0.55, 0]} castShadow material={body}><boxGeometry args={[3.2, 1.1, 0.9]} /></mesh>
-      <mesh position={[0, 1.12, 0]} material={top}><boxGeometry args={[3.3, 0.05, 1.0]} /></mesh>
+      <pointLight position={[0, 2.05, 0.75]} color="#ffd6a2" intensity={3.4} distance={5.6} decay={2} />
+      {/* The public counter is intentionally lower than the cafe's adult-height
+          bar: it remains usable and readable for the 0.62m dango player. */}
+      <mesh position={[0, 0.43, 0]} castShadow material={body}><boxGeometry args={[3.2, 0.86, 0.9]} /></mesh>
+      <mesh position={[0, 0.88, 0]} material={top}><boxGeometry args={[3.3, 0.05, 1.0]} /></mesh>
+      {/* A lit menu, register and under-counter storage make this a staffed
+          service point rather than a loose popcorn prop. */}
+      <group position={[0, 1.58, 0.34]}>
+        <mesh position={[0, 0, -0.035]} material={dark} castShadow>
+          <boxGeometry args={[3.02, 0.72, 0.1]} />
+        </mesh>
+        {[-0.96, 0, 0.96].map((x, index) => (
+          <group key={`menu-${x}`} position={[x, 0, 0.02]}>
+            <mesh material={menu}><boxGeometry args={[0.78, 0.53, 0.025]} /></mesh>
+            {[0.13, 0, -0.13].map((y, line) => (
+              <mesh key={line} position={[0.03, y, 0.02]} material={index === 1 ? body : dark}>
+                <boxGeometry args={[0.48 - line * 0.06, 0.025, 0.012]} />
+              </mesh>
+            ))}
+          </group>
+        ))}
+        <mesh position={[0, 0, 0.07]} castShadow={false}>
+          <planeGeometry args={[2.82, 0.62]} />
+          <meshBasicMaterial map={menuTexture} toneMapped={false} />
+        </mesh>
+      </group>
       {/* popcorn machine */}
-      <group position={[-1.0, 1.15, 0]}>
+      <group position={[-1.0, 0.91, 0]}>
         <mesh position={[0, 0.35, 0]} castShadow>
           <boxGeometry args={[0.6, 0.7, 0.5]} />
-          <meshPhysicalMaterial color="#e8d8b8" roughness={0.1} transparent opacity={0.4} />
+          <primitive object={glass} attach="material" />
         </mesh>
         <mesh position={[0, 0.72, 0]} material={body}><boxGeometry args={[0.64, 0.08, 0.54]} /></mesh>
         {[...Array(7)].map((_, i) => (
@@ -162,9 +225,83 @@ export function Concession({ position, rotation }: { position: [number, number, 
           </mesh>
         ))}
       </group>
-      <mesh position={[0.9, 1.35, 0]} castShadow>
+      <mesh position={[0.9, 1.08, 0]} castShadow>
         <cylinderGeometry args={[0.14, 0.1, 0.4, 10]} />
         <meshStandardMaterial color="#c94f5f" roughness={0.6} />
+      </mesh>
+      <group position={[0.48, 0.91, 0.04]}>
+        <mesh position={[0, 0.14, 0]} material={dark} castShadow><boxGeometry args={[0.42, 0.28, 0.42]} /></mesh>
+        <mesh position={[0, 0.31, -0.08]} rotation={[-0.26, 0, 0]} material={menu}>
+          <boxGeometry args={[0.34, 0.18, 0.035]} />
+        </mesh>
+      </group>
+      {[-0.93, 0, 0.93].map((x) => (
+        <group key={`service-door-${x}`} position={[x, 0.39, 0.456]}>
+          <mesh material={dark} castShadow><boxGeometry args={[0.82, 0.62, 0.025]} /></mesh>
+          <mesh position={[0.28, 0.08, 0.024]} material={steel}>
+            <boxGeometry args={[0.035, 0.22, 0.025]} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** Compact cinema admission pedestal. Two of these define the lobby threshold
+ * while leaving the central group-entry lane deliberately unobstructed. */
+export function CinemaTicketGate({
+  position,
+  rotation,
+  side = 1,
+}: {
+  position: [number, number, number];
+  rotation: number;
+  side?: number;
+}) {
+  const shell = useMemo(() => mat('#66727a', 0.42, 0.46), []);
+  const steel = useMemo(() => mat('#9aa7ad', 0.28, 0.82), []);
+  const screen = useMemo(() => {
+    const material = mat('#54d7a0', 0.3);
+    material.emissive.set('#30bf83');
+    material.emissiveIntensity = 0.72;
+    return material;
+  }, []);
+  const blue = useMemo(() => {
+    const material = mat('#6bb6d8', 0.32);
+    material.emissive.set('#3f9fc8');
+    material.emissiveIntensity = 0.38;
+    return material;
+  }, []);
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      <pointLight position={[0, 1.55, -0.45]} color="#92e9c2" intensity={2.4} distance={3.6} decay={2} />
+      <mesh position={[0, 0.06, 0]} material={steel} castShadow>
+        <cylinderGeometry args={[0.23, 0.26, 0.12, 10]} />
+      </mesh>
+      <mesh position={[0, 0.57, 0]} material={shell} castShadow receiveShadow>
+        <boxGeometry args={[0.52, 1.02, 1.08]} />
+      </mesh>
+      <mesh position={[0, 1.105, -0.08]} rotation={[-0.18, 0, 0]} material={steel} castShadow>
+        <boxGeometry args={[0.56, 0.12, 0.82]} />
+      </mesh>
+      <mesh position={[0, 1.17, -0.21]} rotation={[-0.18, 0, 0]} material={screen}>
+        <boxGeometry args={[0.34, 0.035, 0.35]} />
+      </mesh>
+      {/* Scan direction is readable from the arriving side without relying on text. */}
+      <group position={[0, 0.76, -0.555]}>
+        <mesh material={blue}><boxGeometry args={[0.3, 0.22, 0.025]} /></mesh>
+        <mesh position={[side * 0.035, 0.02, -0.018]} rotation={[0, 0, -side * Math.PI / 4]} material={shell}>
+          <boxGeometry args={[0.12, 0.035, 0.018]} />
+        </mesh>
+        <mesh position={[side * 0.085, 0.02, -0.018]} rotation={[0, 0, side * Math.PI / 4]} material={shell}>
+          <boxGeometry args={[0.12, 0.035, 0.018]} />
+        </mesh>
+      </group>
+      <mesh position={[0, 1.43, 0.13]} material={steel} castShadow>
+        <boxGeometry args={[0.045, 0.56, 0.045]} />
+      </mesh>
+      <mesh position={[0, 1.72, 0.13]} material={blue} castShadow>
+        <boxGeometry args={[0.62, 0.28, 0.09]} />
       </mesh>
     </group>
   );

@@ -7,8 +7,7 @@ import { useWorld, useSettings } from '../../state/stores';
 import { sampleEnv, currentTod } from './daynight';
 import { hot } from '../../state/hot';
 import { audio } from '../../audio/engine';
-import { anomalyPollution } from '../city/anomalies';
-import { ENV, ACCENT } from '../city/palette';
+import { ENV } from '../city/palette';
 
 const SKY_VERT = /* glsl */ `
 varying vec3 vDir;
@@ -383,7 +382,6 @@ function Rain({ activeRef }: { activeRef: React.MutableRefObject<boolean> }) {
 const CLOUD_TINT_CLOUDY = new THREE.Color('#b9b6c4');
 const CLOUD_TINT_RAIN = new THREE.Color('#77718f');
 // 超自然色污染目标(§3.5:异常点半径内环境光被 lerp 0.2 拉向蓝紫)
-const POLLUTION_TINT = new THREE.Color(ACCENT.anomalyViolet);
 // 室内 hemisphere 与户外昼夜标定解耦(P4 只重标户外;室内有自己的灯,§3)
 const INDOOR_HEMI_SKY = new THREE.Color('#d9e8eb');
 const INDOOR_HEMI_GROUND = new THREE.Color('#9b8d79');
@@ -451,12 +449,6 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
         hemiRef.current.intensity = s.hemiIntensity;
         hemiRef.current.color.copy(s.hemiSky);
         hemiRef.current.groundColor.copy(s.hemiGround);
-        // 异常点色污染接线(§3.5;anomalies.tsx 每帧更新 0..1)
-        const pol = anomalyPollution.current;
-        if (pol > 0.01) {
-          hemiRef.current.color.lerp(POLLUTION_TINT, 0.2 * pol);
-          hemiRef.current.groundColor.lerp(POLLUTION_TINT, 0.12 * pol);
-        }
       }
     }
     starOpacity.current = indoor ? 0 : s.starOpacity;
@@ -469,8 +461,6 @@ export default function SkySystem({ indoor }: { indoor: boolean }) {
 
     if (!indoor) {
       fog.color.copy(s.fogColor);
-      const pol = anomalyPollution.current;
-      if (pol > 0.01) fog.color.lerp(POLLUTION_TINT, 0.08 * pol);
       fog.near = 34 / s.fogDensityMul;
       fog.far = 130 / s.fogDensityMul;
       scene.fog = fog;

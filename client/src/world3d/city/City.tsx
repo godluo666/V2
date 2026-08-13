@@ -19,8 +19,6 @@ import { surfaceMaterial } from './materials';
 import { BuildQueue } from './progressive';
 import { Streets, shade } from './streets';
 import { Buildings } from './buildings';
-import { Foreground } from './foreground';
-import CyberpunkLayer from './CyberpunkLayer';
 import { HeroStreetStructures } from './heroStructures';
 
 // 共享构建队列(模块级:重进户外不重复构建,streets/buildings/foreground 幂等)
@@ -83,9 +81,6 @@ export default function City() {
       <Streets queue={queue} />
       <Buildings queue={queue} spawn={spawn} />
       <HeroStreetStructures />
-      <Foreground queue={queue} />
-      <CyberpunkLayer />
-
       {/* 布局道具与交互物(c_* 分支见 spaces/registry) */}
       {layout.props.map((p, i) => renderProp(p, i))}
       {layout.interactables.map((it) => renderInteractable(it, it.id))}

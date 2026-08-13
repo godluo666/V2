@@ -3,7 +3,8 @@
  *
  * - c_* 全套道具组件(经 spaces/registry.tsx 按 layout prop type 挂载):
  *   钠灯 / 售货机 / 长椅 / 施工围栏 / 自行车 / 垃圾袋堆+乌鸦 / 旧海报 /
- *   空调外机 / 悬垂电缆 / 红绿灯 / 电话亭 / 储物柜 / 井盖 / 消防栓 / 花坛;
+ *   空调外机 / 壁挂表箱 / 道路反光镜 / 反光柱 / 悬垂电缆 / 红绿灯 /
+ *   电话亭 / 储物柜 / 井盖 / 消防栓 / 花坛;
  * - StationEntrance / Overpass 仅为旧存档预制件归档，不从当前 cityplan 取坐标，
  *   也不在一番街注册。
  *
@@ -16,6 +17,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from '@nexuspark/shared';
 import { hot } from '../../state/hot';
+import { useWorld } from '../../state/stores';
+import { currentTod, sampleEnv } from '../env/daynight';
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
 import { surfaceMaterial } from './materials';
@@ -225,6 +228,19 @@ function poolMat(): THREE.MeshToonMaterial {
   return _poolMat;
 }
 
+export function CDrain({ position, ry = 0 }: { position: P3; ry?: number }) {
+  const resource = drainResources();
+  return (
+    <mesh
+      geometry={resource.geo}
+      material={resource.mat}
+      position={[position[0], position[1] + 0.02, position[2]]}
+      rotation={[0, ry, 0]}
+      receiveShadow
+    />
+  );
+}
+
 // High-frequency street infrastructure uses one calibrated physical metal
 // response. Vertex colours still preserve each prop's paint scheme, while the
 // shared roughness/metalness separates load-bearing hardware from light cores.
@@ -241,13 +257,13 @@ export function CLamp({ position, ry = 0 }: { position: P3; ry?: number }) {
     body.receiveShadow = true;
     addOutline(body);
     g.add(body);
-    const halo = crossHalo(1.5, ACCENT.lampSodium, 0.8);
+    const halo = crossHalo(0.72, ACCENT.lampSodium, 0.34);
     halo.position.set(0, 4.87, 0.85);
     g.add(halo);
     const pool = new THREE.Mesh(sharedPlane(), poolMat());
     pool.rotation.x = -Math.PI / 2;
     pool.position.set(0, 0.085, 0.85);
-    pool.scale.setScalar(7);
+    pool.scale.setScalar(3.8);
     pool.raycast = () => { /* 光斑不可拾取 */ };
     g.add(pool);
     return g;
@@ -259,6 +275,175 @@ export function CLamp({ position, ry = 0 }: { position: P3; ry?: number }) {
       rotation={[0, ry + j.ry, 0]}
       scale={[j.s, j.s, j.s]}
     />
+  );
+}
+
+// ═══ c_wall_light 巷道壁灯(昼夜联动、短距离真实补光)═══════════════════════
+
+const wallLightMetal = surfaceMaterial('brushedMetal');
+wallLightMetal.color.set('#4f5960');
+wallLightMetal.roughness = 0.62;
+wallLightMetal.metalness = 0.56;
+
+export function CWallLight({ position, ry = 0 }: { position: P3; ry?: number }) {
+  const env = useWorld((state) => state.env);
+  const bulbRef = useRef<THREE.MeshStandardMaterial>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+  useFrame(() => {
+    const on = sampleEnv(currentTod(env), env.weather).lampsOn;
+    if (bulbRef.current) bulbRef.current.emissiveIntensity = on ? 0.82 : 0;
+    if (lightRef.current) lightRef.current.intensity = on ? 2.65 : 0;
+  });
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <mesh material={wallLightMetal} castShadow receiveShadow>
+        <boxGeometry args={[0.34, 0.44, 0.12]} />
+      </mesh>
+      <mesh position={[0, -0.02, 0.2]} material={wallLightMetal} castShadow>
+        <boxGeometry args={[0.08, 0.08, 0.34]} />
+      </mesh>
+      <mesh position={[0, -0.12, 0.42]} material={wallLightMetal} castShadow>
+        <boxGeometry args={[0.48, 0.2, 0.34]} />
+      </mesh>
+      <mesh position={[0, -0.23, 0.43]} castShadow={false}>
+        <boxGeometry args={[0.34, 0.06, 0.25]} />
+        <meshStandardMaterial
+          ref={bulbRef}
+          color="#f2dfb3"
+          emissive={ACCENT.lampSodium}
+          emissiveIntensity={0}
+          roughness={0.42}
+        />
+      </mesh>
+      <pointLight
+        ref={lightRef}
+        position={[0, -0.34, 0.62]}
+        color="#ffd59a"
+        intensity={0}
+        distance={5.2}
+        decay={2}
+      />
+    </group>
+  );
+}
+
+// ═══ 巷口服务表箱 / 道路反光镜 / 街端反光柱 ═══════════════════════════════
+
+const serviceCabinetMaterial = surfaceMaterial('brushedMetal');
+serviceCabinetMaterial.color.set('#b8b9b1');
+serviceCabinetMaterial.roughness = 0.72;
+serviceCabinetMaterial.metalness = 0.28;
+const serviceTrimMaterial = surfaceMaterial('metal');
+serviceTrimMaterial.color.set('#626a6d');
+serviceTrimMaterial.roughness = 0.63;
+serviceTrimMaterial.metalness = 0.46;
+const serviceGlassMaterial = surfaceMaterial('glass', false, false);
+serviceGlassMaterial.color.set('#d9ded5');
+serviceGlassMaterial.transparent = true;
+serviceGlassMaterial.opacity = 0.42;
+serviceGlassMaterial.depthWrite = false;
+
+/** Two household meters and exposed conduit on an alley side elevation. */
+export function CServiceMeters({ position, ry = 0 }: { position: P3; ry?: number }) {
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <mesh position={[0, 0, 0]} material={serviceTrimMaterial} castShadow receiveShadow>
+        <boxGeometry args={[1.08, 1.1, 0.11]} />
+      </mesh>
+      {([-1, 1] as const).map((side) => (
+        <group key={`service-meter-${side}`} position={[side * 0.27, 0.12, 0.095]}>
+          <mesh material={serviceCabinetMaterial} castShadow receiveShadow>
+            <boxGeometry args={[0.42, 0.56, 0.16]} />
+          </mesh>
+          <mesh position={[0, 0.08, 0.095]} material={serviceGlassMaterial} castShadow={false}>
+            <circleGeometry args={[0.115, 20]} />
+          </mesh>
+          <mesh position={[0, -0.18, 0.1]} material={serviceTrimMaterial} castShadow={false}>
+            <boxGeometry args={[0.2, 0.045, 0.035]} />
+          </mesh>
+          <mesh position={[0, -0.61, 0]} material={serviceTrimMaterial} castShadow>
+            <cylinderGeometry args={[0.035, 0.035, 0.68, 8]} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, -0.51, 0.075]} material={serviceCabinetMaterial} castShadow receiveShadow>
+        <boxGeometry args={[0.74, 0.22, 0.16]} />
+      </mesh>
+      {[-0.18, 0, 0.18].map((x) => (
+        <mesh key={`service-vent-${x}`} position={[x, -0.51, 0.165]} material={serviceTrimMaterial}>
+          <boxGeometry args={[0.06, 0.035, 0.03]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+const mirrorOrangeMaterial = surfaceMaterial('metal');
+mirrorOrangeMaterial.color.set('#d76c24');
+mirrorOrangeMaterial.roughness = 0.58;
+mirrorOrangeMaterial.metalness = 0.22;
+const mirrorPoleMaterial = surfaceMaterial('brushedMetal');
+mirrorPoleMaterial.color.set('#a9acad');
+mirrorPoleMaterial.roughness = 0.54;
+mirrorPoleMaterial.metalness = 0.55;
+const mirrorFaceMaterial = new THREE.MeshPhysicalMaterial({
+  color: '#c8d6d6', roughness: 0.24, metalness: 0.18, clearcoat: 0.62,
+  clearcoatRoughness: 0.2, side: THREE.DoubleSide,
+});
+
+/** Human-scale orange convex mirror used at a blind alley corner. */
+export function CConvexMirror({ position, ry = 0 }: { position: P3; ry?: number }) {
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <mesh position={[0, 1.04, 0]} material={mirrorPoleMaterial} castShadow receiveShadow>
+        <cylinderGeometry args={[0.045, 0.055, 2.08, 10]} />
+      </mesh>
+      <mesh position={[0, 0.08, 0]} material={serviceTrimMaterial} castShadow receiveShadow>
+        <cylinderGeometry args={[0.13, 0.16, 0.16, 12]} />
+      </mesh>
+      <mesh position={[0, 2.05, 0.1]} rotation={[Math.PI / 2, 0, 0]} material={mirrorPoleMaterial} castShadow>
+        <cylinderGeometry args={[0.026, 0.026, 0.27, 8]} />
+      </mesh>
+      <mesh position={[0, 2.18, 0.25]} material={mirrorOrangeMaterial} castShadow receiveShadow>
+        <ringGeometry args={[0.31, 0.39, 32]} />
+      </mesh>
+      <mesh position={[0, 2.18, 0.243]} material={mirrorFaceMaterial} castShadow={false}>
+        <circleGeometry args={[0.305, 32]} />
+      </mesh>
+      <mesh position={[0, 2.18, 0.22]} rotation={[Math.PI / 2, 0, 0]} material={serviceTrimMaterial} castShadow>
+        <cylinderGeometry args={[0.37, 0.37, 0.055, 32]} />
+      </mesh>
+    </group>
+  );
+}
+
+const reflectorWhiteMaterial = surfaceMaterial('metal');
+reflectorWhiteMaterial.color.set('#e4e1d8');
+reflectorWhiteMaterial.roughness = 0.66;
+reflectorWhiteMaterial.metalness = 0.12;
+const reflectorAmberMaterial = surfaceMaterial('plasticLightbox');
+reflectorAmberMaterial.color.set('#d88a2a');
+reflectorAmberMaterial.emissive.set('#9a511d');
+reflectorAmberMaterial.emissiveIntensity = 0.08;
+reflectorAmberMaterial.roughness = 0.4;
+
+/** Low roadside delineator: visible in rain, but not a gate or lamp. */
+export function CReflectorPost({ position, ry = 0 }: { position: P3; ry?: number }) {
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <mesh position={[0, 0.08, 0]} material={serviceTrimMaterial} castShadow receiveShadow>
+        <cylinderGeometry args={[0.12, 0.15, 0.16, 10]} />
+      </mesh>
+      <mesh position={[0, 0.48, 0]} material={reflectorWhiteMaterial} castShadow receiveShadow>
+        <cylinderGeometry args={[0.07, 0.085, 0.8, 10]} />
+      </mesh>
+      <mesh position={[0, 0.7, 0.065]} material={reflectorAmberMaterial} castShadow={false}>
+        <boxGeometry args={[0.1, 0.14, 0.035]} />
+      </mesh>
+      <mesh position={[0, 0.7, -0.065]} rotation={[0, Math.PI, 0]} material={reflectorAmberMaterial} castShadow={false}>
+        <boxGeometry args={[0.1, 0.14, 0.035]} />
+      </mesh>
+    </group>
   );
 }
 
@@ -763,6 +948,107 @@ export function CTrash({ position, ry = 0, crow = true }: { position: P3; ry?: n
     <group position={position} rotation={[0, ry + j.ry, 0]} scale={[j.s, j.s, j.s]}>
       <primitive object={group} />
       {crow && <Crow offset={[0.3, 0.62, 0.1]} />}
+    </group>
+  );
+}
+
+let _recyclingLabelTexture: THREE.CanvasTexture | null = null;
+function recyclingLabelTexture(): THREE.CanvasTexture {
+  if (_recyclingLabelTexture) return _recyclingLabelTexture;
+  const [canvas, ctx] = makeCanvas(512);
+  ctx.clearRect(0, 0, 512, 512);
+  const labels = [
+    { text: '可燃', color: '#98704c' },
+    { text: '缶・びん', color: '#52747b' },
+    { text: 'PET', color: '#68785b' },
+  ];
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '700 42px "Noto Sans JP", "Yu Gothic", sans-serif';
+  for (let i = 0; i < labels.length; i++) {
+    const x = 12 + i * 164;
+    ctx.fillStyle = '#e6e1d6';
+    ctx.fillRect(x, 190, 152, 82);
+    ctx.strokeStyle = labels[i].color;
+    ctx.lineWidth = 8;
+    ctx.strokeRect(x + 4, 194, 144, 74);
+    ctx.fillStyle = '#33383a';
+    ctx.fillText(labels[i].text, x + 76, 233);
+  }
+  _recyclingLabelTexture = canvasTexture(canvas, false);
+  return _recyclingLabelTexture;
+}
+
+const recyclingFrameMaterial = surfaceMaterial('brushedMetal');
+recyclingFrameMaterial.color.set('#717a79');
+recyclingFrameMaterial.roughness = 0.62;
+recyclingFrameMaterial.metalness = 0.5;
+const recyclingLidMaterial = surfaceMaterial('metal');
+recyclingLidMaterial.color.set('#8b8d85');
+recyclingLidMaterial.roughness = 0.76;
+recyclingLidMaterial.metalness = 0.25;
+const recyclingBagMaterials = ['#5d5048', '#546568', '#65705a'].map((color) => {
+  const material = surfaceMaterial('plasticLightbox');
+  material.color.set(color);
+  material.roughness = 0.82;
+  material.metalness = 0;
+  return material;
+});
+
+/** Covered, labelled neighbourhood collection cage; no loose litter. */
+export function CRecyclingStation({ position, ry = 0 }: { position: P3; ry?: number }) {
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <mesh position={[0, 0.08, 0]} material={recyclingFrameMaterial} castShadow receiveShadow>
+        <boxGeometry args={[2.08, 0.16, 0.62]} />
+      </mesh>
+      {([-1, 1] as const).flatMap((side) => [-1, 1].map((depth) => (
+        <mesh
+          key={`recycling-post-${side}-${depth}`}
+          position={[side * 0.98, 0.7, depth * 0.26]}
+          material={recyclingFrameMaterial}
+          castShadow
+        >
+          <boxGeometry args={[0.06, 1.3, 0.06]} />
+        </mesh>
+      )))}
+      {[-0.34, 0.34].map((x) => (
+        <mesh key={`recycling-divider-${x}`} position={[x, 0.66, 0]} material={recyclingFrameMaterial} castShadow>
+          <boxGeometry args={[0.045, 1.12, 0.54]} />
+        </mesh>
+      ))}
+      {[0.32, 0.65, 0.98].map((y) => (
+        <group key={`recycling-grid-${y}`}>
+          <mesh position={[0, y, 0.292]} material={recyclingFrameMaterial} castShadow>
+            <boxGeometry args={[1.96, 0.025, 0.025]} />
+          </mesh>
+          <mesh position={[0, y, -0.292]} material={recyclingFrameMaterial} castShadow>
+            <boxGeometry args={[1.96, 0.025, 0.025]} />
+          </mesh>
+        </group>
+      ))}
+      {[-0.82, -0.5, -0.16, 0.16, 0.5, 0.82].map((x) => (
+        <mesh key={`recycling-grid-v-${x}`} position={[x, 0.65, 0.3]} material={recyclingFrameMaterial} castShadow>
+          <boxGeometry args={[0.025, 1.05, 0.025]} />
+        </mesh>
+      ))}
+      {[-0.68, 0, 0.68].map((x, index) => (
+        <group key={`recycling-bag-${x}`} position={[x, 0, 0]}>
+          <mesh position={[0, 0.43, 0]} material={recyclingBagMaterials[index]} castShadow receiveShadow>
+            <sphereGeometry args={[0.3, 10, 7]} />
+          </mesh>
+          <mesh position={[0, 0.68, 0]} material={recyclingBagMaterials[index]} castShadow>
+            <sphereGeometry args={[0.06, 8, 6]} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, 1.35, -0.02]} rotation={[-0.08, 0, 0]} material={recyclingLidMaterial} castShadow receiveShadow>
+        <boxGeometry args={[2.16, 0.1, 0.76]} />
+      </mesh>
+      <mesh position={[0, 1.1, 0.327]} castShadow={false}>
+        <planeGeometry args={[1.98, 0.5]} />
+        <meshBasicMaterial map={recyclingLabelTexture()} transparent toneMapped={false} />
+      </mesh>
     </group>
   );
 }
@@ -1416,14 +1702,39 @@ export function CPlanter({ position, ry = 0 }: { position: P3; ry?: number }) {
     const bag = new MergeBag();
     bag.box(0, 0.26, 0, 1.4, 0.52, 0.6, jitterColor(ENV.sidewalk, rnd));
     bag.box(0, 0.5, 0, 1.32, 0.05, 0.52, shade(ENV.skyTopDusk, -0.02)); // 土
-    // 夜色下的灌木(暗青偏绿派生)
-    const bush = shade(ENV.wallC, -0.045, 0.09, 0.06);
+    // Layered leaf clusters remain recognisably green in daylight and dusk;
+    // small stems/flower heads prevent the old dark-sphere reading.
+    const leafColors = ['#50694b', '#607756', '#71835e'];
     const n = 3 + Math.floor(rnd() * 3);
     for (let i = 0; i < n; i++) {
       const s = 0.3 + rnd() * 0.26;
       bag.add(bagSphere(), {
         x: (rnd() - 0.5) * 1.0, y: 0.52 + s * 0.55, z: (rnd() - 0.5) * 0.3,
-        sx: s * 1.2, sy: s, sz: s * 1.1, ry: rnd() * Math.PI, color: jitterColor(bush, rnd),
+        sx: s * 1.15, sy: s * 0.72, sz: s * 0.86, ry: rnd() * Math.PI,
+        color: jitterColor(leafColors[i % leafColors.length], rnd),
+      });
+    }
+    const flowerColors = ['#b57b72', '#d0ad70', '#ddd0b4'];
+    for (let i = 0; i < 4; i++) {
+      const x = -0.48 + i * 0.31 + (rnd() - 0.5) * 0.08;
+      const z = (rnd() - 0.5) * 0.22;
+      const stemH = 0.2 + rnd() * 0.12;
+      bag.add(unitCylinder(), {
+        x, y: 0.54 + stemH / 2, z,
+        sx: 0.025, sy: stemH, sz: 0.025, color: '#526a4c',
+      });
+      const flowerTop = 0.55 + stemH;
+      for (let petal = 0; petal < 3; petal++) {
+        const angle = petal * Math.PI * 2 / 3 + i * 0.42;
+        bag.add(bagSphere(), {
+          x: x + Math.cos(angle) * 0.07, y: flowerTop, z: z + Math.sin(angle) * 0.055,
+          sx: 0.1, sy: 0.05, sz: 0.075, ry: angle,
+          color: flowerColors[i % flowerColors.length],
+        });
+      }
+      bag.add(bagSphere(), {
+        x, y: flowerTop + 0.01, z,
+        sx: 0.065, sy: 0.05, sz: 0.065, color: '#b79c5f',
       });
     }
     return bagMesh(bag);

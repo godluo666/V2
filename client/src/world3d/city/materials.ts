@@ -421,7 +421,7 @@ const CONFIG: Record<SurfaceKind, { color: string; roughness: number; metalness:
   brushedMetal: { color: '#68727b', roughness: 0.34, metalness: 0.88, bump: 0.035 },
   darkGlass: { color: '#122734', roughness: 0.18, metalness: 0.56, bump: 0.02 },
   glass: { color: '#96c9d5', roughness: 0.16, metalness: 0.26, bump: 0.012 },
-  wetAsphalt: { color: '#292f38', roughness: 0.34, metalness: 0.22, bump: 0.08 },
+  wetAsphalt: { color: '#34383c', roughness: 0.72, metalness: 0.04, bump: 0.08 },
   sidewalk: { color: '#c9c2b6', roughness: 0.86, metalness: 0.02, bump: 0.11 },
   plasticLightbox: { color: '#e3e6e5', roughness: 0.3, metalness: 0.16, bump: 0.02 },
   wood: { color: '#765138', roughness: 0.78, metalness: 0.02, bump: 0.08 },

@@ -1,206 +1,110 @@
-/**
- * Hero-scale street structures for the compact Tsukishio crossroads.
- *
- * These meshes deliberately sit above the repeated facade language in
- * buildings.tsx: each venue gets a different load-bearing silhouette, deep
- * entrance reveal and service anatomy.  The screens and accent colours are
- * secondary; the portals, canopies, trusses and platforms still read when all
- * emissive output is disabled.
- *
- * The module is kept independent from the city build queue so it can be mounted
- * after <Buildings /> and remain a small, reviewable piece of the city assembly.
- */
+/** Human-scale entrances for the three public venues on Tsukishio Street. */
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import {
-  BUILDINGS,
-  CITY_BOUNDS,
-  CROSSWALKS,
-  ROADS,
-  SIDEWALKS,
-  VENUES,
-  cityBuildingLocalSize,
-} from '@nexuspark/shared/src/cityplan';
+import { BUILDINGS, VENUES, cityBuildingLocalSize } from '@nexuspark/shared';
 import { surfaceMaterial } from './materials';
 import { applyPhysicalUv } from './physicalUv';
-import { ACCENT, ENV } from './palette';
-import { asphaltTexture, sidewalkTexture } from './streets';
+import { ACCENT } from './palette';
 
 type MaterialSlot =
-  | 'concrete'
-  | 'paleConcrete'
-  | 'brick'
-  | 'inkMetal'
-  | 'brightMetal'
-  | 'darkGlass'
-  | 'warmGlass'
-  | 'cinemaAccent'
-  | 'arenaAccent'
-  | 'clubWood'
-  | 'asphalt'
-  | 'sidewalk';
-
+  | 'concrete' | 'paleConcrete' | 'brick' | 'inkMetal' | 'brightMetal'
+  | 'darkGlass' | 'warmGlass' | 'cinemaAccent' | 'arenaAccent' | 'clubWood';
 type HeroMaterials = Record<MaterialSlot, THREE.MeshStandardMaterial>;
 type VenueKey = (typeof VENUES)[number]['key'];
-
-interface VenueEnvelope {
-  building: (typeof BUILDINGS)[number];
-  localDoorX: number;
-  rotation: number;
-  front: number;
-  frontage: number;
-}
 
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
 const UNIT_CYLINDERS = new Map<number, THREE.CylinderGeometry>();
 const UP = new THREE.Vector3(0, 1, 0);
 const PHYSICAL_UV_SLOTS = new Set<MaterialSlot>([
   'concrete', 'paleConcrete', 'brick', 'inkMetal', 'brightMetal', 'clubWood',
-  'asphalt', 'sidewalk',
 ]);
 
-/** Resolve every hero anchor from the shared collision/route contract. */
-function venueEnvelope(key: VenueKey): VenueEnvelope {
-  const venue = VENUES.find((item) => item.key === key);
-  const building = BUILDINGS.find((item) => item.venue === key);
-  if (!venue || !building) throw new Error(`Missing cityplan envelope for ${key}`);
-  const rotation = building.ry ?? 0;
-  const dx = venue.x - building.x;
-  const dz = venue.z - building.z;
-  const size = cityBuildingLocalSize(building);
-  return {
-    building,
-    rotation,
-    localDoorX: dx * Math.cos(rotation) - dz * Math.sin(rotation),
-    front: size.depth / 2,
-    frontage: size.frontage,
-  };
-}
-
-function mediaTowerEnvelope(): {
-  building: (typeof BUILDINGS)[number];
-  rotation: number;
-  front: number;
-  frontage: number;
-  depth: number;
-} {
-  const building = BUILDINGS.find((item) => item.style === 'mediaTower');
-  if (!building) throw new Error('Missing media tower in cityplan');
-  const size = cityBuildingLocalSize(building);
-  return {
-    building,
-    rotation: building.ry ?? 0,
-    front: size.depth / 2,
-    frontage: size.frontage,
-    depth: size.depth,
-  };
-}
-
 function unitCylinder(segments = 8): THREE.CylinderGeometry {
-  const hit = UNIT_CYLINDERS.get(segments);
-  if (hit) return hit;
+  const cached = UNIT_CYLINDERS.get(segments);
+  if (cached) return cached;
   const geometry = new THREE.CylinderGeometry(1, 1, 1, segments, 1, false);
   UNIT_CYLINDERS.set(segments, geometry);
   return geometry;
 }
 
-function materials(): HeroMaterials {
+function venueEnvelope(key: VenueKey) {
+  const venue = VENUES.find((candidate) => candidate.key === key);
+  const building = BUILDINGS.find((candidate) => candidate.venue === key);
+  if (!venue || !building) throw new Error(`Missing cityplan envelope for ${key}`);
+  const rotation = building.ry ?? 0;
+  const size = cityBuildingLocalSize(building);
+  const dx = venue.x - building.x;
+  const dz = venue.z - building.z;
+  return {
+    building,
+    rotation,
+    frontage: size.frontage,
+    front: size.depth / 2,
+    localDoorX: dx * Math.cos(rotation) - dz * Math.sin(rotation),
+  };
+}
+
+function createMaterials(): HeroMaterials {
   const concrete = surfaceMaterial('oldConcrete');
   concrete.color.set('#85837f');
-
   const paleConcrete = surfaceMaterial('paintedConcrete');
   paleConcrete.color.set('#d8d0c2');
-
   const brick = surfaceMaterial('brick');
   brick.color.set('#76504b');
-
   const inkMetal = surfaceMaterial('metal');
-  // Cloud SwiftShader has no useful environment reflection, so near-black
-  // high-metalness faces collapse into featureless silhouettes.  Keep the
-  // ink hierarchy while allowing broad structural faces to receive daylight.
   inkMetal.color.set('#202833');
   inkMetal.metalness = 0.48;
   inkMetal.roughness = 0.62;
-
   const brightMetal = surfaceMaterial('brushedMetal');
   brightMetal.color.set('#8f9ca4');
   brightMetal.metalness = 0.62;
   brightMetal.roughness = 0.46;
-
   const darkGlass = surfaceMaterial('darkGlass');
   darkGlass.color.set('#193743');
   darkGlass.metalness = 0.34;
   darkGlass.roughness = 0.28;
   darkGlass.emissive.set('#0d303a');
-  darkGlass.emissiveIntensity = 0.18;
-
+  darkGlass.emissiveIntensity = 0.12;
+  darkGlass.transparent = true;
+  darkGlass.opacity = 0.64;
+  darkGlass.depthWrite = false;
   const warmGlass = surfaceMaterial('glass');
   warmGlass.color.set('#caa66e');
   warmGlass.emissive.set('#6e421c');
-  warmGlass.emissiveIntensity = 0.26;
-
+  warmGlass.emissiveIntensity = 0.2;
+  warmGlass.transparent = true;
+  warmGlass.opacity = 0.72;
+  warmGlass.depthWrite = false;
   const cinemaAccent = surfaceMaterial('plasticLightbox');
   cinemaAccent.color.set(ACCENT.cinemaSign);
   cinemaAccent.emissive.set('#7c122f');
-  cinemaAccent.emissiveIntensity = 0.34;
-
+  cinemaAccent.emissiveIntensity = 0.24;
   const arenaAccent = surfaceMaterial('plasticLightbox');
   arenaAccent.color.set(ACCENT.netcafeSign);
   arenaAccent.emissive.set('#073d62');
-  arenaAccent.emissiveIntensity = 0.38;
-
+  arenaAccent.emissiveIntensity = 0.26;
   const clubWood = surfaceMaterial('wood');
   clubWood.color.set('#6b422c');
-
-  // The east cinema closure continues the authored street beyond the playable
-  // boundary. Reuse the canonical generated maps so that the extension cannot
-  // read as an untextured black patch or a second pavement material.
-  const asphalt = surfaceMaterial('wetAsphalt');
-  asphalt.color.set(ENV.roadAsphalt);
-  asphalt.map = asphaltTexture();
-
-  const sidewalk = surfaceMaterial('sidewalk');
-  sidewalk.color.set(ENV.sidewalk);
-  sidewalk.map = sidewalkTexture();
-
   return {
-    concrete,
-    paleConcrete,
-    brick,
-    inkMetal,
-    brightMetal,
-    darkGlass,
-    warmGlass,
-    cinemaAccent,
-    arenaAccent,
-    clubWood,
-    asphalt,
-    sidewalk,
+    concrete, paleConcrete, brick, inkMetal, brightMetal,
+    darkGlass, warmGlass, cinemaAccent, arenaAccent, clubWood,
   };
 }
 
-/**
- * A tiny material-aware geometry batch.  Hero structures remain authored as
- * readable modules, but repeated columns, braces and mullions collapse to one
- * mesh per material instead of one draw call per part.
- */
+/** Material-aware batching keeps the authored entrance anatomy inexpensive. */
 class HeroBatch {
   private readonly parts = new Map<MaterialSlot, THREE.BufferGeometry[]>();
 
-  private addTransformed(
+  private add(
     slot: MaterialSlot,
     source: THREE.BufferGeometry,
     position: THREE.Vector3,
     scale: THREE.Vector3,
     quaternion: THREE.Quaternion,
-    physicalUv = false,
   ): void {
-    // BufferGeometryUtils requires every input in a merge to share the same
-    // indexed/non-indexed layout. Boxes and cylinders are indexed while
-    // ExtrudeGeometry is not guaranteed to be, so normalise all hero pieces.
     const geometry = source.index ? source.toNonIndexed() : source.clone();
-    if (physicalUv) applyPhysicalUv(geometry, scale);
+    if (PHYSICAL_UV_SLOTS.has(slot)) applyPhysicalUv(geometry, scale);
     geometry.applyMatrix4(new THREE.Matrix4().compose(position, quaternion, scale));
     const list = this.parts.get(slot) ?? [];
     list.push(geometry);
@@ -213,66 +117,36 @@ class HeroBatch {
     w: number, h: number, d: number,
     rx = 0, ry = 0, rz = 0,
   ): void {
-    this.addTransformed(
-      slot,
-      UNIT_BOX,
-      new THREE.Vector3(x, y, z),
-      new THREE.Vector3(w, h, d),
+    this.add(
+      slot, UNIT_BOX, new THREE.Vector3(x, y, z), new THREE.Vector3(w, h, d),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)),
-      PHYSICAL_UV_SLOTS.has(slot),
     );
   }
 
   cylinder(
     slot: MaterialSlot,
     x: number, y: number, z: number,
-    radius: number, height: number,
-    segments = 8,
-    rx = 0, ry = 0, rz = 0,
+    radius: number, height: number, segments = 8,
   ): void {
-    this.addTransformed(
-      slot,
-      unitCylinder(segments),
-      new THREE.Vector3(x, y, z),
-      new THREE.Vector3(radius, height, radius),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)),
+    this.add(
+      slot, unitCylinder(segments), new THREE.Vector3(x, y, z),
+      new THREE.Vector3(radius, height, radius), new THREE.Quaternion(),
     );
   }
 
-  beam(
-    slot: MaterialSlot,
-    a: THREE.Vector3,
-    b: THREE.Vector3,
-    radius: number,
-    segments = 8,
-  ): void {
-    const direction = b.clone().sub(a);
+  beam(slot: MaterialSlot, from: THREE.Vector3, to: THREE.Vector3, radius: number): void {
+    const direction = to.clone().sub(from);
     const length = direction.length();
     if (length < 0.001) return;
-    this.addTransformed(
-      slot,
-      unitCylinder(segments),
-      a.clone().lerp(b, 0.5),
+    this.add(
+      slot, unitCylinder(8), from.clone().lerp(to, 0.5),
       new THREE.Vector3(radius, length, radius),
       new THREE.Quaternion().setFromUnitVectors(UP, direction.normalize()),
     );
   }
 
-  geometry(
-    slot: MaterialSlot,
-    source: THREE.BufferGeometry,
-    position = new THREE.Vector3(),
-    scale = new THREE.Vector3(1, 1, 1),
-    rotation = new THREE.Euler(),
-  ): void {
-    this.addTransformed(
-      slot,
-      source,
-      position,
-      scale,
-      new THREE.Quaternion().setFromEuler(rotation),
-      PHYSICAL_UV_SLOTS.has(slot),
-    );
+  geometry(slot: MaterialSlot, source: THREE.BufferGeometry, position: THREE.Vector3): void {
+    this.add(slot, source, position, new THREE.Vector3(1, 1, 1), new THREE.Quaternion());
   }
 
   build(name: string, palette: HeroMaterials): THREE.Group {
@@ -293,8 +167,9 @@ class HeroBatch {
   }
 }
 
-/** Concave, chamfered U-frame with a real opening and extruded side faces. */
-function portalGeometry(width: number, height: number, opening: number, top: number, depth: number): THREE.ExtrudeGeometry {
+function portalGeometry(
+  width: number, height: number, opening: number, top: number, depth: number,
+): THREE.ExtrudeGeometry {
   const outerHalf = width / 2;
   const innerHalf = opening / 2;
   const chamfer = Math.min(0.8, width * 0.08);
@@ -311,780 +186,95 @@ function portalGeometry(width: number, height: number, opening: number, top: num
   shape.lineTo(-innerHalf, 0);
   shape.closePath();
   const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    bevelSize: 0.055,
-    bevelThickness: 0.055,
-    curveSegments: 1,
+    depth, bevelEnabled: true, bevelSegments: 1,
+    bevelSize: 0.055, bevelThickness: 0.055, curveSegments: 1,
   });
   geometry.translate(0, 0, -depth / 2);
   geometry.computeVertexNormals();
   return geometry;
 }
 
-/** A shallow chamfered slab used for marquees and screen casings. */
-function chamferedSlab(width: number, height: number, depth: number, cut: number): THREE.ExtrudeGeometry {
-  const hw = width / 2;
-  const hh = height / 2;
-  const c = Math.min(cut, hw * 0.45, hh * 0.45);
-  const shape = new THREE.Shape();
-  shape.moveTo(-hw + c, -hh);
-  shape.lineTo(hw - c, -hh);
-  shape.lineTo(hw, -hh + c);
-  shape.lineTo(hw, hh - c);
-  shape.lineTo(hw - c, hh);
-  shape.lineTo(-hw + c, hh);
-  shape.lineTo(-hw, hh - c);
-  shape.lineTo(-hw, -hh + c);
-  shape.closePath();
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth,
-    bevelEnabled: true,
-    bevelSegments: 1,
-    bevelSize: 0.035,
-    bevelThickness: 0.035,
-    curveSegments: 1,
+function neighborhoodVenueEntrance(key: VenueKey, palette: HeroMaterials): THREE.Group {
+  const envelope = venueEnvelope(key);
+  const root = new THREE.Group();
+  root.name = `neighborhood-venue-${key}`;
+  root.position.set(envelope.building.x, 0, envelope.building.z);
+  root.rotation.y = envelope.rotation;
+  const config = key === 'cinema'
+    ? { portalW: 5.4, portalH: 4.65, openingW: 3.8, accent: 'cinemaAccent' as const, glass: 'darkGlass' as const }
+    : key === 'netcafe'
+      ? { portalW: 4.8, portalH: 4.25, openingW: 3.4, accent: 'arenaAccent' as const, glass: 'darkGlass' as const }
+      : { portalW: 4.5, portalH: 4.05, openingW: 3.2, accent: 'clubWood' as const, glass: 'warmGlass' as const };
+  const batch = new HeroBatch();
+  const front = envelope.front + 0.04;
+  const portalHalf = config.portalW / 2;
+  // Venue doors are not necessarily centred in their host building (the
+  // cinema door sits four metres left of centre). Size each return from the
+  // real door-to-boundary span so a venue wing can never cover its neighbour.
+  const sideBays = ([-1, 1] as const).map((side) => {
+    const available = side < 0
+      ? envelope.frontage / 2 + envelope.localDoorX - portalHalf
+      : envelope.frontage / 2 - envelope.localDoorX - portalHalf;
+    const width = Math.min(4.4, Math.max(0.72, available - 0.65));
+    return {
+      side,
+      width,
+      x: side * (portalHalf + 0.35 + width / 2),
+    };
   });
-  geometry.translate(0, 0, -depth / 2);
-  geometry.computeVertexNormals();
-  return geometry;
-}
 
-/**
- * Close the cinema's east edge with a non-playable service wing and continue
- * the street surfaces beyond the shared city boundary.  Everything remains in
- * the cinema's visual group: no collider, venue, route or interaction datum is
- * widened, while the approach camera no longer looks through an abrupt world
- * seam.  The two elevations are authored as a post-and-beam frame with inset
- * bays; there is deliberately no single facade box hiding behind the details.
- */
-function addCinemaEastClosure(
-  batch: HeroBatch,
-  envelope: VenueEnvelope,
-  facadeZ: number,
-): void {
-  const wingStartX = envelope.frontage / 2 + 0.16;
-  const wingWidth = 10.4;
-  const wingEndX = wingStartX + wingWidth;
-  const wingDepth = 9.8;
-  const wingBackZ = facadeZ - wingDepth;
-  const wingCenterZ = (facadeZ + wingBackZ) / 2;
-  const floorLevels = [0.32, 4.68, 9.04, 13.4, 17.76, 22.12] as const;
-  const frontBayWidth = wingWidth / 3;
-
-  // Street-facing skeleton, floor bands and recessed lower service bays.
-  for (let edge = 0; edge <= 3; edge++) {
-    batch.box(
-      'concrete',
-      wingStartX + edge * frontBayWidth,
-      11.08,
-      facadeZ - 0.34,
-      0.38,
-      22.16,
-      0.78,
-    );
-  }
-  for (const y of floorLevels) {
-    batch.box('brightMetal', wingStartX + wingWidth / 2, y, facadeZ - 0.28, wingWidth + 0.32, 0.3, 0.9);
-  }
-  for (const y of [4.88, 13.6, 22.32]) {
-    batch.box('cinemaAccent', wingStartX + wingWidth / 2, y, facadeZ + 0.22, wingWidth - 0.7, 0.09, 0.16);
-  }
-  for (let bay = 0; bay < 3; bay++) {
-    const x = wingStartX + (bay + 0.5) * frontBayWidth;
-    const apertureWidth = frontBayWidth - 0.54;
-    batch.box('brick', x, 2.4, facadeZ - 0.72, apertureWidth, 4.0, 0.34);
-    batch.box(bay === 1 ? 'inkMetal' : 'darkGlass', x, 2.22, facadeZ - 0.48, apertureWidth - 0.34, 3.28, 0.16);
-    batch.box('brightMetal', x, 0.55, facadeZ - 0.28, apertureWidth - 0.18, 0.15, 0.42);
-    if (bay === 1) {
-      for (let slat = 0; slat < 7; slat++) {
-        batch.box('brightMetal', x, 1.02 + slat * 0.38, facadeZ - 0.34, apertureWidth - 0.68, 0.075, 0.24);
-      }
-    } else {
-      batch.box('inkMetal', x, 2.22, facadeZ - 0.3, 0.11, 3.48, 0.24);
-    }
-  }
-
-  // Four upper floors alternate glazed workshop bays and a ventilated plant
-  // level. Deep jambs, sills and mullions keep the openings readable at range.
-  for (let level = 0; level < 4; level++) {
-    const baseY = 4.68 + level * 4.36;
-    for (let bay = 0; bay < 3; bay++) {
-      const x = wingStartX + (bay + 0.5) * frontBayWidth;
-      const apertureWidth = frontBayWidth - 0.58;
-      batch.box('concrete', x, baseY + 0.62, facadeZ - 0.66, apertureWidth, 0.68, 0.38);
-      batch.box(level === 2 ? 'inkMetal' : 'darkGlass', x, baseY + 2.25, facadeZ - 0.62, apertureWidth, 2.42, 0.18);
-      batch.box('brightMetal', x, baseY + 1.03, facadeZ - 0.35, apertureWidth + 0.14, 0.13, 0.4);
-      batch.box('brightMetal', x, baseY + 3.48, facadeZ - 0.35, apertureWidth + 0.14, 0.13, 0.4);
-      batch.box('inkMetal', x, baseY + 2.25, facadeZ - 0.34, 0.1, 2.55, 0.26);
-      if (level === 2) {
-        for (let slat = 0; slat < 6; slat++) {
-          batch.box('brightMetal', x, baseY + 1.35 + slat * 0.36, facadeZ - 0.41, apertureWidth - 0.32, 0.07, 0.24);
-        }
-      }
-    }
-  }
-
-  // The east return is a second complete elevation, not an exposed end cap.
-  const sideBayCount = 3;
-  const sideBayDepth = wingDepth / sideBayCount;
-  for (let edge = 0; edge <= sideBayCount; edge++) {
-    batch.box('concrete', wingEndX - 0.15, 11.08, facadeZ - edge * sideBayDepth, 0.72, 22.16, 0.38);
-  }
-  for (const y of floorLevels) {
-    batch.box('brightMetal', wingEndX - 0.08, y, wingCenterZ, 0.58, 0.3, wingDepth + 0.24);
-  }
-  for (const y of [4.88, 13.6, 22.32]) {
-    batch.box('cinemaAccent', wingEndX + 0.23, y, wingCenterZ, 0.12, 0.09, wingDepth - 0.7);
-  }
-  for (let bay = 0; bay < sideBayCount; bay++) {
-    const z = facadeZ - (bay + 0.5) * sideBayDepth;
-    batch.box('brick', wingEndX - 0.31, 2.4, z, 0.34, 4.0, sideBayDepth - 0.46);
-    batch.box(bay === 2 ? 'inkMetal' : 'darkGlass', wingEndX - 0.04, 2.22, z, 0.16, 3.28, sideBayDepth - 0.74);
-    batch.box('brightMetal', wingEndX + 0.08, 0.55, z, 0.36, 0.15, sideBayDepth - 0.62);
-  }
-  for (let level = 0; level < 4; level++) {
-    const baseY = 4.68 + level * 4.36;
-    for (let bay = 0; bay < sideBayCount; bay++) {
-      const z = facadeZ - (bay + 0.5) * sideBayDepth;
-      batch.box((level + bay) % 3 === 1 ? 'inkMetal' : 'darkGlass', wingEndX + 0.12, baseY + 2.24, z, 0.16, 2.4, sideBayDepth - 0.5);
-      batch.box('brightMetal', wingEndX + 0.18, baseY + 1.02, z, 0.32, 0.12, sideBayDepth - 0.34);
-      batch.box('inkMetal', wingEndX + 0.2, baseY + 2.24, z, 0.28, 2.54, 0.09);
-    }
-  }
-
-  // A deep loading canopy, supported tension rods and connected rainwater
-  // anatomy ground the wing at pedestrian scale.
-  batch.box('inkMetal', wingStartX + wingWidth / 2, 4.5, facadeZ + 0.62, wingWidth - 0.45, 0.24, 1.72);
-  for (let bay = 0; bay < 3; bay++) {
-    const x = wingStartX + (bay + 0.5) * frontBayWidth;
-    batch.box('brightMetal', x, 4.36, facadeZ + 0.62, 0.09, 0.11, 1.5);
-    batch.beam('brightMetal', new THREE.Vector3(x, 4.58, facadeZ + 1.42), new THREE.Vector3(x, 6.25, facadeZ - 0.05), 0.05, 8);
-  }
-  batch.cylinder('inkMetal', wingStartX + 0.48, 8.75, facadeZ + 0.13, 0.105, 17.1, 8);
-  for (const y of [2.2, 6.6, 11.0, 15.4]) {
-    batch.box('brightMetal', wingStartX + 0.48, y, facadeZ + 0.02, 0.42, 0.08, 0.34);
-  }
-
-  // Set-back projection room and rooftop plant alter the silhouette. Their
-  // housings, vents, rails and cable riser are all volumetric and batched.
-  batch.box('brightMetal', wingStartX + wingWidth / 2, 22.32, wingCenterZ, wingWidth - 0.35, 0.3, wingDepth - 0.35);
-  batch.box('concrete', wingStartX + 2.35, 24.35, wingCenterZ - 0.6, 4.25, 3.75, 5.6);
-  batch.box('inkMetal', wingStartX + 7.55, 23.55, wingCenterZ + 0.3, 3.65, 2.15, 4.1);
-  for (let slat = 0; slat < 6; slat++) {
-    batch.box('brightMetal', wingStartX + 2.35, 23.15 + slat * 0.42, wingCenterZ + 2.24, 3.35, 0.08, 0.24);
-  }
-  for (const x of [wingStartX + 6.35, wingStartX + 8.75]) {
-    batch.box('brightMetal', x, 24.74, wingCenterZ + 2.05, 1.65, 0.08, 0.24);
-    batch.cylinder('inkMetal', x - 0.7, 24.0, wingCenterZ + 2.05, 0.06, 1.5, 8);
-    batch.cylinder('inkMetal', x + 0.7, 24.0, wingCenterZ + 2.05, 0.06, 1.5, 8);
-  }
-
-  // Continue the exact street materials outside CITY_BOUNDS. These slabs are
-  // visual-only and start with a small overlap, hiding the former hard seam;
-  // the authoritative playable rectangle remains untouched.
-  const venue = VENUES.find((item) => item.key === 'cinema');
-  const eastSidewalk = SIDEWALKS
-    .filter((item) => item.x + item.w / 2 >= CITY_BOUNDS.maxX - 0.01)
-    .sort((a, b) => Math.abs(a.z - (venue?.z ?? 0)) - Math.abs(b.z - (venue?.z ?? 0)))[0];
-  const eastRoad = ROADS.find((item) => item.w > item.d && item.x + item.w / 2 >= CITY_BOUNDS.maxX - 0.01);
-  if (!eastSidewalk || !eastRoad) return;
-
-  const extensionStart = CITY_BOUNDS.maxX - 0.18;
-  const extensionEnd = CITY_BOUNDS.maxX + 15;
-  const extensionLength = extensionEnd - extensionStart;
-  const extensionCenter = (extensionStart + extensionEnd) / 2;
-  const cos = Math.cos(envelope.rotation);
-  const sin = Math.sin(envelope.rotation);
-  const addWorldBox = (
-    slot: MaterialSlot,
-    worldX: number, y: number, worldZ: number,
-    width: number, height: number, depth: number,
-  ) => {
-    const dx = worldX - envelope.building.x;
-    const dz = worldZ - envelope.building.z;
-    batch.box(slot, dx * cos - dz * sin, y, dx * sin + dz * cos, width, height, depth, 0, -envelope.rotation, 0);
-  };
-
-  addWorldBox('asphalt', extensionCenter, -0.01, eastRoad.z, extensionLength, 0.04, eastRoad.d);
-  addWorldBox('sidewalk', extensionCenter, 0.025, eastSidewalk.z, extensionLength, 0.05, eastSidewalk.d);
-  const curbDepth = 0.24;
-  addWorldBox('sidewalk', extensionCenter, 0.03, eastSidewalk.z + eastSidewalk.d / 2 - curbDepth / 2, extensionLength, 0.06, curbDepth);
-  addWorldBox('sidewalk', extensionCenter, 0.03, eastSidewalk.z - eastSidewalk.d / 2 + curbDepth / 2, extensionLength, 0.06, curbDepth);
-  addWorldBox('sidewalk', extensionEnd - curbDepth / 2, 0.03, eastSidewalk.z, curbDepth, 0.06, eastSidewalk.d);
-
-  // A continuous drain channel and spaced grates establish scale without
-  // filling the road with random props.
-  const drainZ = eastSidewalk.z + eastSidewalk.d / 2 + 0.11;
-  addWorldBox('inkMetal', extensionCenter, 0.035, drainZ, extensionLength - 0.8, 0.05, 0.18);
-  for (let worldX = extensionStart + 0.6; worldX < extensionEnd - 0.5; worldX += 0.72) {
-    addWorldBox('brightMetal', worldX, 0.066, drainZ, 0.055, 0.025, 0.22);
-  }
-}
-
-function cinemaStructure(palette: HeroMaterials): THREE.Group {
-  // The asymmetric portal occupies the entrance side of the shared cinema
-  // envelope and turns the whole facade into a recognisable hall.
-  const envelope = venueEnvelope('cinema');
-  const root = new THREE.Group();
-  root.name = 'hero-cinema';
-  root.position.set(envelope.building.x, 0, envelope.building.z);
-  root.rotation.y = envelope.rotation;
-  const batch = new HeroBatch();
-  const doorX = envelope.localDoorX;
-  const portalX = doorX + 1.05;
-  const facadeZ = envelope.front - 0.05;
-  const roofY = envelope.building.h;
-
-  // Keep the entrance crown inside the normal 42° approach framing; the much
-  // taller roof silhouette remains separate above the main building mass.
-  const portal = portalGeometry(7.25, 9.7, 5.05, 1.25, 0.72);
-  batch.geometry('paleConcrete', portal, new THREE.Vector3(portalX, 0.08, facadeZ + 0.12));
-  batch.box('cinemaAccent', portalX, 9.18, facadeZ + 0.54, 5.25, 0.24, 0.34);
-
-  // The portal piers are close enough to fill the facade evidence shot.  Give
-  // each one a real plinth, recessed maintenance panels, perimeter ribs and
-  // construction joints so neither reads as a single smooth grey slab.
-  const portalPierOffset = 3.075;
+  batch.geometry(
+    'paleConcrete',
+    portalGeometry(config.portalW, config.portalH, config.openingW, 0.62, 0.38),
+    new THREE.Vector3(0, 0.08, front + 0.04),
+  );
+  // A shallow but visible vestibule sits behind the glass. Its rear wall,
+  // ceiling and side returns make the entrance legible without the UI prompt.
+  batch.box('paleConcrete', 0, 2.05, front - 1.2, config.openingW + 0.18, 3.85, 0.18);
+  batch.box('paleConcrete', 0, 3.88, front - 0.82, config.openingW + 0.12, 0.12, 0.78);
+  batch.box('paleConcrete', -config.openingW / 2, 2.05, front - 0.82, 0.12, 3.7, 0.78);
+  batch.box('paleConcrete', config.openingW / 2, 2.05, front - 0.82, 0.12, 3.7, 0.78);
+  batch.box(key === 'gameroom' ? 'warmGlass' : 'brightMetal', 0, 2.48, front - 1.08,
+    config.openingW * 0.62, 0.12, 0.06);
   for (const side of [-1, 1]) {
-    const pierX = portalX + side * portalPierOffset;
-    batch.box('brick', pierX, 0.62, facadeZ + 0.78, 0.94, 1.12, 0.22);
-    batch.box('inkMetal', pierX + side * 0.44, 4.9, facadeZ + 0.76, 0.1, 8.48, 0.24);
-    batch.box('brightMetal', pierX - side * 0.44, 4.9, facadeZ + 0.76, 0.08, 8.48, 0.2);
-    for (const [panelY, panelH] of [[2.05, 1.28], [4.02, 1.44], [6.15, 1.55], [8.08, 1.12]] as const) {
-      batch.box('darkGlass', pierX, panelY, facadeZ + 0.79, 0.6, panelH, 0.12);
-      batch.box('brightMetal', pierX, panelY - panelH / 2 - 0.07, facadeZ + 0.83, 0.72, 0.08, 0.15);
-    }
-    batch.box('cinemaAccent', pierX, 3.02, facadeZ + 0.9, 0.14, 0.42, 0.16);
-    batch.box('cinemaAccent', pierX, 7.12, facadeZ + 0.9, 0.14, 0.42, 0.16);
+    batch.box(key === 'cinema' ? 'cinemaAccent' : key === 'netcafe' ? 'arenaAccent' : 'clubWood',
+      side * config.openingW * 0.3, 1.65, front - 1.08, config.openingW * 0.18, 1.18, 0.06);
+  }
+  batch.box(config.glass, 0, 2.05, front - 0.48, config.openingW - 0.24, 3.42, 0.12);
+  batch.box('brightMetal', 0, 0.32, front - 0.3, config.openingW - 0.08, 0.13, 0.46);
+  batch.box('brightMetal', 0, 3.78, front - 0.3, config.openingW - 0.08, 0.13, 0.46);
+  batch.box('brightMetal', 0, 2.05, front - 0.2, 0.1, 3.5, 0.24);
+  for (const { side, width: sideBayW, x } of sideBays) {
+    batch.cylinder('brightMetal', side * 0.28, 1.75, front - 0.06, 0.035, 0.54);
+    batch.box('brick', x, 2.05, front - 0.34, sideBayW, 3.92, 0.34);
+    batch.box(side === -1 && key === 'gameroom' ? 'warmGlass' : 'darkGlass', x, 2, front - 0.1, sideBayW - 0.38, 3.12, 0.12);
+    batch.box('brightMetal', x, 0.42, front + 0.02, sideBayW - 0.22, 0.13, 0.34);
+    batch.box('brightMetal', x, 3.58, front + 0.02, sideBayW - 0.22, 0.13, 0.34);
+    batch.box('inkMetal', x, 2, front + 0.02, 0.1, 3.22, 0.26);
   }
 
-  // The authoritative interaction marker sits 1.7m in front of the old wall
-  // plane. A projecting vestibule physically joins that marker back to the
-  // main portal, so the usable door does not appear detached from the lobby.
-  const vestibule = portalGeometry(4.0, 4.35, 3.15, 0.58, 0.42);
-  batch.geometry('brightMetal', vestibule, new THREE.Vector3(doorX, 0.08, 8.84));
-  for (const side of [-1, 1]) {
-    batch.box('inkMetal', doorX + side * 1.82, 2.1, 8.12, 0.24, 4.08, 1.42);
+  batch.box(config.accent, 0, 4.1, front + 0.62, config.portalW + 0.7, 0.22, 1.28);
+  batch.box('inkMetal', 0, 3.94, front + 0.58, config.portalW + 0.28, 0.08, 1.02);
+  for (const x of [-config.portalW * 0.32, 0, config.portalW * 0.32]) {
+    batch.box('brightMetal', x, 3.88, front + 0.58, 0.06, 0.08, 0.9);
   }
-  batch.box('darkGlass', doorX, 4.0, 8.12, 3.55, 0.18, 1.42);
-  batch.box('paleConcrete', doorX, 0.1, 8.58, 3.9, 0.2, 1.75);
-
-  // A two-storey recessed lobby.  Every pane has a casing and the actual door
-  // sits in a 0.75m reveal, rather than floating on the main wall plane.
-  batch.box('concrete', portalX, 5.05, facadeZ - 0.58, 5.35, 9.0, 0.42);
-  const lobbyPanes = [
-    { x: -6.0, w: 1.05 },
-    { x: -4.82, w: 1.05 },
-    { x: -3.25, w: 1.7 },
-    { x: -1.86, w: 0.72 },
-  ];
-  for (const pane of lobbyPanes) {
-    batch.box('darkGlass', pane.x, 2.2, facadeZ - 0.1, pane.w, 3.55, 0.14);
-    batch.box('inkMetal', pane.x, 0.43, facadeZ + 0.02, pane.w + 0.12, 0.13, 0.28);
-    batch.box('inkMetal', pane.x, 3.97, facadeZ + 0.02, pane.w + 0.12, 0.13, 0.28);
-  }
-  for (const x of [-6.62, -5.43, -4.2, -2.35, -1.47]) {
-    batch.box('brightMetal', x, 2.2, facadeZ + 0.08, 0.12, 3.7, 0.24);
-  }
-  batch.box('brightMetal', doorX, 3.78, 8.78, 3.5, 0.11, 0.2);
-
-  // Cantilevered marquee: thick chamfered shell, underside ribs and diagonal
-  // tension rods. It projects over the pavement but leaves the approach open.
-  const marquee = chamferedSlab(8.1, 0.64, 2.25, 0.28);
-  batch.geometry('cinemaAccent', marquee, new THREE.Vector3(-3.9, 4.8, facadeZ + 1.0));
-  batch.box('inkMetal', -3.9, 4.48, facadeZ + 0.9, 7.45, 0.12, 1.86);
-  for (const x of [-6.85, -5.35, -3.85, -2.35, -0.85]) {
-    batch.box('brightMetal', x, 4.39, facadeZ + 0.9, 0.08, 0.12, 1.72);
-  }
-  for (const x of [-6.65, -1.15]) {
-    batch.beam('brightMetal', new THREE.Vector3(x, 4.68, facadeZ + 1.88), new THREE.Vector3(x, 7.35, facadeZ + 0.05), 0.055, 8);
-  }
-
-  // Second-storey balcony and deep mullions make the foyer height readable.
-  batch.box('brightMetal', portalX, 5.7, facadeZ + 0.16, 5.25, 0.16, 0.62);
-  batch.box('darkGlass', portalX, 7.5, facadeZ - 0.04, 4.95, 2.78, 0.14);
-  for (const x of [-6.4, -5.25, -4.1, -2.95, -1.8]) {
-    batch.box('inkMetal', x, 7.5, facadeZ + 0.1, 0.1, 2.95, 0.28);
-  }
-
-  // The opposite half is a three-storey circulation lantern, built from
-  // extruded post-and-beam frames rather than one 3.8 x 13.8m concrete box.
-  // Alternating facade depths expose real side returns; the dark openings sit
-  // behind their frames and the middle bay is a louvred service floor.
-  const serviceCoreX = 2.15;
-  const serviceFrame = portalGeometry(3.72, 4.08, 2.56, 0.56, 0.78);
-  for (let level = 0; level < 3; level++) {
-    const baseY = 0.14 + level * 4.28;
-    const levelZ = facadeZ - (level === 1 ? 0.62 : 0.38);
-    batch.geometry(
-      level === 1 ? 'paleConcrete' : 'concrete',
-      serviceFrame,
-      new THREE.Vector3(serviceCoreX, baseY, levelZ),
-    );
-    batch.box(
-      level === 1 ? 'inkMetal' : 'darkGlass',
-      serviceCoreX,
-      baseY + 1.92,
-      levelZ - 0.52,
-      2.42,
-      3.08,
-      0.16,
-    );
-    batch.box('brightMetal', serviceCoreX, baseY + 0.28, levelZ + 0.08, 2.72, 0.14, 0.42);
-    if (level === 1) {
-      for (let louvre = 0; louvre < 6; louvre++) {
-        batch.box('brightMetal', serviceCoreX, baseY + 0.8 + louvre * 0.46, levelZ - 0.38, 2.48, 0.08, 0.28);
-      }
-    }
-  }
-  batch.box('inkMetal', 0.18, 7.35, facadeZ - 0.12, 0.34, 14.5, 1.08);
-  batch.box('inkMetal', 4.18, 7.75, facadeZ - 0.02, 0.4, 15.3, 1.48);
-  batch.box('brightMetal', serviceCoreX, 13.24, facadeZ - 0.22, 3.88, 0.34, 1.18);
-  batch.box('paleConcrete', 3.0, 15.1, facadeZ - 0.7, 2.15, 2.35, 1.8);
-  batch.box('brightMetal', 3.0, 16.32, facadeZ - 0.42, 2.42, 0.12, 1.34);
-
-  // A recessed maintenance entrance completes the remaining frontage instead
-  // of exposing the legacy inner wall as an unmodelled dark gap. Its jambs,
-  // lintel, threshold and vented door all sit at different depths.
-  const serviceDoorX = 5.72;
-  batch.box('brick', serviceDoorX, 2.0, facadeZ - 0.88, 2.55, 3.9, 0.38);
-  batch.box('inkMetal', serviceDoorX, 1.86, facadeZ - 0.58, 1.7, 3.18, 0.18);
-  for (const x of [serviceDoorX - 1.12, serviceDoorX + 1.12]) {
-    batch.box('paleConcrete', x, 2.05, facadeZ - 0.28, 0.28, 4.1, 1.02);
-  }
-  batch.box('paleConcrete', serviceDoorX, 4.02, facadeZ - 0.24, 2.52, 0.3, 1.08);
-  batch.box('brightMetal', serviceDoorX, 0.32, facadeZ - 0.08, 2.12, 0.18, 0.72);
-  for (let vent = 0; vent < 5; vent++) {
-    batch.box('brightMetal', serviceDoorX, 1.02 + vent * 0.38, facadeZ - 0.43, 1.42, 0.07, 0.24);
-  }
-
-  // Cinema crown and projection-room silhouette. The existing cinema shell is
-  // 32m tall and reaches local z=7.4; these volumes intentionally cross both
-  // limits so they are visible instead of being buried inside the legacy mass.
-  batch.box('inkMetal', -1.4, 23.8, facadeZ - 0.5, 10.2, 0.38, 1.15);
-  batch.box('concrete', 1.55, roofY + 0.45, 3.9, 5.2, 8.7, 7.2);
-  batch.box('brightMetal', 1.55, roofY + 5.02, 3.9, 5.55, 0.42, 7.55);
-  for (const x of [-0.2, 1.25, 2.7]) {
-    batch.box('inkMetal', x, roofY + 1.0, 7.58, 0.17, 7.25, 0.32);
-  }
-  for (const x of [0.25, 2.65]) {
-    batch.box('brightMetal', x, roofY + 6.35, 3.9, 0.24, 2.4, 0.24);
-  }
-
-  // East service platform, guardrails and connected drain/HVAC anatomy.
-  const serviceX = envelope.frontage / 2 - 0.27;
-  for (const y of [9.0, 15.0, 21.0]) {
-    batch.box('brightMetal', serviceX, y, 0.3, 0.92, 0.18, 3.0);
-    batch.box('inkMetal', serviceX + 0.43, y + 0.58, 0.3, 0.08, 1.16, 3.0);
-    for (const z of [-1.08, 0, 1.08]) {
-      batch.box('inkMetal', serviceX + 0.43, y + 0.58, z, 0.09, 1.16, 0.09);
-    }
-  }
-  batch.cylinder('inkMetal', 6.76, 15.4, -1.6, 0.1, 23.0, 8);
-  for (let i = 0; i < 12; i++) {
-    const y = 8.0 + i * 1.15;
-    batch.box('brightMetal', serviceX - 0.2, y, 1.55 - (i % 2) * 2.5, 0.85, 0.07, 0.12, 0, 0, i % 2 ? -0.5 : 0.5);
-  }
-
-  addCinemaEastClosure(batch, envelope, facadeZ);
-
-  root.add(batch.build('hero-cinema-batch', palette));
-  return root;
-}
-
-function arenaStructure(palette: HeroMaterials): THREE.Group {
-  const envelope = venueEnvelope('netcafe');
-  const root = new THREE.Group();
-  root.name = 'hero-arena';
-  root.position.set(envelope.building.x, 0, envelope.building.z);
-  root.rotation.y = envelope.rotation;
-  const batch = new HeroBatch();
-  const facadeZ = envelope.front + 0.07;
-  const roofY = envelope.building.h;
-
-  // Flared event shell: two deep pylons, a chamfered outer portal and diagonal
-  // buttresses. Its width and 17m height break the original shopfront outline.
-  const portal = portalGeometry(12.25, 16.8, 9.35, 1.05, 0.92);
-  batch.geometry('inkMetal', portal, new THREE.Vector3(0, 0.1, facadeZ + 0.18));
-  batch.box('concrete', -5.55, 8.1, facadeZ - 0.55, 1.25, 15.4, 1.5);
-  batch.box('concrete', 5.55, 8.1, facadeZ - 0.55, 1.25, 15.4, 1.5);
-  batch.box('arenaAccent', -5.92, 9.0, facadeZ + 0.42, 0.24, 12.6, 0.48, 0, 0, -0.045);
-  batch.box('arenaAccent', 5.92, 9.0, facadeZ + 0.42, 0.24, 12.6, 0.48, 0, 0, 0.045);
-
-  // Recessed public entrance with thick turnstile bays and an upper concourse.
-  batch.box('concrete', 0, 2.3, facadeZ - 0.72, 8.6, 4.45, 0.4);
-  for (const x of [-3.2, -1.6, 0, 1.6, 3.2]) {
-    batch.box('darkGlass', x, 2.25, facadeZ - 0.38, 1.35, 3.65, 0.15);
-    batch.box('brightMetal', x - 0.74, 2.25, facadeZ - 0.17, 0.1, 3.82, 0.26);
-  }
-  batch.box('brightMetal', 0, 0.42, facadeZ - 0.1, 8.6, 0.15, 0.34);
-  batch.box('brightMetal', 0, 4.1, facadeZ - 0.1, 8.6, 0.18, 0.34);
-  for (const x of [-2.4, 0, 2.4]) {
-    batch.box('inkMetal', x, 0.76, facadeZ + 0.38, 1.25, 0.2, 0.65);
-  }
-
-  // Exterior match screen: screen, rear casing, side ventilation ribs and a
-  // complete truss that visibly transfers the load into both pylons.
-  const screenShell = chamferedSlab(10.35, 6.85, 0.62, 0.42);
-  batch.geometry('inkMetal', screenShell, new THREE.Vector3(0, 9.0, facadeZ + 0.05));
-  const screenFace = chamferedSlab(9.65, 6.2, 0.2, 0.3);
-  batch.geometry('darkGlass', screenFace, new THREE.Vector3(0, 9.0, facadeZ + 0.47));
-  for (const x of [-4.55, -3.05, -1.52, 0, 1.52, 3.05, 4.55]) {
-    batch.box('brightMetal', x, 5.92, facadeZ + 0.58, 0.1, 0.26, 0.24);
-    batch.box('brightMetal', x, 12.08, facadeZ + 0.58, 0.1, 0.26, 0.24);
-  }
-  for (const side of [-1, 1]) {
-    const wingX = side * 5.55;
-    batch.box('inkMetal', wingX, 9.1, facadeZ - 0.12, 1.55, 6.1, 0.48, 0, side * 0.28, 0);
-    batch.box('darkGlass', wingX + side * 0.18, 9.1, facadeZ + 0.22, 1.12, 5.45, 0.15, 0, side * 0.28, 0);
-    batch.beam('brightMetal', new THREE.Vector3(side * 5.4, 4.4, facadeZ - 0.45), new THREE.Vector3(side * 4.85, 12.65, facadeZ + 0.05), 0.09, 10);
-    batch.beam('brightMetal', new THREE.Vector3(side * 3.75, 4.45, facadeZ - 0.5), new THREE.Vector3(side * 5.45, 12.5, facadeZ - 0.1), 0.075, 10);
-  }
-
-  // Rear truss cage. The z-depth and diagonals remain visible from oblique
-  // street views instead of reading as a floating luminous rectangle.
-  const trussBackZ = facadeZ - 0.86;
-  for (const y of [5.35, 12.65]) {
-    batch.box('brightMetal', 0, y, trussBackZ, 10.4, 0.15, 0.15);
-  }
-  for (const x of [-5.05, 5.05]) {
-    batch.box('brightMetal', x, 9.0, trussBackZ, 0.15, 7.45, 0.15);
-  }
-  for (let i = 0; i < 5; i++) {
-    const x0 = -5.0 + i * 2.0;
-    const x1 = x0 + 2.0;
-    batch.beam('brightMetal', new THREE.Vector3(x0, 5.48, trussBackZ), new THREE.Vector3(x1, 12.52, trussBackZ), 0.055, 8);
-    batch.beam('brightMetal', new THREE.Vector3(x0, 12.52, trussBackZ), new THREE.Vector3(x1, 5.48, trussBackZ), 0.055, 8);
-  }
-
-  // Upper event-hall volume, roof catwalk and broadcast equipment produce a
-  // larger silhouette without widening the playable street. The old arena is
-  // 28m tall with a local front at z=4.95; the event volume rises above it and
-  // advances to z=5.4 so both the roofline and front step remain observable.
-  batch.box('concrete', 0.7, roofY - 1.0, 1.6, 10.6, 10.5, 7.6);
-  batch.box('inkMetal', -1.0, roofY + 4.45, 1.3, 13.0, 0.5, 8.5);
-  batch.box('arenaAccent', 0.8, roofY - 6.0, 5.42, 9.5, 0.32, 0.48);
-  for (const x of [-4.6, -2.3, 0, 2.3, 4.6]) {
-    batch.box('inkMetal', x, roofY - 1.6, 5.38, 0.16, 8.1, 0.34);
-  }
-  // Rooftop broadcast cage with dish, cable risers and service railings.
-  batch.box('brightMetal', 1.3, roofY + 5.15, 1.3, 6.0, 0.2, 4.0);
-  for (const x of [-1.5, 1.3, 4.1]) {
-    for (const z of [-0.55, 3.15]) {
-      batch.box('brightMetal', x, roofY + 5.85, z, 0.1, 1.35, 0.1);
-    }
-  }
-  batch.cylinder('inkMetal', 2.0, roofY + 7.45, 1.4, 0.65, 0.25, 16, Math.PI / 2, 0, 0);
-  batch.cylinder('brightMetal', 2.0, roofY + 6.35, 1.4, 0.09, 2.0, 8);
-  for (const x of [-2.4, 0.3, 3.0]) {
-    batch.box('inkMetal', x, roofY + 5.85, 0.6, 1.45, 1.15, 1.1);
-    batch.box('brightMetal', x, roofY + 6.45, 0.6, 1.58, 0.1, 1.2);
-  }
-
-  const body = batch.build('hero-arena-batch', palette);
-  body.position.x = envelope.localDoorX;
-  root.add(body);
-  return root;
-}
-
-function clubStructure(palette: HeroMaterials): THREE.Group {
-  const envelope = venueEnvelope('gameroom');
-  const root = new THREE.Group();
-  root.name = 'hero-dango-club';
-  root.position.set(envelope.building.x, 0, envelope.building.z);
-  root.rotation.y = envelope.rotation;
-  const batch = new HeroBatch();
-  const facadeZ = envelope.front + 0.53;
-  const roofY = envelope.building.h;
-
-  // Warm, human-scale post-and-beam entrance nested in the tall urban shell.
-  const portal = portalGeometry(6.15, 6.3, 4.45, 0.82, 0.56);
-  batch.geometry('clubWood', portal, new THREE.Vector3(0, 0.06, facadeZ + 0.06));
-  batch.box('brick', 0, 3.2, facadeZ - 0.55, 5.25, 5.95, 0.5);
-  batch.box('warmGlass', -1.45, 2.2, facadeZ - 0.24, 1.25, 3.55, 0.14);
-  batch.box('warmGlass', 1.45, 2.2, facadeZ - 0.24, 1.25, 3.55, 0.14);
-  batch.box('warmGlass', 0, 2.05, facadeZ - 0.18, 1.35, 3.25, 0.15);
-  for (const x of [-2.35, -1.98, -0.73, 0.73, 1.98, 2.35]) {
-    batch.box('clubWood', x, 2.35, facadeZ + 0.02, 0.13, 4.1, 0.24);
-  }
-  batch.box('clubWood', 0, 4.35, facadeZ + 0.02, 5.0, 0.16, 0.24);
-  batch.box('clubWood', 0, 0.38, facadeZ + 0.02, 5.0, 0.16, 0.24);
-
-  // A gabled, two-leaf canopy with actual thickness and timber brackets.
-  const roofAngle = 0.24;
-  const roofDepth = 2.2;
-  const roofHalf = roofDepth / 2;
-  const roofRise = Math.tan(roofAngle) * roofHalf;
-  const roofSlope = Math.hypot(roofHalf, roofRise);
-  batch.box('clubWood', 0, 5.35, facadeZ + 0.25, 6.45, 0.18, roofSlope, roofAngle, 0, 0);
-  batch.box('clubWood', 0, 5.35, facadeZ + 1.31, 6.45, 0.18, roofSlope, -roofAngle, 0, 0);
-  batch.box('inkMetal', 0, 5.56 + roofRise * 0.25, facadeZ + 0.78, 6.62, 0.12, 0.12);
-  for (const x of [-2.25, 2.25]) {
-    batch.beam('clubWood', new THREE.Vector3(x, 4.62, facadeZ + 0.12), new THREE.Vector3(x, 5.28, facadeZ + 1.55), 0.065, 8);
-  }
-
-  // Shop-bay windows and deep sills link the club to the surrounding street.
-  for (const bayX of [-4.55, 4.55]) {
-    batch.box('brick', bayX, 2.0, facadeZ - 0.35, 2.5, 3.9, 0.55);
-    batch.box('warmGlass', bayX, 2.15, facadeZ - 0.01, 1.85, 2.45, 0.16);
-    for (const x of [bayX - 1.03, bayX, bayX + 1.03]) {
-      batch.box('clubWood', x, 2.15, facadeZ + 0.12, 0.12, 2.75, 0.24);
-    }
-    batch.box('clubWood', bayX, 0.78, facadeZ + 0.12, 2.18, 0.18, 0.36);
-    batch.box('clubWood', bayX, 3.5, facadeZ + 0.12, 2.18, 0.18, 0.36);
-  }
-
-  // Northern alley mouth: a deep brick reveal, repeated overhead ribs and a
-  // connected utility run. It creates a real side destination without adding
-  // another traversable district or widening the road.
-  const alleyX = 4.95;
-  batch.box('brick', alleyX - 1.5, 2.6, facadeZ - 1.05, 0.45, 5.2, 2.4);
-  batch.box('brick', alleyX + 1.5, 2.6, facadeZ - 1.05, 0.45, 5.2, 2.4);
-  batch.box('inkMetal', alleyX, 5.2, facadeZ - 1.05, 3.4, 0.36, 2.4);
-  batch.box('darkGlass', alleyX, 2.35, facadeZ - 2.18, 2.6, 4.35, 0.14);
-  for (let i = 0; i < 4; i++) {
-    const z = facadeZ + 0.1 - i * 0.65;
-    batch.box('brightMetal', alleyX, 4.75, z, 3.15, 0.1, 0.1);
-    batch.box('brightMetal', alleyX - 1.4, 2.55, z, 0.1, 4.45, 0.1);
-    batch.box('brightMetal', alleyX + 1.4, 2.55, z, 0.1, 4.45, 0.1);
-  }
-  batch.cylinder('brightMetal', alleyX - 1.12, 4.42, facadeZ - 1.2, 0.11, 4.1, 8, 0, 0, Math.PI / 2);
-  batch.cylinder('brightMetal', alleyX + 1.12, 4.08, facadeZ - 1.2, 0.08, 3.85, 8, 0, 0, Math.PI / 2);
-
-  // Fire escape and club service platform give the tall side wall a believable
-  // maintenance scale. The ladder alternates flights rather than becoming a
-  // decorative grid pasted onto the facade.
-  const escapeX = -5.25;
-  for (const y of [8.5, 14.0, 19.5]) {
-    batch.box('brightMetal', escapeX, y, facadeZ + 0.18, 2.55, 0.16, 1.2);
-    batch.box('inkMetal', escapeX, y + 0.58, facadeZ + 0.72, 2.55, 1.05, 0.08);
-    for (const x of [escapeX - 1.15, escapeX, escapeX + 1.15]) {
-      batch.box('inkMetal', x, y + 0.58, facadeZ + 0.72, 0.08, 1.05, 0.08);
-    }
-  }
-  for (let flight = 0; flight < 3; flight++) {
-    const y0 = 8.7 + flight * 5.5;
-    const side = flight % 2 ? 1 : -1;
-    batch.beam('brightMetal', new THREE.Vector3(escapeX - side * 1.0, y0, facadeZ + 0.76), new THREE.Vector3(escapeX + side * 1.0, y0 + 4.8, facadeZ + 0.76), 0.07, 8);
-    batch.beam('brightMetal', new THREE.Vector3(escapeX - side * 0.72, y0, facadeZ + 0.76), new THREE.Vector3(escapeX + side * 1.28, y0 + 4.8, facadeZ + 0.76), 0.07, 8);
-    for (let rung = 0; rung < 7; rung++) {
-      const f = rung / 6;
-      const x = THREE.MathUtils.lerp(escapeX - side * 0.86, escapeX + side * 1.14, f);
-      batch.box('brightMetal', x, y0 + f * 4.8, facadeZ + 0.76, 0.62, 0.055, 0.09, 0, 0, side * -0.39);
-    }
-  }
-
-  // Roof club-room extension, water tank and vent run vary the silhouette. The
-  // inherited club block reaches 34m, so the extension straddles that datum and
-  // exposes a complete upper room rather than only a tank cap.
-  batch.box('brick', -1.6, roofY + 1.4, -0.7, 5.0, 6.4, 5.2);
-  batch.box('clubWood', -1.6, roofY + 4.78, -0.7, 5.4, 0.34, 5.6);
-  batch.cylinder('brightMetal', 2.8, roofY + 6.0, -1.2, 1.15, 2.1, 12);
-  batch.cylinder('inkMetal', 2.8, roofY + 4.85, -1.2, 0.12, 0.9, 8);
-  batch.cylinder('inkMetal', 2.8, roofY + 7.2, -1.2, 0.12, 0.35, 8);
-  batch.box('inkMetal', 1.15, roofY + 5.45, 1.9, 2.0, 1.15, 1.4);
-  batch.cylinder('brightMetal', 0.0, 22.0, 6.98, 0.1, 18.5, 8);
-
-  const body = batch.build('hero-club-batch', palette);
-  body.position.x = envelope.localDoorX;
-  root.add(body);
-  return root;
-}
-
-function mediaTowerScreenShell(palette: HeroMaterials): THREE.Group {
-  // Structural wrap around the screen already rendered by buildings.tsx. The
-  // central display remains unobstructed; this module supplies the casing,
-  // curved side returns, service deck and transfer brackets that it lacked.
-  const envelope = mediaTowerEnvelope();
-  const root = new THREE.Group();
-  root.name = 'hero-media-tower-shell';
-  root.position.set(envelope.building.x, 0, envelope.building.z);
-  root.rotation.y = envelope.rotation;
-  const batch = new HeroBatch();
-  const frontZ = envelope.front + 0.01;
-  const screenBottom = 4.74;
-  const screenTop = 11.96;
-
-  // Deep ground-floor arcade on all camera-facing sides. The original podium
-  // was a single 4.8m-high mass; these projecting mullions, recessed panes,
-  // sills and cornices split that grey wall before any signage is considered.
-  const frontBayCount = 5;
-  const frontBayWidth = (envelope.frontage - 0.8) / frontBayCount;
-  batch.box('inkMetal', 0, 1.82, frontZ - 0.78, envelope.frontage - 1.05, 3.34, 0.26);
-  for (let bay = 0; bay < frontBayCount; bay++) {
-    const x = -envelope.frontage / 2 + 0.4 + (bay + 0.5) * frontBayWidth;
-    const material: MaterialSlot = bay === 1 || bay === 4 ? 'warmGlass' : 'darkGlass';
-    batch.box(material, x, 1.72, frontZ + 0.38, frontBayWidth - 0.42, 2.72, 0.16);
-    batch.box('brightMetal', x, 0.34, frontZ + 0.45, frontBayWidth - 0.34, 0.14, 0.38);
-    batch.box('brightMetal', x, 3.1, frontZ + 0.45, frontBayWidth - 0.34, 0.14, 0.38);
-  }
-  for (let edge = 0; edge <= frontBayCount; edge++) {
-    const x = -envelope.frontage / 2 + 0.4 + edge * frontBayWidth;
-    batch.box('concrete', x, 1.85, frontZ + 0.42, 0.26, 3.7, 0.62);
-  }
-  batch.box('brightMetal', 0, 3.72, frontZ + 0.48, envelope.frontage + 0.18, 0.28, 0.62);
-  batch.box('inkMetal', 0, 4.02, frontZ + 0.92, envelope.frontage + 0.38, 0.2, 1.5, -0.08, 0, 0);
-  for (const x of [-envelope.frontage * 0.34, 0, envelope.frontage * 0.34]) {
+  for (const x of [-config.portalW * 0.38, config.portalW * 0.38]) {
     batch.beam(
-      'brightMetal',
-      new THREE.Vector3(x, 3.66, frontZ + 0.28),
-      new THREE.Vector3(x, 3.88, frontZ + 1.58),
-      0.055,
-      8,
+      'brightMetal', new THREE.Vector3(x, 4.18, front + 1.18),
+      new THREE.Vector3(x, 5.15, front - 0.08), 0.035,
     );
   }
 
-  // The southwest entry camera sees the media tower obliquely, so the west
-  // return is as important as the nominal front. Both side elevations receive
-  // real window depth and a continuous load-bearing lintel instead of a blind
-  // concrete slab. The east return keeps the cinema approach coherent too.
-  const sideBayCount = 5;
-  const sideBayDepth = (envelope.depth - 1.0) / sideBayCount;
-  for (const side of [-1, 1]) {
-    const sideX = side * (envelope.frontage / 2 + 0.16);
-    for (let bay = 0; bay < sideBayCount; bay++) {
-      const z = -envelope.depth / 2 + 0.5 + (bay + 0.5) * sideBayDepth;
-      const material: MaterialSlot = (bay + (side > 0 ? 1 : 0)) % 3 === 0 ? 'warmGlass' : 'darkGlass';
-      batch.box(material, sideX, 1.7, z, 0.16, 2.65, sideBayDepth - 0.38);
-      batch.box('brightMetal', sideX + side * 0.09, 0.34, z, 0.34, 0.14, sideBayDepth - 0.28);
-      batch.box('brightMetal', sideX + side * 0.09, 3.06, z, 0.34, 0.14, sideBayDepth - 0.28);
-    }
-    for (let edge = 0; edge <= sideBayCount; edge++) {
-      const z = -envelope.depth / 2 + 0.5 + edge * sideBayDepth;
-      batch.box('concrete', sideX + side * 0.12, 1.82, z, 0.48, 3.65, 0.25);
-    }
-    batch.box('brightMetal', sideX + side * 0.12, 3.7, 0, 0.5, 0.28, envelope.depth - 0.38);
-    batch.box('inkMetal', sideX + side * 0.52, 3.98, 0, 1.1, 0.18, envelope.depth - 0.2, 0, 0, side * 0.035);
-  }
+  batch.box('inkMetal', config.portalW / 2 + 0.34, 1.42, front + 0.13, 0.42, 0.72, 0.12);
+  batch.box(config.accent, config.portalW / 2 + 0.34, 1.55, front + 0.21, 0.28, 0.24, 0.06);
+  batch.box('brightMetal', -envelope.frontage / 2 + 0.42, 1.05, front - 0.18, 0.52, 0.78, 0.3);
+  batch.cylinder('inkMetal', envelope.frontage / 2 - 0.32, 2.35, front - 0.15, 0.055, 4.7);
+  batch.box('paleConcrete', 0, 0.1, front + 0.34, config.openingW + 0.4, 0.2, 0.82);
+  batch.box('inkMetal', 0, 0.22, front + 0.55, config.openingW - 0.42, 0.04, 0.46);
 
-  // Curved segmented upper/lower cases.  The centre bows 0.55m into the street
-  // and each section owns side faces, unlike a single flat sign plane.
-  const segments = 9;
-  for (let i = 0; i < segments; i++) {
-    const f = i / (segments - 1) * 2 - 1;
-    const x = f * 5.45;
-    const bow = 0.22 + (1 - f * f) * 0.52;
-    const z = frontZ + bow;
-    const ry = -f * 0.19;
-    batch.box('inkMetal', x, screenBottom, z, 1.38, 0.34, 0.72, 0, ry, 0);
-    batch.box('inkMetal', x, screenTop, z, 1.38, 0.34, 0.72, 0, ry, 0);
-    if (i === 0 || i === segments - 1 || i % 2 === 0) {
-      batch.box('brightMetal', x, (screenBottom + screenTop) / 2, z + 0.04, 0.16, screenTop - screenBottom, 0.48, 0, ry, 0);
-    }
-  }
-  // Two slim structural mullions split the giant display into a three-bay
-  // media facade. They sit in front of the actual screen plane, so even a
-  // portrait crop reads a constructed tower instead of one borderless poster.
-  for (const x of [-3.7, 3.7]) {
-    batch.box(
-      'brightMetal',
-      x,
-      (screenBottom + screenTop) / 2,
-      frontZ + 0.43,
-      0.11,
-      screenTop - screenBottom - 0.36,
-      0.2,
-    );
-    batch.box('inkMetal', x, screenBottom + 0.38, frontZ + 0.55, 0.32, 0.18, 0.38);
-  }
-  for (const side of [-1, 1]) {
-    batch.box('inkMetal', side * 5.82, 8.35, frontZ + 0.12, 0.72, 7.75, 1.45, 0, side * 0.16, 0);
-    batch.box('darkGlass', side * 5.93, 8.35, frontZ + 0.72, 0.4, 6.72, 0.2, 0, side * 0.16, 0);
-  }
-
-  // Screen service deck, rear truss and access ladder.  The braces connect the
-  // casing back into the concrete podium so the display no longer floats.
-  batch.box('brightMetal', 0, 4.18, frontZ + 0.05, 11.8, 0.18, 1.18);
-  batch.box('inkMetal', 0, 4.72, frontZ + 0.55, 11.8, 1.05, 0.08);
-  for (let i = -5; i <= 5; i++) {
-    const x = i * 1.08;
-    batch.box('inkMetal', x, 4.72, frontZ + 0.55, 0.07, 1.05, 0.08);
-  }
-  for (const x of [-5.25, -3.5, -1.75, 0, 1.75, 3.5, 5.25]) {
-    batch.beam('brightMetal', new THREE.Vector3(x, 4.35, frontZ - 0.95), new THREE.Vector3(x, 5.0, frontZ + 0.38), 0.065, 8);
-  }
-  for (const side of [-1, 1]) {
-    batch.beam('brightMetal', new THREE.Vector3(side * 5.55, 5.0, frontZ - 0.92), new THREE.Vector3(side * 5.8, 11.75, frontZ + 0.04), 0.085, 8);
-    batch.beam('brightMetal', new THREE.Vector3(side * 4.65, 5.0, frontZ - 0.92), new THREE.Vector3(side * 5.8, 11.75, frontZ + 0.04), 0.065, 8);
-  }
-  for (let rung = 0; rung < 10; rung++) {
-    batch.box('brightMetal', 5.48, 4.9 + rung * 0.7, frontZ - 0.64, 0.72, 0.055, 0.09);
-  }
-  batch.box('brightMetal', 5.18, 8.1, frontZ - 0.64, 0.08, 6.8, 0.08);
-  batch.box('brightMetal', 5.78, 8.1, frontZ - 0.64, 0.08, 6.8, 0.08);
-
-  // Offset vertical fins tie the low screen to the tower's upper volume and
-  // create a changing silhouette from the crossroads and cinema approach.
-  for (const [x, height, tilt] of [
-    [-5.1, 16.5, -0.05],
-    [-3.25, 12.8, -0.025],
-    [3.8, 15.2, 0.035],
-    [5.15, 18.0, 0.06],
-  ] as const) {
-    batch.box('inkMetal', x, 13.1 + height / 2, frontZ - 0.42, 0.22, height, 0.5, 0, 0, tilt);
-  }
-  batch.box('arenaAccent', -4.45, 21.8, frontZ - 0.08, 1.0, 0.34, 0.44, 0, 0, -0.08);
-  batch.box('cinemaAccent', 4.5, 25.0, frontZ - 0.08, 1.0, 0.34, 0.44, 0, 0, 0.08);
-
-  root.add(batch.build('hero-media-shell-batch', palette));
-  return root;
-}
-
-function crossingGantry(palette: HeroMaterials): THREE.Group {
-  // A compact structural frame just north of the crossing. It frames the first
-  // view without increasing the road width or placing props in the driving line.
-  const crosswalk = CROSSWALKS
-    .filter((item) => item.dir === 'x')
-    .sort((a, b) => a.z - b.z)[0];
-  if (!crosswalk) throw new Error('Missing north crosswalk in cityplan');
-  const root = new THREE.Group();
-  root.name = 'hero-crossing-gantry';
-  root.position.set(crosswalk.x, 0, crosswalk.z - 0.15);
-  const batch = new HeroBatch();
-  const half = crosswalk.w / 2 + 0.65;
-
-  for (const x of [-half, half]) {
-    batch.box('concrete', x, 0.24, 0, 0.62, 0.48, 0.72);
-    batch.cylinder('inkMetal', x, 3.42, 0, 0.14, 6.45, 10);
-    batch.box('brightMetal', x, 6.75, 0, 0.42, 0.22, 0.42);
-  }
-  // Two-chord truss with alternating diagonals.
-  for (const y of [6.25, 7.15]) {
-    batch.box('inkMetal', 0, y, 0, half * 2, 0.13, 0.13);
-  }
-  const bays = 6;
-  for (let i = 0; i <= bays; i++) {
-    const x = -half + (i / bays) * half * 2;
-    batch.box('inkMetal', x, 6.7, 0, 0.11, 0.9, 0.11);
-    if (i < bays) {
-      const next = -half + ((i + 1) / bays) * half * 2;
-      batch.beam(
-        'brightMetal',
-        new THREE.Vector3(x, i % 2 ? 7.08 : 6.32, 0),
-        new THREE.Vector3(next, i % 2 ? 6.32 : 7.08, 0),
-        0.045,
-        6,
-      );
-    }
-  }
-  // Signal heads are thick casings attached by proper drops and back plates.
-  for (const x of [-2.55, 0, 2.55]) {
-    batch.box('brightMetal', x, 5.72, 0, 0.09, 0.95, 0.09);
-    batch.box('inkMetal', x, 5.08, 0, 0.72, 0.82, 0.48);
-    for (const lightY of [4.83, 5.08, 5.33]) {
-      batch.cylinder(lightY === 5.08 ? 'cinemaAccent' : 'arenaAccent', x, lightY, 0.28, 0.1, 0.12, 10, Math.PI / 2, 0, 0);
-    }
-  }
-  // Side-mounted cable tray and junction boxes connect the gantry to the street
-  // utilities, avoiding an isolated "game prop" appearance.
-  batch.box('brightMetal', -half - 0.28, 3.4, 0, 0.26, 5.2, 0.28);
-  batch.box('inkMetal', -half - 0.4, 1.7, 0.12, 0.66, 0.92, 0.38);
-  batch.box('inkMetal', -half - 0.4, 3.0, 0.12, 0.52, 0.58, 0.34);
-  batch.cylinder('brightMetal', -half - 0.46, 4.55, 0.05, 0.055, 2.8, 8);
-
-  root.add(batch.build('hero-crossing-gantry-batch', palette));
+  const body = batch.build(`neighborhood-venue-${key}-batch`, palette);
+  body.position.x = envelope.localDoorX;
+  root.add(body);
   return root;
 }
 
@@ -1092,24 +282,18 @@ let cachedHeroStructures: THREE.Group | null = null;
 
 function createHeroStreetStructures(): THREE.Group {
   if (cachedHeroStructures) return cachedHeroStructures;
-  const palette = materials();
+  const palette = createMaterials();
   const group = new THREE.Group();
   group.name = 'hero-street-structures';
   group.add(
-    cinemaStructure(palette),
-    arenaStructure(palette),
-    clubStructure(palette),
-    mediaTowerScreenShell(palette),
-    crossingGantry(palette),
+    neighborhoodVenueEntrance('cinema', palette),
+    neighborhoodVenueEntrance('netcafe', palette),
+    neighborhoodVenueEntrance('gameroom', palette),
   );
   cachedHeroStructures = group;
   return group;
 }
 
-/**
- * Mount once in City after Buildings. The component owns no interaction state;
- * shared venue doors, routes and collision data therefore remain authoritative.
- */
 export function HeroStreetStructures() {
   const group = useMemo(() => createHeroStreetStructures(), []);
   return <primitive object={group} />;

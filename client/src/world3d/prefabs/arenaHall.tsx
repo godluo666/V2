@@ -14,6 +14,7 @@ import { ARENA_SPATIAL_CONTRACT } from '@nexuspark/shared';
 import { useSession, useVoice, useWorld } from '../../state/stores';
 import { voice } from '../../voice/voice';
 import { surfaceMaterial, type SurfaceKind } from '../city/materials';
+import { EmergencyExitSign } from './EmergencyExitSign';
 
 type P3 = [number, number, number];
 type R3 = [number, number, number];
@@ -74,6 +75,33 @@ const MATERIAL = {
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 const CYLINDER = new THREE.CylinderGeometry(1, 1, 1, 10);
 const OCTAGON = new THREE.CylinderGeometry(1, 1, 1, 8);
+
+const serviceSignTextures = new Map<'staff' | 'refreshments', THREE.CanvasTexture>();
+
+function serviceSignTexture(kind: 'staff' | 'refreshments'): THREE.CanvasTexture {
+  const cached = serviceSignTextures.get(kind);
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = 768;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d')!;
+  const accent = kind === 'staff' ? '#64e7f2' : '#b99aff';
+  ctx.fillStyle = '#101922';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 10;
+  ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+  ctx.fillStyle = accent;
+  ctx.font = '700 62px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(kind === 'staff' ? 'EVENT STAFF' : 'DRINKS · RECYCLE', canvas.width / 2, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  serviceSignTextures.set(kind, texture);
+  return texture;
+}
 
 interface PartProps {
   position: P3;
@@ -421,6 +449,119 @@ const STATION_CABLE_GUIDES: InstanceSpec[] = [
  * 可供 registry 的 nc_station 分支直接使用。局部原点与旧 NcStation 一致：
  * 机位朝本地 -Z，座位交互点应放在本地 +Z 约 1.25m。
  */
+/** Side-band event-operations desk with monitor, radio, drawers and a packed
+ * camera case. It faces the competition floor and keeps the evacuation gate free. */
+export function ArenaStaffDesk({ position, ry }: { position: P3; ry: number }) {
+  const sign = useMemo(() => serviceSignTexture('staff'), []);
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <pointLight position={[0, 2.25, 1.25]} color="#8be7ee" intensity={4.2} distance={5.4} decay={2} />
+      <Part position={[0, 0.014, 0.1]} scale={[3.35, 0.028, 1.4]} material={MATERIAL.rubber} castShadow={false} />
+      <Part position={[0, 0.71, 0]} scale={[3.0, 0.12, 0.94]} material={MATERIAL.deskTop} />
+      <Part position={[0, 0.37, 0.35]} scale={[2.86, 0.66, 0.12]} material={MATERIAL.darkSteel} />
+      {[-1.32, 1.32].map((x) => (
+        <Part key={`staff-leg-${x}`} position={[x, 0.35, 0]} scale={[0.12, 0.7, 0.76]} material={MATERIAL.steel} />
+      ))}
+      <Part position={[-0.48, 1.18, -0.08]} scale={[1.02, 0.66, 0.12]} material={MATERIAL.equipmentPolymer} />
+      <Part position={[-0.48, 1.18, -0.009]} scale={[0.84, 0.48, 0.03]} material={MATERIAL.cyanDim} castShadow={false} />
+      <Part position={[-0.48, 0.84, -0.04]} scale={[0.07, 0.22, 0.07]} material={MATERIAL.steel} />
+      <Part position={[-0.48, 0.75, -0.04]} scale={[0.46, 0.035, 0.26]} material={MATERIAL.steel} />
+      <Part position={[0.44, 0.81, -0.06]} scale={[0.38, 0.16, 0.3]} material={MATERIAL.blackMetal} />
+      {[0.29, 0.43, 0.57].map((x, index) => (
+        <CylinderPart key={`radio-${x}`} position={[x, 1.03 + index * 0.015, -0.06]}
+          scale={[0.035, 0.24, 0.035]} material={MATERIAL.warning} />
+      ))}
+      <Part position={[0.98, 0.8, -0.15]} scale={[0.55, 0.09, 0.38]} material={MATERIAL.equipmentPolymer} />
+      {[0.8, 0.98, 1.16].map((x, index) => (
+        <Part key={`control-${x}`} position={[x, 0.852, -0.14]} scale={[0.08, 0.02, 0.08]}
+          material={index === 1 ? MATERIAL.warning : MATERIAL.cyanDim} castShadow={false} />
+      ))}
+      {[-0.95, 0, 0.95].map((x) => (
+        <group key={`drawer-${x}`} position={[x, 0.35, 0.421]}>
+          <Part position={[0, 0, 0]} scale={[0.72, 0.46, 0.035]} material={MATERIAL.equipmentPolymer} />
+          <Part position={[0, 0.08, 0.025]} scale={[0.28, 0.035, 0.025]} material={MATERIAL.steel} />
+        </group>
+      ))}
+      <group position={[1.12, 0, -0.78]}>
+        <Part position={[0, 0.31, 0]} scale={[0.78, 0.62, 0.58]} material={MATERIAL.blackMetal} />
+        <Part position={[0, 0.63, 0]} scale={[0.82, 0.045, 0.62]} material={MATERIAL.steel} />
+        {[-0.33, 0.33].map((x) => [-0.24, 0.24].map((z) => (
+          <CylinderPart key={`case-wheel-${x}-${z}`} position={[x, 0.035, z]}
+            scale={[0.04, 0.04, 0.04]} material={MATERIAL.rubber} />
+        )))}
+        {/* Compact broadcast camera parked on its road case: body, lens,
+            top handle and tally lamp all remain inside the service collider. */}
+        <Part position={[0, 0.88, 0]} scale={[0.52, 0.28, 0.34]} material={MATERIAL.equipmentPolymer} />
+        <CylinderPart position={[0, 0.88, 0.24]} rotation={[Math.PI / 2, 0, 0]}
+          scale={[0.13, 0.18, 0.13]} material={MATERIAL.blackMetal} />
+        <CylinderPart position={[0, 0.88, 0.39]} rotation={[Math.PI / 2, 0, 0]}
+          scale={[0.09, 0.08, 0.09]} material={MATERIAL.glass} />
+        <Part position={[0, 1.08, -0.03]} scale={[0.28, 0.05, 0.16]} material={MATERIAL.steel} />
+        <Part position={[-0.18, 1.02, -0.03]} scale={[0.04, 0.18, 0.04]} material={MATERIAL.steel} />
+        <Part position={[0.18, 1.02, -0.03]} scale={[0.04, 0.18, 0.04]} material={MATERIAL.steel} />
+        <Part position={[0.2, 1.06, 0.1]} scale={[0.08, 0.05, 0.06]} material={MATERIAL.warning} castShadow={false} />
+      </group>
+      <mesh position={[0, 1.0, 0.445]} material={MATERIAL.cyanDim} castShadow={false}>
+        <boxGeometry args={[2.7, 0.24, 0.035]} />
+      </mesh>
+      <mesh position={[0, 1.0, 0.465]} castShadow={false}>
+        <planeGeometry args={[2.52, 0.19]} />
+        <meshBasicMaterial map={sign} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Spectator refreshment bar with refrigeration, cup storage, recycling and a
+ * compact illuminated marker; colour remains a small wayfinding accent. */
+export function ArenaServiceBar({ position, ry }: { position: P3; ry: number }) {
+  const sign = useMemo(() => serviceSignTexture('refreshments'), []);
+  return (
+    <group position={position} rotation={[0, ry, 0]}>
+      <pointLight position={[0, 2.35, 1.2]} color="#c9b3ff" intensity={4.4} distance={5.6} decay={2} />
+      <Part position={[0, 0.014, 0.08]} scale={[3.35, 0.028, 1.45]} material={MATERIAL.rubber} castShadow={false} />
+      <Part position={[0, 0.53, 0]} scale={[3.0, 1.06, 0.96]} material={MATERIAL.equipmentPolymer} />
+      <Part position={[0, 1.09, -0.01]} scale={[3.12, 0.08, 1.06]} material={MATERIAL.deskTop} />
+      {[-0.96, 0, 0.96].map((x, index) => (
+        <group key={`bar-door-${x}`} position={[x, 0.53, 0.491]}>
+          <Part position={[0, 0, 0]} scale={[0.78, 0.78, 0.035]}
+            material={index === 1 ? MATERIAL.glass : MATERIAL.darkSteel} />
+          <Part position={[0.24, 0.08, 0.025]} scale={[0.035, 0.34, 0.025]} material={MATERIAL.steel} />
+        </group>
+      ))}
+      {[-1.04, -0.78, -0.52].map((x, index) => (
+        <group key={`bottle-${x}`} position={[x, 1.13, -0.05]}>
+          <CylinderPart position={[0, 0.18, 0]} scale={[0.075, 0.18, 0.075]}
+            material={index === 1 ? MATERIAL.violetDim : MATERIAL.cyanDim} />
+          <CylinderPart position={[0, 0.38, 0]} scale={[0.035, 0.05, 0.035]} material={MATERIAL.steel} />
+        </group>
+      ))}
+      {[0.02, 0.18, 0.34].map((x, index) => (
+        <CylinderPart key={`cup-${x}`} position={[x, 1.27 + index * 0.025, -0.04]}
+          scale={[0.07, 0.15, 0.07]} material={MATERIAL.warning} />
+      ))}
+      <group position={[0.92, 1.13, -0.02]}>
+        <Part position={[0, 0.2, 0]} scale={[0.42, 0.4, 0.28]} material={MATERIAL.blackMetal} />
+        <Part position={[0, 0.25, -0.151]} scale={[0.3, 0.2, 0.025]} material={MATERIAL.cyanDim} castShadow={false} />
+      </group>
+      <Part position={[0, 1.72, 0.31]} scale={[2.6, 0.07, 0.36]} material={MATERIAL.steel} />
+      {[-1.18, 1.18].map((x) => (
+        <Part key={`shelf-post-${x}`} position={[x, 1.42, 0.31]} scale={[0.055, 0.62, 0.055]} material={MATERIAL.steel} />
+      ))}
+      <mesh position={[0, 1.97, 0.405]} castShadow={false}>
+        <boxGeometry args={[2.25, 0.36, 0.08]} />
+        <meshBasicMaterial map={sign} toneMapped={false} />
+      </mesh>
+      <group position={[1.24, 0, -0.8]}>
+        <Part position={[0, 0.38, 0]} scale={[0.48, 0.76, 0.48]} material={MATERIAL.blackMetal} />
+        <Part position={[0, 0.76, 0]} scale={[0.52, 0.045, 0.52]} material={MATERIAL.steel} />
+        <Part position={[-0.13, 0.55, -0.251]} scale={[0.16, 0.16, 0.025]} material={MATERIAL.cyanDim} castShadow={false} />
+        <Part position={[0.13, 0.55, -0.251]} scale={[0.16, 0.16, 0.025]} material={MATERIAL.warning} castShadow={false} />
+      </group>
+    </group>
+  );
+}
+
 export function ArenaPlayerStation({
   position,
   ry,
@@ -706,6 +847,53 @@ function RailRun({
   );
 }
 
+/** Continuous rails on both exposed edges of each four-step side-stand aisle.
+ * Their slope follows the authoritative tread rises, while a post at every
+ * tread makes the evacuation route readable from the competition floor. */
+function SideStandAisleHandrails() {
+  const aisle = ARENA_SPATIAL_CONTRACT.sideStandAisles;
+  const horizontalRun = (aisle.rows - 1) * aisle.rowSpacing + aisle.treadWidth;
+  const verticalRun = (aisle.rows - 1) * aisle.rowRise;
+  const railLength = Math.hypot(horizontalRun, verticalRun);
+  const slope = Math.atan2(verticalRun, horizontalRun);
+  const centerX = aisle.firstCenterX + ((aisle.rows - 1) * aisle.rowSpacing) / 2;
+  const centerY = aisle.firstRise + verticalRun / 2 + 0.88;
+  const edgeZ = [
+    aisle.centerZ - aisle.treadDepth / 2 + 0.12,
+    aisle.centerZ + aisle.treadDepth / 2 - 0.12,
+  ];
+
+  return (
+    <group name="arena-side-stand-aisle-handrails">
+      {aisle.x.flatMap((side) => edgeZ.map((z) => (
+        <group key={`rail-${side}-${z}`}>
+          <Part
+            position={[side * centerX, centerY, z]}
+            scale={[railLength, 0.1, 0.1]}
+            rotation={[0, 0, side * slope]}
+            material={MATERIAL.steel}
+          />
+          {Array.from({ length: aisle.rows }, (_, step) => {
+            const treadY = aisle.firstRise + step * aisle.rowRise;
+            return (
+              <Part
+                key={`post-${step}`}
+                position={[
+                  side * (aisle.firstCenterX + step * aisle.rowSpacing),
+                  treadY + 0.44,
+                  z,
+                ]}
+                scale={[0.08, 0.88, 0.08]}
+                material={MATERIAL.darkSteel}
+              />
+            );
+          })}
+        </group>
+      )))}
+    </group>
+  );
+}
+
 function buildUpperBowlInstances() {
   const concrete: InstanceSpec[] = [];
   const painted: InstanceSpec[] = [];
@@ -793,6 +981,7 @@ function UpperArenaBowl() {
 }
 
 function TieredStands({ lightsOn }: { lightsOn: boolean }) {
+  const standAisles = ARENA_SPATIAL_CONTRACT.sideStandAisles;
   const edgeLight = lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim;
   const rearLight = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
   const sideSegments = [
@@ -854,17 +1043,25 @@ function TieredStands({ lightsOn }: { lightsOn: boolean }) {
       })}
 
       {/* 两侧横向通道的阶梯；每级对应一层平台，不再靠隐形高度区。 */}
-      {([-1, 1] as const).flatMap((side) => Array.from({ length: 4 }, (_, step) => {
-        const height = 0.42 + step * 0.62;
+      {standAisles.x.flatMap((side) => Array.from({ length: standAisles.rows }, (_, step) => {
+        const height = standAisles.firstRise + step * standAisles.rowRise;
         return (
           <group key={`aisle-${side}-${step}`}>
             <Part
-              position={[side * (13.85 + step * 1.35), height / 2, 0.58]}
-              scale={[1.32, height, 2.2]}
+              position={[
+                side * (standAisles.firstCenterX + step * standAisles.rowSpacing),
+                height / 2,
+                standAisles.centerZ,
+              ]}
+              scale={[standAisles.treadWidth, height, standAisles.treadDepth]}
               material={MATERIAL.concrete}
             />
             <Part
-              position={[side * (13.85 + step * 1.35), height + 0.04, -0.48]}
+              position={[
+                side * (standAisles.firstCenterX + step * standAisles.rowSpacing),
+                height + 0.04,
+                standAisles.centerZ - standAisles.treadDepth / 2 + 0.04,
+              ]}
               scale={[1.18, 0.08, 0.08]}
               material={lightsOn ? MATERIAL.warning : MATERIAL.darkSteel}
               castShadow={false}
@@ -873,6 +1070,7 @@ function TieredStands({ lightsOn }: { lightsOn: boolean }) {
         );
       }))}
 
+      <SideStandAisleHandrails />
       <UpperArenaBowl />
       <ArenaAudienceSeats />
       <RailRun position={[-19.1, 2.72, -4.55]} length={7.1} axis="z" />
@@ -946,6 +1144,12 @@ function ArenaVomitoryPortals({ lightsOn }: { lightsOn: boolean }) {
             <Part position={[side * 12.6, 2.82, 0.6]} scale={[0.08, 0.17, 2.62]} material={accent} castShadow={false} />
             <Part position={[side * 13.18, 3.18, 0.6]} scale={[1.05, 0.16, 3.35]} material={MATERIAL.darkSteel} />
             <Part position={[side * 12.57, 1.24, 0.6]} scale={[0.07, 1.66, 0.1]} material={MATERIAL.warning} castShadow={false} />
+            <EmergencyExitSign
+              position={[side * 12.48, 3.35, 0.6]}
+              ry={-side * Math.PI / 2}
+              arrow={side < 0 ? 'left' : 'right'}
+              width={1.62}
+            />
           </group>
         );
       })}
@@ -1571,6 +1775,7 @@ function WallArchitecture({ lightsOn }: { lightsOn: boolean }) {
       ))}
       <Part position={[0, 2.85, 16.22]} scale={[2.25, 0.22, 0.12]} material={MATERIAL.glass} />
       <Part position={[0, 3.12, 16.15]} scale={[3.7, 0.18, 0.26]} material={MATERIAL.warning} castShadow={false} />
+      <EmergencyExitSign position={[0, 3.48, 16.12]} ry={Math.PI} width={1.9} />
       <Part position={[0, 7.25, 14.9]} scale={[20.5, 0.48, 2.4]} material={MATERIAL.darkSteel} />
       <Part position={[0, 7.55, 14.9]} scale={[19.7, 0.14, 2.05]} material={MATERIAL.rubber} />
       <RailRun position={[0, 7.62, 13.82]} length={19.7} axis="x" />

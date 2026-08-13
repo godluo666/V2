@@ -54,8 +54,8 @@ describe('world membership and movement', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    const target = BUILDINGS.find((building) => building.sign?.text === '月汐 LIVE');
-    if (!target) throw new Error('missing corner media building');
+    const target = BUILDINGS.find((building) => building.sign?.text === '潮路商店');
+    if (!target) throw new Error('missing compact street shop');
     const targetX = target.x;
     const targetZ = target.z;
     for (let i = 0; i < 80; i++) {

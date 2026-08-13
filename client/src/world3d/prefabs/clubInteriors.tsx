@@ -1,6 +1,7 @@
 /** Cozy, asset-free furniture for the Dango party hall activity room. */
 import { useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { EmergencyExitSign } from './EmergencyExitSign';
 import { toonMat } from '../city/toon';
 import { surfaceMaterial } from '../city/materials';
 import { useWorld } from '../../state/stores';
@@ -661,9 +662,53 @@ export function ClubTrophyWall({ position, ry }: { position: P3; ry: number }) {
 }
 
 /** 带门板、抽屉和金属把手的社团收纳柜；棋盒与零散用品有明确归属。 */
+function ClubEntryStorageAdditions() {
+  return (
+    <group>
+      {/* Open shoe cubbies make the lower bay readable from the entrance. */}
+      <SculptedPart position={[0, 0.38, 0.385]} scale={[3.38, 0.48, 0.16]} material={darkWood} />
+      {[-1.25, -0.42, 0.42, 1.25].map((x, index) => (
+        <group key={`shoe-cubby-${x}`} position={[x, 0.38, 0.49]}>
+          <SculptedPart position={[0, 0, 0]} scale={[0.68, 0.34, 0.055]} material={paper} />
+          <SculptedPart position={[-0.12, -0.08, 0.05]} scale={[0.26, 0.09, 0.22]}
+            rotation={[0, 0.08, 0]} material={index % 2 ? blue : red} soft />
+          <SculptedPart position={[0.15, -0.07, 0.055]} scale={[0.26, 0.09, 0.22]}
+            rotation={[0, -0.12, 0]} material={index % 2 ? sage : lavender} soft />
+        </group>
+      ))}
+      {/* Coat rail and two everyday jackets use the upper wall height that the
+          previous generic storage cabinet left empty. */}
+      <SculptedPart position={[0, 1.82, 0.12]} scale={[3.48, 0.72, 0.14]} material={cream} />
+      <mesh position={[0, 1.98, 0.38]} rotation={[0, 0, Math.PI / 2]} material={gold} castShadow>
+        <cylinderGeometry args={[0.025, 0.025, 2.8, 10]} />
+      </mesh>
+      {[-0.86, 0.86].map((x, index) => (
+        <group key={`entry-coat-${x}`} position={[x, 1.66, 0.43]}>
+          <mesh position={[0, 0.29, 0]} rotation={[Math.PI / 2, 0, 0]} material={gold}>
+            <torusGeometry args={[0.09, 0.018, 6, 12, Math.PI]} />
+          </mesh>
+          <SculptedPart position={[0, 0, 0]} scale={[0.56, 0.62, 0.11]}
+            material={index ? sageFabric : lavenderFabric} soft />
+          <SculptedPart position={[-0.34, 0.04, 0]} scale={[0.22, 0.5, 0.1]}
+            rotation={[0, 0, -0.18]} material={index ? sageFabric : lavenderFabric} soft />
+          <SculptedPart position={[0.34, 0.04, 0]} scale={[0.22, 0.5, 0.1]}
+            rotation={[0, 0, 0.18]} material={index ? sageFabric : lavenderFabric} soft />
+          <SculptedPart position={[0, -0.05, 0.07]} scale={[0.08, 0.42, 0.025]} material={cream} castShadow={false} />
+        </group>
+      ))}
+      {[-1.45, 0, 1.45].map((x) => (
+        <mesh key={`coat-hook-${x}`} position={[x, 1.84, 0.3]} rotation={[Math.PI / 2, 0, 0]} material={gold}>
+          <torusGeometry args={[0.06, 0.015, 6, 10, Math.PI]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export function ClubStorageCabinet({ position, ry }: { position: P3; ry: number }) {
   return (
     <group position={position} rotation={[0, ry, 0]}>
+      <ClubEntryStorageAdditions />
       {/* 倒角柜体、内缩踢脚线和离地短脚先建立木作轮廓。 */}
       <SculptedPart position={[0, 0.76, 0]} scale={[3.6, 1.38, 0.62]} material={wood} />
       <SculptedPart position={[0, 1.49, 0]} scale={[3.76, 0.11, 0.7]} material={darkWood} />
@@ -1098,6 +1143,7 @@ export function ClubExtras({
   const realPendantLights = pendantLightIndices(lightBudget);
   return (
     <group>
+      <EmergencyExitSign position={[0, 2.82, 8.7]} ry={Math.PI} width={1.72} />
       <ClubWallDetails lightsOn={lightsOn} />
       {/* 天花木梁与串灯：把活动室的高度和温馨感做出来。 */}
       {[-8, -4, 0, 4, 8].map((x) => (
