@@ -176,6 +176,45 @@ function RoadRibbon() {
   );
 }
 
+/** Visual-only road tails continue beyond the authoritative 84m bounds and
+ * turn behind the end houses. The player can never enter them, but the world
+ * no longer ends at a ruler-straight mesh edge. */
+function StreetContinuation({ east }: { east: boolean }) {
+  const edgeX = east ? CITY_BOUNDS.maxX : CITY_BOUNDS.minX;
+  const direction = east ? 1 : -1;
+  const edgeZ = streetCenterZ(edgeX);
+  const slope = 2.8 / (CITY_BOUNDS.maxX - CITY_BOUNDS.minX);
+  const points = [0, 3, 6, 9].map((distance) => ({
+    x: edgeX + direction * distance,
+    y: streetHeight(edgeX) + direction * distance * slope,
+    z: edgeZ + direction * (distance * 0.35 + distance * distance * 0.016),
+  }));
+  return (
+    <group name={east ? 'east-road-beyond-bend' : 'west-road-beyond-bend'}>
+      {points.slice(0, -1).map((a, index) => {
+        const b = points[index + 1];
+        const dx = b.x - a.x, dz = b.z - a.z, dy = b.y - a.y;
+        const horizontal = Math.hypot(dx, dz);
+        return (
+          <group
+            key={a.x}
+            position={[(a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2]}
+            rotation={[0, -Math.atan2(dz, dx), Math.atan2(dy, horizontal)]}
+          >
+            <PaintedBox position={[0, -0.055, 0]} scale={[horizontal + 0.12, 0.11, 5.2]} material={roadMat} />
+            {([-1, 1] as const).map((side) => (
+              <group key={side} position={[0, -0.065, side * 3.25]}>
+                <PaintedBox position={[0, 0, 0]} scale={[horizontal + 0.14, 0.13, 1.1]} material={walkMat} />
+                <PaintedBox position={[0, 0.05, -side * 0.6]} scale={[horizontal + 0.12, 0.17, 0.1]} material={curbMat} />
+              </group>
+            ))}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 function RoadMicroDetails() {
   const grateXs = [-38, -30, -22, -14, -6, 2, 10, 18, 26, 34, 40];
   const covers = [-32, -17, -1, 14, 29];
@@ -226,7 +265,7 @@ function RainWaterDetails() {
       1 - Math.exp(-delta * (raining ? 0.72 : 0.42)),
     );
     puddleMat.opacity = wetness.current * 0.42;
-    if (root.current) root.current.scale.y = Math.max(0.001, wetness.current);
+    if (root.current) root.current.visible = wetness.current > 0.005;
   });
   const puddles = [
     [-29, -0.45, 1.05, 0.34, -0.12],
@@ -238,7 +277,7 @@ function RainWaterDetails() {
     [39, 2.5, 0.68, 0.16, -0.06],
   ] as const;
   return (
-    <group ref={root} name="rainwater-collection">
+    <group ref={root} name="rainwater-collection" visible={false}>
       {puddles.map(([x, offsetZ, width, depth, angle], index) => (
         <group
           key={x}
@@ -704,6 +743,18 @@ function HillStairLane() {
           </group>
         );
       })}
+      {/* The twelfth tread terminates on a narrow level landing rather than
+          exposing the sloped ground beneath the closed courtyard gate. */}
+      <PaintedBox
+        position={[stairX, baseY + 1.92, startZ - 10.48]}
+        scale={[2.5, 0.12, 0.34]}
+        material={walkMat}
+      />
+      <PaintedBox
+        position={[stairX, baseY + 1.995, startZ - 10.34]}
+        scale={[2.5, 0.03, 0.08]}
+        color="#8f8d85"
+      />
       {/* Mossy retaining walls and a continuous handrail make the branch human-scale. */}
       {[stairX - 1.63, stairX + 1.63].map((x, sideIndex) => (
         <group key={x}>
@@ -1090,12 +1141,52 @@ const flightCoverMat = material('#899688', 0.96);
 
 function VistaClosure({ east }: { east: boolean }) {
   const x = east ? CITY_BOUNDS.maxX + 6 : CITY_BOUNDS.minX - 6;
-  const z = streetCenterZ(east ? CITY_BOUNDS.maxX : CITY_BOUNDS.minX) + (east ? 3.8 : -3.8);
+  // Offset the house to the outside of the new visual bend. Its near corner
+  // hides the continuation while the carriageway still reads as passing it,
+  // rather than terminating against a building placed across the road.
+  const z = streetCenterZ(east ? CITY_BOUNDS.maxX : CITY_BOUNDS.minX) + (east ? 7.2 : -7.2);
+  const outward = east ? -1 : 1;
+  const frontZ = outward * 3.13;
+  const edgeX = east ? CITY_BOUNDS.maxX : CITY_BOUNDS.minX;
+  const y = streetHeight(edgeX) + (x - edgeX) * (2.8 / 84);
   return (
-    <group position={[x, streetHeight(east ? 42 : -42), z]} rotation={[0, east ? -0.72 : 0.72, 0]}>
+    <group position={[x, y, z]} rotation={[0, east ? -0.72 : 0.72, 0]} name={east ? 'east-bend-house' : 'west-bend-house'}>
       <PaintedBox position={[0, 3.8, 0]} scale={[9.2, 7.6, 6.2]} color={east ? '#d8d2c5' : '#e8dfd0'} />
+      <PaintedBox position={[0, 0.14, 0]} scale={[9.45, 0.28, 6.45]} color="#9f9c91" />
       <GabledRoof w={9.2} d={6.2} h={7.6} />
-      {[-2.8, -0.95, 0.95, 2.8].map((windowX) => <PaintedBox key={windowX} position={[windowX, 4.1, -3.13]} scale={[1.15, 1.2, 0.1]} material={windowMat} />)}
+      {[-2.8, -0.95, 0.95, 2.8].map((windowX, index) => (
+        <group key={windowX} position={[windowX, 4.1, frontZ]}>
+          <PaintedBox position={[0, 0, 0]} scale={[1.35, 1.42, 0.12]} material={darkWoodMat} />
+          <PaintedBox position={[0, 0, outward * 0.075]} scale={[1.13, 1.18, 0.08]} material={index === 1 ? warmWindowMat : windowMat} />
+          <PaintedBox position={[0, 0, outward * 0.125]} scale={[0.045, 1.1, 0.04]} color="#777a73" />
+          <PaintedBox position={[0, -0.58, outward * 0.12]} scale={[1.38, 0.09, 0.22]} color="#aaa69a" />
+        </group>
+      ))}
+      {/* The occluding house remains a real residence when reached visually:
+          recessed entrance, transom, handle, eaves gutter and drain shoe. */}
+      <PaintedBox position={[-3.35, 1.32, frontZ]} scale={[1.34, 2.48, 0.18]} material={darkWoodMat} />
+      <PaintedBox position={[-3.35, 1.24, frontZ + outward * 0.12]} scale={[1.06, 2.16, 0.08]} color="#7d705e" />
+      <PaintedBox position={[-3.35, 2.1, frontZ + outward * 0.18]} scale={[0.62, 0.38, 0.04]} material={windowMat} />
+      <mesh position={[-2.99, 1.22, frontZ + outward * 0.2]} rotation={[Math.PI / 2, 0, 0]} material={metalMat}>
+        <cylinderGeometry args={[0.045, 0.045, 0.035, 10]} />
+      </mesh>
+      <PaintedBox position={[-2.51, 1.55, frontZ + outward * 0.17]} scale={[0.18, 0.28, 0.055]} color="#b7b4a8" />
+      <PaintedBox position={[-2.51, 1.6, frontZ + outward * 0.205]} scale={[0.055, 0.035, 0.018]} material={windowMat} cast={false} />
+      <CanvasSign
+        text={east ? '四二番地' : '一番地'} color="#756b58"
+        position={[-2.12, 1.62, frontZ + outward * 0.2]}
+        rotation={[0, outward < 0 ? Math.PI : 0, 0]} size={[0.44, 0.15]}
+      />
+      <CylBetween
+        from={[-2.51, 1.41, frontZ + outward * 0.1]}
+        to={[-2.51, 0.24, frontZ + outward * 0.1]}
+        radius={0.016} mat={metalMat}
+      />
+      <PaintedBox position={[-3.35, 2.73, frontZ - outward * 0.05]} scale={[1.72, 0.12, 0.72]} color="#77736b" rotation={[outward * 0.08, 0, 0]} />
+      <CylBetween from={[-4.2, 7.48, frontZ]} to={[4.2, 7.48, frontZ]} radius={0.055} mat={metalMat} />
+      <CylBetween from={[4.0, 7.45, frontZ]} to={[4.0, 0.28, frontZ]} radius={0.045} mat={metalMat} />
+      <CylBetween from={[4.0, 0.28, frontZ]} to={[4.0, 0.14, frontZ + outward * 0.34]} radius={0.05} mat={metalMat} />
+      <PaintedBox position={[4.0, 0.045, frontZ + outward * 0.42]} scale={[0.5, 0.08, 0.42]} color="#aaa79d" cast={false} />
     </group>
   );
 }
@@ -1106,6 +1197,8 @@ export default function CozyResidentialStreet() {
       <DistantNeighborhood />
       <DriftingLeaves />
       <RoadRibbon />
+      <StreetContinuation east={false} />
+      <StreetContinuation east />
       <RoadMicroDetails />
       <RainWaterDetails />
       <SidewalkAgeDetails />

@@ -333,7 +333,9 @@ function buildCity(): SpaceLayout {
   for (let step = 0; step < 12; step += 1) {
     const maxZ = stairStartZ - step * 0.9;
     b.heightZones.push({
-      minX: stairX - 1.28, maxX: stairX + 1.28, minZ: maxZ - 0.9, maxZ,
+      minX: stairX - 1.28, maxX: stairX + 1.28,
+      // The final tread includes the small landing up to the closed gate.
+      minZ: maxZ - (step === 11 ? 1.08 : 0.9), maxZ,
       kind: 'deck', y: stairBase + step * 0.18,
     });
   }

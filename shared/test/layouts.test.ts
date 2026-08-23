@@ -52,6 +52,7 @@ describe('月汐町·结缘坂坐标契约', () => {
       && building.h <= 9.5
     ))).toBe(true);
     expect(BUILDINGS.some((building) => ['tower', 'mediaTower', 'silhouette'].includes(building.style))).toBe(false);
+    expect(city.hasBall).toBe(false);
     for (const building of BUILDINGS) {
       expect(building.x - building.w / 2).toBeGreaterThanOrEqual(CITY_BOUNDS.minX);
       expect(building.x + building.w / 2).toBeLessThanOrEqual(CITY_BOUNDS.maxX);
@@ -139,6 +140,9 @@ describe('月汐町·结缘坂坐标契约', () => {
       expect(step.y).toBeCloseTo(streetHeight(-12.4) + index * 0.18, 5);
       expect(floorHeightAt(city, -12.4, (step.minZ + step.maxZ) / 2)).toBeCloseTo(step.y, 5);
     });
+    const topStep = stairSteps.at(-1)!;
+    expect(topStep.maxZ - topStep.minZ).toBeCloseTo(1.08, 5);
+    expect(floorHeightAt(city, -12.4, topStep.minZ + 0.03)).toBeCloseTo(topStep.y, 5);
     const flight = city.interactables.find((item) => item.id === 'gr-flight')!;
     expect(floorHeightAt(city, flight.pos[0], flight.pos[2])).toBeCloseTo(flight.pos[1] - 0.34, 5);
   });
@@ -159,6 +163,25 @@ describe('月汐町·结缘坂坐标契约', () => {
         const [resolvedX, resolvedZ] = resolveCollisions(x, z, 0.28, city.colliders);
         expect(Math.hypot(resolvedX - x, resolvedZ - z), `${npc.name}@${x},${z}`).toBeLessThan(0.08);
       }
+    }
+  });
+
+  it('留言板、售货机、长椅和树下棋局都留有真实无碰撞操作站位', () => {
+    const pauseKinds = new Set(['board', 'vending', 'seat', 'flying']);
+    const pausePoints = city.interactables.filter((item) => pauseKinds.has(item.kind));
+    expect(pausePoints.length).toBeGreaterThanOrEqual(12);
+    for (const item of pausePoints) {
+      const hasFreeApproach = [1.35, 1.7, 2.05].some((radius) => (
+        Array.from({ length: 24 }, (_, index) => index * Math.PI * 2 / 24).some((angle) => {
+          const x = item.pos[0] + Math.cos(angle) * radius;
+          const z = item.pos[2] + Math.sin(angle) * radius;
+          if (x < city.bounds.minX || x > city.bounds.maxX || z < city.bounds.minZ || z > city.bounds.maxZ) return false;
+          const resolved = resolveCollisions(x, z, 0.34, city.colliders);
+          return Math.hypot(resolved[0] - x, resolved[1] - z) < 0.01
+            && Math.hypot(x - item.pos[0], z - item.pos[2]) <= 2.1;
+        })
+      ));
+      expect(hasFreeApproach, `${item.kind}:${item.id}`).toBe(true);
     }
   });
 });

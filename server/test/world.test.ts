@@ -129,6 +129,16 @@ describe('world membership and movement', () => {
     expect(state?.lastEvent).toContain('绿色');
   });
 
+  it('rejects flying-chess actions sent from elsewhere on the street', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    world.join(a.session, SPACE.PLAZA);
+    const before = a.ws.sent.filter((message) => message.t === 'game_flight').length;
+    handlers.flight_action(world, a.session, { machineId: 'gr-flight', action: 'join', colour: 0 });
+    const after = a.ws.sent.filter((message) => message.t === 'game_flight').length;
+    expect(after).toBe(before);
+  });
+
   it('ping response carries a server timestamp for RTT-midpoint clock sync', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');

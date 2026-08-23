@@ -9,7 +9,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { LAYOUTS, SPACE } from '@nexuspark/shared';
-import { renderProp, renderInteractable, BeachBall } from '../spaces/registry';
+import { renderProp, renderInteractable } from '../spaces/registry';
 import { surfaceMaterial } from './materials';
 import CozyResidentialStreet from './CozyResidentialStreet';
 import { BuildQueue } from './progressive';
@@ -68,7 +68,6 @@ export default function City() {
       {/* 布局道具与交互物(c_* 分支见 spaces/registry) */}
       {layout.props.map((p, i) => renderProp(p, i))}
       {layout.interactables.map((it) => renderInteractable(it, it.id))}
-      <BeachBall />
     </group>
   );
 }

@@ -9,6 +9,7 @@ import { useWorld } from '../../state/stores';
 import { hot } from '../../state/hot';
 import { connection } from '../../net/connection';
 import { audio } from '../../audio/engine';
+import { trackCellForColour } from '../../ui/flightBoard';
 
 type P3 = [number, number, number];
 
@@ -400,15 +401,19 @@ const FLIGHT_HOME_OFFSETS: Array<[number, number]> = [
   [-0.075, -0.075], [0.075, -0.075], [-0.075, 0.075], [0.075, 0.075],
 ];
 
-function flightTrackPoint(colour: number, progress: number): P3 {
-  const cell = (colour * 13 + progress) % 52;
-  const side = Math.floor(cell / 13);
-  const step = cell % 13;
+function globalFlightTrackPoint(cell: number): P3 {
+  const normalized = ((cell % 52) + 52) % 52;
+  const side = Math.floor(normalized / 13);
+  const step = normalized % 13;
   const along = -0.48 + step * 0.08;
   if (side === 0) return [along, FLIGHT_PAWN_Y, -0.58];
   if (side === 1) return [0.58, FLIGHT_PAWN_Y, along];
   if (side === 2) return [-along, FLIGHT_PAWN_Y, 0.58];
   return [-0.58, FLIGHT_PAWN_Y, -along];
+}
+
+function flightTrackPoint(colour: number, progress: number): P3 {
+  return globalFlightTrackPoint(colour * 13 + progress);
 }
 
 function flightGoalPoint(colour: number, progress: number): P3 {
@@ -475,7 +480,9 @@ function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
     refs.current.forEach((mesh, colour) => {
       if (!mesh) return;
       for (let step = 0; step < 13; step += 1) {
-        const [x, , z] = flightTrackPoint(colour, step);
+        // Display colours alternate around the shared circuit. This matches
+        // the server's `relative progress % 4` jump rule for every start.
+        const [x, , z] = globalFlightTrackPoint(trackCellForColour(colour, step));
         // Track cells sit just above the low board surface; the pawn centre is
         // deliberately only a few centimetres higher so seated players can
         // read each cell and the moving piece never floats over the rug.

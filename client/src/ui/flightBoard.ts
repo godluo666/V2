@@ -43,6 +43,18 @@ export const PAWN_OFFSETS: readonly FlightPoint[] = [
   { x: -13, y: -13 }, { x: 13, y: -13 }, { x: -13, y: 13 }, { x: 13, y: 13 },
 ];
 
+/** Global cells repeat red → blue → yellow → green. A pawn's relative
+ * progress is jump-eligible exactly when it lands on its own cycle colour. */
+export function trackColourIndex(index: number): number {
+  return ((index % 4) + 4) % 4;
+}
+
+/** Global circuit index of one colour's Nth painted cell. Both the SVG board
+ * and the physical 3D board use this mapping so their inlays cannot drift. */
+export function trackCellForColour(colour: number, occurrence: number): number {
+  return ((colour + occurrence * 4) % 52 + 52) % 52;
+}
+
 export function runwayPoint(colour: number, step: number): FlightPoint {
   const angle = -Math.PI / 2 + colour * Math.PI / 2;
   const radius = 150 - step * 34;

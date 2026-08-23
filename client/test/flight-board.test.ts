@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   FLIGHT_HANGARS, FLIGHT_TRACK, PAWN_OFFSETS, pawnPoint, roundedTrackPoint, runwayPoint,
+  trackCellForColour, trackColourIndex,
 } from '../src/ui/flightBoard';
 
 describe('graphical flying-chess board geometry', () => {
@@ -29,6 +30,25 @@ describe('graphical flying-chess board geometry', () => {
       const current = starts[index];
       expect(current.x - 300).toBeCloseTo(-(previous.y - 300), 5);
       expect(current.y - 300).toBeCloseTo(previous.x - 300, 5);
+    }
+  });
+
+  it('colours the shared circuit in the four-colour jump cycle', () => {
+    expect(Array.from({ length: 12 }, (_, index) => trackColourIndex(index))).toEqual([
+      0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3,
+    ]);
+    expect(trackColourIndex(-1)).toBe(3);
+  });
+
+  it('marks every server-authoritative same-colour jump and no false jump cell', () => {
+    for (let colour = 0; colour < 4; colour++) {
+      expect(Array.from({ length: 13 }, (_, occurrence) => (
+        trackColourIndex(trackCellForColour(colour, occurrence))
+      ))).toEqual(Array(13).fill(colour));
+      for (let progress = 0; progress < 52; progress++) {
+        const globalCell = (colour * 13 + progress) % 52;
+        expect(trackColourIndex(globalCell) === colour).toBe(progress % 4 === 0);
+      }
     }
   });
 

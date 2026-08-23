@@ -5,7 +5,6 @@ import { useWorld } from '../../state/stores';
 import {
   StreetLamp, Bench, Tree, Fountain, Pond, Bridge, Picnic, Flowerbed, BeachBall,
 } from '../prefabs/props';
-import { BldCafe, BldCinema, BldArcade, BldShop, BldTower } from '../prefabs/buildings';
 import {
   Sofa, CoffeeTable, Chair, Plant, Fireplace,
 } from '../prefabs/furniture';
@@ -29,8 +28,8 @@ import {
 } from '../prefabs/clubInteriors';
 import {
   CLamp, CWallLight, CServiceMeters, CConvexMirror, CReflectorPost,
-  CVend, CBench, CFence, CBike, CTrash, CRecyclingStation, CPoster, CAc, CWires, CSignal,
-  CPhone, CLocker, CManhole, CDrain, CHydrant, CPlanter, CPier, CStreetBanner,
+  CVend, CBench, CBike, CTrash, CRecyclingStation, CPoster, CAc, CWires,
+  CManhole, CDrain, CPlanter,
 } from '../city/props2';
 
 export function renderProp(p: Prop, key: string | number): ReactNode {
@@ -45,11 +44,6 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'picnic': return <Picnic key={key} position={pos} />;
     case 'flowerbed': return <Flowerbed key={key} position={pos} />;
     case 'hedge_ring': return <HedgeRing key={key} />;
-    case 'bld_cafe': return <BldCafe key={key} position={pos} />;
-    case 'bld_cinema': return <BldCinema key={key} position={pos} />;
-    case 'bld_arcade': return <BldArcade key={key} position={pos} />;
-    case 'bld_shop': return <BldShop key={key} position={pos} />;
-    case 'bld_tower': return <BldTower key={key} position={pos} />;
     case 'cafe_counter': return <CafeCounter key={key} position={pos} rotation={p.ry} />;
     // CinemaHallArchitecture owns the 72-seat instanced visual batch.  The
     // layout props remain authoritative for collision and cine-s* interaction.
@@ -106,13 +100,7 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
     case 'c_service_meters': return <CServiceMeters key={key} position={pos} ry={p.ry} />;
     case 'c_convex_mirror': return <CConvexMirror key={key} position={pos} ry={p.ry} />;
     case 'c_reflector_post': return <CReflectorPost key={key} position={pos} ry={p.ry} />;
-    case 'c_vend': return (
-      <CVend key={key} position={pos} ry={p.ry}
-        kind={p.data?.variant === 'blue' || p.data?.kind === 'blue' ? 'blue' : 'red'} />
-    );
     case 'c_bench': return <CBench key={key} position={pos} ry={p.ry} />;
-    case 'c_fence': return <CFence key={key} position={pos} ry={p.ry} w={(p.data?.w as number) ?? 1.8} />;
-    case 'c_pier': return <CPier key={key} position={pos} />;
     case 'c_bike': return (
       <CBike key={key} position={pos} ry={p.ry}
         fallen={p.data?.fallen === true || p.data?.variant === 1} />
@@ -128,23 +116,8 @@ export function renderProp(p: Prop, key: string | number): ReactNode {
         sag={(p.data?.sag as number) ?? 1}
         strands={(p.data?.strands as number) ?? 2} />
     );
-    case 'c_signal': return <CSignal key={key} position={pos} ry={p.ry} />;
-    case 'c_banner': return (
-      <CStreetBanner
-        key={key}
-        position={pos}
-        ry={p.ry}
-        text={(p.data?.text as string) ?? '月汐町 · ICHIBAN STREET'}
-        color={(p.data?.color as string) ?? '#ff3f6c'}
-        accent={(p.data?.accent as string) ?? '#ffd34f'}
-        width={(p.data?.width as number) ?? 8.4}
-      />
-    );
-    case 'c_phone': return <CPhone key={key} position={pos} ry={p.ry} />;
-    case 'c_locker': return <CLocker key={key} position={pos} ry={p.ry} />;
     case 'c_manhole': return <CManhole key={key} position={pos} />;
     case 'c_drain': return <CDrain key={key} position={pos} ry={p.ry} />;
-    case 'c_hydrant': return <CHydrant key={key} position={pos} ry={p.ry} />;
     case 'c_planter': return <CPlanter key={key} position={pos} ry={p.ry} />;
     // 未知类型一律返回 null 保底(向前兼容 P2 后续新增)
     default: return null;
@@ -160,7 +133,10 @@ function SwitchWrapper({ it }: { it: Interactable }) {
 export function renderInteractable(it: Interactable, key: string | number): ReactNode {
   switch (it.kind) {
     case 'door': {
-      const wide = it.id === 'd-cinema' || it.id === 'd-tower' || it.id === 'cine-exit' || it.id === 'lobby-exit';
+      // All three retained street entrances sit in 3.2–3.8m hero openings.
+      // Give each one the same 2.6m sliding pair; the former narrow default
+      // left an implausible metre-wide gap beside the netcafe and club doors.
+      const wide = ['d-cinema', 'd-netcafe', 'd-gameroom', 'cine-exit', 'lobby-exit'].includes(it.id);
       return <Door key={key} position={it.pos} rotation={it.ry} wide={wide} />;
     }
     case 'switch': return <SwitchWrapper key={key} it={it} />;

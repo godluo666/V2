@@ -9,7 +9,7 @@ import {
 } from '@nexuspark/shared';
 import type { MahjongView } from '@nexuspark/shared';
 import {
-  FLIGHT_HANGARS, FLIGHT_TRACK, PAWN_OFFSETS, pawnPoint, runwayPoint,
+  FLIGHT_HANGARS, FLIGHT_TRACK, PAWN_OFFSETS, pawnPoint, runwayPoint, trackColourIndex,
 } from './flightBoard';
 
 /* ─── 象棋 ───────────────────────────────────────────────────────────────── */
@@ -209,6 +209,7 @@ export function FlyingChessPanel({ machineId }: { machineId: string }) {
             <g
               key={`home-${colour}`}
               className={`flight-hangar${joinable ? ' joinable' : ''}`}
+              style={{ color: FLIGHT_COLORS[colour] }}
               role={joinable ? 'button' : undefined}
               tabIndex={joinable ? 0 : undefined}
               aria-label={joinable ? `选择${FLIGHT_NAMES[colour]}色机库` : undefined}
@@ -251,12 +252,25 @@ export function FlyingChessPanel({ machineId }: { machineId: string }) {
 
           {FLIGHT_TRACK.map((point, index) => {
             const startColour = index % 13 === 0 ? Math.floor(index / 13) : -1;
+            const cellColour = trackColourIndex(index);
+            const nextPoint = FLIGHT_TRACK[(index + 1) % FLIGHT_TRACK.length];
+            const arrowAngle = Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x) * 180 / Math.PI + 90;
             return (
               <g key={`track-${index}`}>
                 <circle cx={point.x} cy={point.y} r={15.5}
-                  fill={startColour >= 0 ? FLIGHT_COLORS[startColour] : index % 4 === 0 ? '#ead9b4' : '#fffaf0'}
-                  stroke={startColour >= 0 ? FLIGHT_DARK[startColour] : '#a99273'} strokeWidth={startColour >= 0 ? 3.5 : 2} />
-                {index % 4 === 0 && startColour < 0 && <path d={`M${point.x - 5} ${point.y}h10`} stroke="#b58e55" strokeWidth={3} strokeLinecap="round" />}
+                  fill={FLIGHT_COLORS[startColour >= 0 ? startColour : cellColour]}
+                  fillOpacity={startColour >= 0 ? 0.92 : 0.24}
+                  stroke={FLIGHT_DARK[startColour >= 0 ? startColour : cellColour]}
+                  strokeOpacity={startColour >= 0 ? 1 : 0.72}
+                  strokeWidth={startColour >= 0 ? 3.5 : 2} />
+                {startColour < 0 && (
+                  <path
+                    d={`M${point.x - 4.5} ${point.y + 3}L${point.x} ${point.y - 3}L${point.x + 4.5} ${point.y + 3}`}
+                    fill="none" stroke={FLIGHT_DARK[cellColour]} strokeWidth={2.2}
+                    strokeLinecap="round" strokeLinejoin="round" opacity={0.62}
+                    transform={`rotate(${arrowAngle} ${point.x} ${point.y})`}
+                  />
+                )}
               </g>
             );
           })}
@@ -272,7 +286,14 @@ export function FlyingChessPanel({ machineId }: { machineId: string }) {
             </g>
           ))}
 
-          <path d="M300 244L356 300L300 356L244 300Z" fill="#fff8e6" stroke="#806c54" strokeWidth={4} />
+          <circle
+            className="flight-turn-ring"
+            cx={300} cy={300} r={66} fill="none"
+            stroke={game.turn >= 0 ? FLIGHT_COLORS[game.turn] : '#806c54'}
+            strokeWidth={5} strokeDasharray="9 8" opacity={game.turn >= 0 ? 0.7 : 0.28}
+          />
+          <path d="M300 244L356 300L300 356L244 300Z" fill="#fff8e6"
+            stroke={game.turn >= 0 ? FLIGHT_DARK[game.turn] : '#806c54'} strokeWidth={4} />
           <DiceFace
             value={game.dice}
             active={canRoll || canPass}
