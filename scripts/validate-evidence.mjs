@@ -11,6 +11,7 @@ const desktop = { width: 1280, height: 720 };
 const mobile = { width: 390, height: 844 };
 const requiredEvidence = new Map([
   ['street-crossroads-desktop.png', desktop],
+  ['street-flight-stall-desktop.png', desktop],
   ['street-cinema-facade-desktop.png', desktop],
   ['street-crossroads-mobile.png', mobile],
   ['cinema-hall-wide-desktop.png', desktop],

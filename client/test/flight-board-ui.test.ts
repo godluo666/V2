@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 const styles = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 const panel = readFileSync(new URL('../src/ui/GamePanelsCn.tsx', import.meta.url), 'utf8');
+const cloudSmoke = readFileSync(new URL('../../scripts/smoke.mjs', import.meta.url), 'utf8');
+const evidenceValidator = readFileSync(new URL('../../scripts/validate-evidence.mjs', import.meta.url), 'utf8');
 
 describe('graphical flying-chess interaction presentation', () => {
   it('never replaces an SVG pawn translation while highlighting a legal move', () => {
@@ -21,5 +23,10 @@ describe('graphical flying-chess interaction presentation', () => {
     expect(panel).toContain('className="flight-turn-ring"');
     expect(panel).toContain('transform={`rotate(${arrowAngle} ${point.x} ${point.y})`}');
     expect(panel).toContain("onClick={legal ? () => send('move', { pawn }) : undefined}");
+  });
+
+  it('makes the physical street-stall screenshot mandatory cloud evidence', () => {
+    expect(cloudSmoke).toContain("'street-flight-stall-desktop.png'");
+    expect(evidenceValidator).toContain("['street-flight-stall-desktop.png', desktop]");
   });
 });
