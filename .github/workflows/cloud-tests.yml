@@ -46,7 +46,7 @@ jobs:
     name: Chromium multiplayer journeys
     needs: quality
     runs-on: ubuntu-latest
-    # Ten required visual-evidence frames run through SwiftShader in CI; the
+    # Twenty-one required visual-evidence frames run through SwiftShader in CI; the
     # high-detail venue rebuilds need a wider ceiling than the old five-frame
     # prototype journey while each screenshot still keeps its own 90s bound.
     timeout-minutes: 55
@@ -108,7 +108,8 @@ jobs:
             scripts/smoke.mjs \
             scripts/sync-test.mjs \
             scripts/watch-test.mjs \
-            scripts/mobile-test.mjs
+            scripts/mobile-test.mjs \
+            scripts/street-audit.mjs
           do
             echo "::group::Running $journey"
             if ! node "$journey"; then

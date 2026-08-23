@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 const styles = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 const panel = readFileSync(new URL('../src/ui/GamePanelsCn.tsx', import.meta.url), 'utf8');
 const cloudSmoke = readFileSync(new URL('../../scripts/smoke.mjs', import.meta.url), 'utf8');
+const streetAudit = readFileSync(new URL('../../scripts/street-audit.mjs', import.meta.url), 'utf8');
 const evidenceValidator = readFileSync(new URL('../../scripts/validate-evidence.mjs', import.meta.url), 'utf8');
+const cloudWorkflow = readFileSync(new URL('../../.github/workflows/cloud-tests.yml', import.meta.url), 'utf8');
 
 describe('graphical flying-chess interaction presentation', () => {
   it('never replaces an SVG pawn translation while highlighting a legal move', () => {
@@ -28,5 +30,29 @@ describe('graphical flying-chess interaction presentation', () => {
   it('makes the physical street-stall screenshot mandatory cloud evidence', () => {
     expect(cloudSmoke).toContain("'street-flight-stall-desktop.png'");
     expect(evidenceValidator).toContain("['street-flight-stall-desktop.png', desktop]");
+  });
+
+  it('requires the rebuilt curve, termini, stairs, courtyard and service alley audit views', () => {
+    const requiredAuditFiles = [
+      '01-spawn-east.png', '02-spawn-west.png',
+      '02a-west-terminus.png', '02b-east-terminus.png',
+      '02c-west-curve-east.png', '02d-east-curve-west.png',
+      '03-stair-mouth.png', '04-stair-top.png',
+      '05-flight-courtyard.png',
+      '06-service-alley-mouth.png', '06a-service-alley-interior.png',
+    ];
+    for (const file of requiredAuditFiles) {
+      expect(streetAudit).toContain(`'${file}'`);
+      expect(evidenceValidator).toContain(`['${file}', audit]`);
+    }
+    expect(streetAudit).toContain("'spawn', 'termini', 'curve', 'stairs', 'flight', 'service-alley'");
+    expect(streetAudit).toContain('const streetZ = (x) => Math.sin((x + 4) / 18) * 3.2 + x * 0.025;');
+    expect(streetAudit).toContain('const stairX = -12.4;');
+    expect(streetAudit).toContain('const flightX = -2.5;');
+    expect(streetAudit).toContain('const alleyX = 24;');
+    expect(streetAudit).toContain("await reach(page, -38, streetZ(-38), 'west street terminus');");
+    expect(streetAudit).toContain("await reach(page, 38, streetZ(38), 'east street terminus');");
+    expect(cloudWorkflow).toContain('scripts/street-audit.mjs');
+    expect(cloudWorkflow).toContain('Twenty-one required visual-evidence frames');
   });
 });

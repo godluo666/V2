@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path';
 const outputDirectory = resolve(process.argv[2] ?? process.env.OUT_DIR ?? '.');
 const desktop = { width: 1280, height: 720 };
 const mobile = { width: 390, height: 844 };
+const audit = { width: 1440, height: 900 };
 const requiredEvidence = new Map([
   ['street-crossroads-desktop.png', desktop],
   ['street-flight-stall-desktop.png', desktop],
@@ -20,6 +21,17 @@ const requiredEvidence = new Map([
   ['arena-stage-close-desktop.png', desktop],
   ['party-hall-wide-desktop.png', desktop],
   ['party-hall-desktop.png', desktop],
+  ['01-spawn-east.png', audit],
+  ['02-spawn-west.png', audit],
+  ['02a-west-terminus.png', audit],
+  ['02b-east-terminus.png', audit],
+  ['02c-west-curve-east.png', audit],
+  ['02d-east-curve-west.png', audit],
+  ['03-stair-mouth.png', audit],
+  ['04-stair-top.png', audit],
+  ['05-flight-courtyard.png', audit],
+  ['06-service-alley-mouth.png', audit],
+  ['06a-service-alley-interior.png', audit],
 ]);
 
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);

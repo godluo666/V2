@@ -18,7 +18,10 @@ import {
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
 const OUT = process.env.OUT_DIR ?? 'cloud-artifacts/street-audit';
-const ONLY = new Set((process.env.AUDIT_ONLY ?? '').split(',').filter(Boolean));
+const requestedGroups = (process.env.AUDIT_ONLY ?? '').split(',').filter(Boolean);
+const ONLY = new Set(requestedGroups.length > 0 ? requestedGroups : [
+  'spawn', 'termini', 'curve', 'stairs', 'flight', 'service-alley',
+]);
 const RUN = `${Date.now() % 1_000_000}`;
 const AUDIT_TOD = process.env.AUDIT_TOD ? Number(process.env.AUDIT_TOD) : null;
 const AUDIT_WEATHER = process.env.AUDIT_WEATHER ?? null;
@@ -97,7 +100,8 @@ async function capture(page, file, label) {
   console.log(`captured ${label}: ${target} @ ${JSON.stringify(position)}`);
 }
 
-const selected = (name) => ONLY.size === 0 || ONLY.has(name);
+const selected = (name) => ONLY.has(name);
+const streetZ = (x) => Math.sin((x + 4) / 18) * 3.2 + x * 0.025;
 
 async function reach(page, x, z, label, stopAt = 0.65) {
   if (!await walkTo(page, x, z, 60_000, stopAt)) {
@@ -191,30 +195,50 @@ try {
   }
 
   if (selected('termini')) {
-    await reach(page, -26.2, 0.7, 'west street terminus');
+    await reach(page, -38, streetZ(-38), 'west street terminus');
     await face(page, Math.PI / 2, -0.015, 6.2);
     await capture(page, '02a-west-terminus.png', 'west street terminus at pedestrian distance');
-    await reach(page, 26.2, -0.7, 'east street terminus');
+    await reach(page, 38, streetZ(38), 'east street terminus');
     await face(page, -Math.PI / 2, -0.015, 6.2);
     await capture(page, '02b-east-terminus.png', 'east street terminus at pedestrian distance');
   }
 
-  if (selected('north-alley')) {
-    await reach(page, -8, 1.25, 'north alley mouth');
-    await face(page, 0, -0.015, 7.2);
-    await capture(page, '03-north-alley-mouth.png', 'north alley from the main street');
-    await reach(page, -8, -13.5, 'north alley interior');
-    await face(page, 0, 0.03, 6.5);
-    await capture(page, '04-north-alley-interior.png', 'north alley interior');
+  if (selected('curve')) {
+    await reach(page, -18, streetZ(-18), 'west curve');
+    await face(page, -Math.PI / 2, -0.02, 8.2);
+    await capture(page, '02c-west-curve-east.png', 'west curve looking uphill');
+    await reach(page, 16, streetZ(16), 'east curve');
+    await face(page, Math.PI / 2, -0.02, 8.2);
+    await capture(page, '02d-east-curve-west.png', 'east curve looking downhill');
   }
 
-  if (selected('south-alley')) {
-    await reach(page, 9.1, -1.2, 'south alley mouth');
+  if (selected('stairs')) {
+    const stairX = -12.4;
+    const stairStartZ = streetZ(stairX) - 4.7;
+    await reach(page, stairX, streetZ(stairX) - 3.7, 'stone stair mouth');
+    await face(page, 0, -0.015, 7.2);
+    await capture(page, '03-stair-mouth.png', 'twelve-step lane from the main street');
+    await reach(page, stairX, stairStartZ - 9.75, 'stone stair top landing', 0.5);
+    await face(page, Math.PI, 0.02, 5.8);
+    await capture(page, '04-stair-top.png', 'stone stair top landing looking back');
+  }
+
+  if (selected('flight')) {
+    const flightX = -2.5;
+    const flightZ = streetZ(flightX) + 9.25;
+    await reach(page, flightX, flightZ - 2.35, 'outdoor flying-chess courtyard', 0.45);
     await face(page, Math.PI, -0.015, 7.2);
-    await capture(page, '05-south-alley-mouth.png', 'south alley from the main street');
-    await reach(page, 9.1, 13.5, 'south alley interior');
+    await capture(page, '05-flight-courtyard.png', 'outdoor physical flying-chess courtyard');
+  }
+
+  if (selected('service-alley')) {
+    const alleyX = 24;
+    await reach(page, alleyX, streetZ(alleyX) + 3.8, 'service alley mouth');
+    await face(page, Math.PI, -0.015, 6.8);
+    await capture(page, '06-service-alley-mouth.png', 'service alley from the curved street');
+    await reach(page, alleyX, streetZ(alleyX) + 11.8, 'service alley interior', 0.5);
     await face(page, Math.PI, 0.03, 6.5);
-    await capture(page, '06-south-alley-interior.png', 'south alley interior');
+    await capture(page, '06a-service-alley-interior.png', 'service alley utility depth');
   }
 
   if (selected('upper-life')) {
