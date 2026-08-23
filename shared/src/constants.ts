@@ -30,7 +30,8 @@ export const VOICE_CONNECT_RANGE = 27; // hysteresis: connect below, drop above
 /** One full in-game day, in real seconds (20 minutes). */
 export const DAY_LENGTH_SEC = 1200;
 /** Fraction of the day at which a fresh world starts (mid-morning). */
-export const DAY_START_FRACTION = 0.35;
+/** Fresh streets open in warm 16:30-style light: cream-orange sun, blue-violet shade. */
+export const DAY_START_FRACTION = 0.66;
 export type Weather = 'clear' | 'cloudy' | 'rain';
 export const WEATHERS: Weather[] = ['clear', 'cloudy', 'rain'];
 export const WEATHER_MIN_SEC = 150;

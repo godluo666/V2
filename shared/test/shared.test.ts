@@ -101,12 +101,15 @@ describe('layouts', () => {
       expect(Math.hypot(x - sx, z - sz)).toBeLessThan(0.01);
     }
   });
-  it('keeps the compact public street flat without legacy overpass zones', () => {
+  it('keeps the compact residential-street ramp and walkable stair lane', () => {
     const city = LAYOUTS['plaza'];
-    expect(city.heightZones).toEqual([]);
-    expect(floorHeightAt(city, -28, -6)).toBe(0);
-    expect(floorHeightAt(city, 0, 0)).toBe(0);
-    expect(floorHeightAt(city, 28, 6)).toBe(0);
+    expect(city.heightZones).toHaveLength(10);
+    expect(city.heightZones.filter((zone) => zone.kind === 'deck')).toHaveLength(9);
+    expect(city.heightZones.filter((zone) => zone.kind === 'ramp')).toHaveLength(1);
+    expect(city.heightZones.some((zone) => zone.kind === 'bridgeZ')).toBe(false);
+    expect(floorHeightAt(city, -24, 0)).toBeCloseTo(0, 5);
+    expect(floorHeightAt(city, 0, 0)).toBeCloseTo(0.8, 5);
+    expect(floorHeightAt(city, 24, 0)).toBeCloseTo(1.6, 5);
   });
 });
 

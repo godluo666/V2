@@ -5,6 +5,9 @@ import { EmergencyExitSign } from './EmergencyExitSign';
 import { toonMat } from '../city/toon';
 import { surfaceMaterial } from '../city/materials';
 import { useWorld } from '../../state/stores';
+import { hot } from '../../state/hot';
+import { connection } from '../../net/connection';
+import { audio } from '../../audio/engine';
 
 type P3 = [number, number, number];
 
@@ -407,6 +410,46 @@ function flightTrackPoint(colour: number, progress: number): P3 {
   return [-0.58, FLIGHT_PAWN_Y, -along];
 }
 
+function flightGoalPoint(colour: number, progress: number): P3 {
+  const lane = Math.max(0, Math.min(3, progress - 52));
+  const edge = 0.42 - lane * 0.105;
+  if (colour === 0) return [0, FLIGHT_PAWN_Y, -edge];
+  if (colour === 1) return [edge, FLIGHT_PAWN_Y, 0];
+  if (colour === 2) return [0, FLIGHT_PAWN_Y, edge];
+  return [-edge, FLIGHT_PAWN_Y, 0];
+}
+
+function FlightDice({ value, active, onRoll }: { value: number | null; active: boolean; onRoll: () => void }) {
+  const shown = value ?? 1;
+  const pipLayout: Record<number, Array<[number, number]>> = {
+    1: [[0, 0]],
+    2: [[-0.1, -0.1], [0.1, 0.1]],
+    3: [[-0.11, -0.11], [0, 0], [0.11, 0.11]],
+    4: [[-0.1, -0.1], [0.1, -0.1], [-0.1, 0.1], [0.1, 0.1]],
+    5: [[-0.11, -0.11], [0.11, -0.11], [0, 0], [-0.11, 0.11], [0.11, 0.11]],
+    6: [[-0.1, -0.12], [-0.1, 0], [-0.1, 0.12], [0.1, -0.12], [0.1, 0], [0.1, 0.12]],
+  };
+  return (
+    <group position={[0.91, 0.46, -0.92]} rotation={[0.06, -0.18, 0.04]}>
+      <mesh
+        material={active ? paper : cream}
+        castShadow
+        onPointerDown={(event) => { event.stopPropagation(); if (active) onRoll(); }}
+        onPointerOver={() => { if (active) document.body.style.cursor = 'pointer'; }}
+        onPointerOut={() => { document.body.style.cursor = 'default'; }}
+      >
+        <boxGeometry args={[0.38, 0.38, 0.38]} />
+      </mesh>
+      {pipLayout[shown].map(([x, z], index) => (
+        <mesh key={index} position={[x, 0.198, z]} material={ink}>
+          <sphereGeometry args={[0.028, 10, 6]} />
+        </mesh>
+      ))}
+      {active && <pointLight color="#ffd18a" intensity={0.5} distance={1.8} position={[0, 0.38, 0]} />}
+    </group>
+  );
+}
+
 function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
   const refs = useRef<Array<THREE.InstancedMesh | null>>([]);
   useLayoutEffect(() => {
@@ -487,6 +530,12 @@ function FlyingChessHomeSockets({ materials }: { materials: THREE.Material[] }) 
 export function FlyingChessTable({ position, ry }: { position: P3; ry: number }) {
   const colors = [red, blue, gold, green];
   const game = useWorld((state) => state.flying['gr-flight']);
+  const me = game?.players.findIndex((player) => player?.id === hot.selfId) ?? -1;
+  const myTurn = !!game && me >= 0 && game.turn === me && game.winner < 0;
+  const send = (action: 'join' | 'roll' | 'move', pawn?: number) => {
+    connection.send('flight_action', { machineId: 'gr-flight', action, ...(pawn === undefined ? {} : { pawn }) });
+    audio.click();
+  };
   return (
     <group position={position} rotation={[0, ry, 0]}>
       {/* A woven floor-stall mat makes this a sit-down street game rather than
@@ -501,6 +550,17 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
       <SculptedPart position={[0, 0.16, 0]} scale={[1.62, 0.13, 1.62]} material={darkWood} />
       <SculptedPart position={[0, 0.245, 0]} scale={[1.5, 0.09, 1.5]} material={wood} />
       <SculptedPart position={[0, 0.295, 0]} scale={[1.28, 0.035, 1.28]} material={cream} />
+      {/* The whole cloth is a real join target. The server still checks that
+          the avatar is within interaction range before accepting the click. */}
+      <mesh
+        position={[0, 0.33, 0]}
+        onPointerDown={(event) => { event.stopPropagation(); if (game && me < 0) send('join'); }}
+        onPointerOver={() => { if (game && me < 0) document.body.style.cursor = 'pointer'; }}
+        onPointerOut={() => { document.body.style.cursor = 'default'; }}
+      >
+        <boxGeometry args={[1.55, 0.08, 1.55]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
       {[-0.56, 0.56].flatMap((v) => [
         <mesh key={`h-${v}`} position={[0, FLIGHT_BOARD_TOP + 0.025, v]} material={darkWood}>
           <boxGeometry args={[1.08, 0.018, 0.022]} />
@@ -511,6 +571,14 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
       ])}
       <FlyingChessTrack materials={colors} />
       <FlyingChessHomeSockets materials={colors} />
+      {colors.flatMap((material, colour) => Array.from({ length: 4 }, (_, lane) => {
+        const [x, y, z] = flightGoalPoint(colour, 52 + lane);
+        return (
+          <mesh key={`goal-${colour}-${lane}`} position={[x, y - 0.046, z]} material={material}>
+            <cylinderGeometry args={[0.035, 0.035, 0.012, 12]} />
+          </mesh>
+        );
+      }))}
       {FLIGHT_HOME_CENTRES.map(([x, z], i) => (
         <group key={i}>
           <mesh position={[x, 0.772, z]} material={colors[i]}>
@@ -525,11 +593,21 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
       {game?.pawns.flatMap((pawns, colour) => pawns.map((progress, pawn) => {
         const p = progress < 0
           ? flightHomePoint(colour, pawn)
-          : progress >= 52
+          : progress >= game.finish
           ? [((pawn % 2) - 0.5) * 0.18, FLIGHT_PAWN_Y, (Math.floor(pawn / 2) - 0.5) * 0.18] as P3
+          : progress >= 52
+          ? flightGoalPoint(colour, progress)
           : flightTrackPoint(colour, progress);
+        const selectable = myTurn && colour === me && game.dice !== null && game.legalMoves.includes(pawn);
         return (
-          <group key={`live-pawn-${colour}-${pawn}`} position={p}>
+          <group
+            key={`live-pawn-${colour}-${pawn}`}
+            position={p}
+            scale={selectable ? 1.22 : 1}
+            onPointerDown={(event) => { event.stopPropagation(); if (selectable) send('move', pawn); }}
+            onPointerOver={() => { if (selectable) document.body.style.cursor = 'pointer'; }}
+            onPointerOut={() => { document.body.style.cursor = 'default'; }}
+          >
             <mesh material={colors[colour]} castShadow>
               <cylinderGeometry args={[0.075, 0.09, 0.07, 12]} />
             </mesh>
@@ -539,6 +617,7 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           </group>
         );
       }))}
+      <FlightDice value={game?.dice ?? null} active={myTurn && game?.dice === null} onRoll={() => send('roll')} />
       {/* 两只收纳盒放在地毯边缘，实际下棋时不会藏在桌板下面。 */}
       {[-0.92, 0.92].map((x, i) => (
         <group key={`game-box-${x}`} position={[x, 0.15, 0.12]} rotation={[0, i ? -0.05 : 0.05, 0]}>

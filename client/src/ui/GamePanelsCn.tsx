@@ -130,12 +130,12 @@ export function FlyingChessPanel({ machineId }: { machineId: string }) {
   return (
     <div className="col" style={{ gap: 8 }}>
       <div className="dim" style={{ fontSize: 12 }}>
-        四色地摊飞行棋 · 四枚棋子走完 52 格即可获胜
+        四色地摊飞行棋 · 掷六起飞 · 同色格跳跃 · 撞机回家 · 精确进入终点
       </div>
       <div className="row" style={{ flexWrap: 'wrap', gap: 5 }}>
         {game.players.map((player, slot) => {
           const color = ['#ff5b67', '#48c8ff', '#ffd35a', '#69db8b'][slot];
-          const done = game.pawns[slot].filter((position) => position === 52).length;
+          const done = game.pawns[slot].filter((position) => position === game.finish).length;
           return (
             <div key={slot} style={{ border: `2px solid ${color}`, padding: '4px 7px', minWidth: 92, opacity: player ? 1 : 0.45 }}>
               <b style={{ color }}>{player?.username ?? `颜色 ${slot + 1}`}</b>
@@ -145,26 +145,35 @@ export function FlyingChessPanel({ machineId }: { machineId: string }) {
         })}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>
-        {(game.pawns[me >= 0 ? me : 0] ?? []).map((position, pawn) => (
+        {(game.pawns[me >= 0 ? me : 0] ?? []).map((position, pawn) => {
+          const label = position < 0
+            ? '机库'
+            : position === game.finish
+              ? '到达'
+              : position >= 52
+                ? `终点跑道 ${position - 51}/4`
+                : `航线 ${position + 1}/52`;
+          return (
           <button
             key={pawn}
             className="btn small"
-            disabled={!myTurn || game.dice === null}
+            disabled={!myTurn || game.dice === null || !game.legalMoves.includes(pawn)}
             onClick={() => send('move', pawn)}
           >
-            棋子 {pawn + 1}<br />{position < 0 ? '家中' : position === 52 ? '终点' : `${position}/52`}
+            飞机 {pawn + 1}<br />{label}
           </button>
-        ))}
+          );
+        })}
       </div>
       <div className="row">
         {me < 0 && <button className="btn primary" onClick={() => send('join')}>加入地摊棋局</button>}
         {me >= 0 && game.winner >= 0 && <button className="btn primary" onClick={() => send('join')}>再来一局</button>}
         {me >= 0 && game.winner < 0 && game.dice === null && <button className="btn primary" disabled={!myTurn} onClick={() => send('roll')}>掷骰子</button>}
-        {me >= 0 && game.winner < 0 && game.dice !== null && <button className="btn" disabled={!myTurn} onClick={() => send('pass')}>结束回合（{game.dice}）</button>}
+        {me >= 0 && game.winner < 0 && game.dice !== null && game.legalMoves.length === 0 && <button className="btn" disabled={!myTurn} onClick={() => send('pass')}>无棋可走（{game.dice}）</button>}
         {me >= 0 && <button className="btn ghost" onClick={() => send('leave')}>离开棋局</button>}
       </div>
       <div className="dim" style={{ fontSize: 12 }}>
-        {game.winner >= 0 ? `颜色 ${game.winner + 1} 获胜！` : game.dice !== null ? `颜色 ${game.turn + 1} 掷出 ${game.dice} 点，选择一枚棋子。` : `轮到颜色 ${game.turn >= 0 ? game.turn + 1 : '—'}。`}
+        {game.lastEvent}
       </div>
     </div>
   );

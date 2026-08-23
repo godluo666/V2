@@ -476,6 +476,8 @@ const SHOP_PROFILES: Record<NonNullable<Building['groundUse']>, {
   'watch-repair': { doorSide: -1, awning: '#716653', warm: false },
   pharmacy: { doorSide: 1, awning: '#567562', warm: true, displayBase: true },
   restaurant: { doorSide: -1, awning: '#855444', warm: true, noren: true },
+  laundry: { doorSide: 1, awning: '#74888a', warm: true, displayBase: true },
+  residence: { doorSide: -1, awning: '#827769', warm: false },
 };
 
 function buildShopfront(b: Building, out: Bags, rnd: () => number): void {

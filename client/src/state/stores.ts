@@ -106,7 +106,7 @@ export const useWorld = create<WorldStore>((set) => ({
   xq: {},
   mj: {},
   rj: {},
-  env: { timeOfDay: 0.35, at: Date.now(), dayLengthSec: 1200, weather: 'clear' },
+  env: { timeOfDay: 0.66, at: Date.now(), dayLengthSec: 1200, weather: 'clear' },
   voiceRoster: [],
   voiceWorldRoster: [],
   screenRoster: [],

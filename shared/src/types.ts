@@ -148,7 +148,8 @@ export interface LightsOutState {
 }
 
 /** Authoritative four-colour flying-chess table state. Positions are -1 for
- * the home tray, 0..51 on the shared track and 52 at the finish. */
+ * the hangar, 0..51 on the shared track, 52..55 on the home runway and 56 at
+ * the finish. */
 export interface FlyingChessState {
   machineId: string;
   players: [PublicProfile | null, PublicProfile | null, PublicProfile | null, PublicProfile | null];
@@ -156,6 +157,11 @@ export interface FlyingChessState {
   turn: number;
   dice: number | null;
   winner: number;
+  finish: number;
+  /** Pawns the current player may move for the rolled dice. */
+  legalMoves: number[];
+  /** Latest table event, shown both in the panel and over the physical stall. */
+  lastEvent: string;
 }
 
 // ── NPC dialogue ────────────────────────────────────────────────────────────

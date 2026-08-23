@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ALLEY_W, CITY_BOUNDS, ROAD_W, ROADS, CROSSINGS, CROSSWALKS, SIDEWALKS, BUILDINGS,
-  VENUES,
+  ALLEY_W, CITY_BOUNDS, ROAD_W, ROADS, BUILDINGS, VENUES, streetCenterZ, streetHeight,
 } from '../src/cityplan';
 import { LAYOUTS, floorHeightAt } from '../src/layouts';
 import type { SpaceLayout } from '../src/layouts';
@@ -31,321 +30,117 @@ function march(layout: SpaceLayout, waypoints: Array<[number, number]>): [number
 const near = (p: [number, number], x: number, z: number, tolerance = 0.8) =>
   Math.hypot(p[0] - x, p[1] - z) < tolerance;
 
-describe('月汐町一番街坐标契约', () => {
-  it('一条窄主街连接两条错位短巷，边界没有扩大', () => {
-    expect(CITY_BOUNDS).toEqual({ minX: -29, maxX: 29, minZ: -23, maxZ: 23 });
+describe('月汐町·结缘坂坐标契约', () => {
+  it('是一条 48×24 米的窄弯坡地生活街', () => {
+    expect(city.label).toBe('月汐町·结缘坂');
     expect(city.bounds).toEqual(CITY_BOUNDS);
-    expect(ROADS).toEqual([
-      { x: 0, z: 0, w: 58, d: 6.4 },
-      { x: -8, z: -13.1, w: 3.4, d: 19.8 },
-      { x: 9.1, z: 13.1, w: 3.4, d: 19.8 },
-    ]);
-    expect(ROAD_W).toBe(6.4);
-    expect(ALLEY_W).toBe(3.4);
-    expect(CROSSINGS).toEqual([
-      { x: -8, z: -1.6, w: 3.4, d: 3.2, ry: 0 },
-      { x: 9.1, z: 1.6, w: 3.4, d: 3.2, ry: Math.PI },
-    ]);
-    expect(CROSSWALKS).toHaveLength(2);
-    expect(SIDEWALKS).toHaveLength(4);
-    expect(SIDEWALKS.some((walk) => Math.abs(walk.z + 4.2) < 0.01
-      && Math.abs(walk.x + 8) < walk.w / 2)).toBe(false);
-    expect(SIDEWALKS.some((walk) => Math.abs(walk.z - 4.2) < 0.01
-      && Math.abs(walk.x - 9.1) < walk.w / 2)).toBe(false);
-    expect(CROSSWALKS.every((crosswalk) => crosswalk.dir === 'x')).toBe(true);
-    expect(CROSSWALKS.map((crosswalk) => crosswalk.x).sort((a, b) => a - b)).toEqual([-8, 9.1]);
-    expect(CITY_BOUNDS.maxX - CITY_BOUNDS.minX).toBe(58);
-    expect(CITY_BOUNDS.maxZ - CITY_BOUNDS.minZ).toBe(46);
-    expect(city.props.filter((prop) => prop.type === 'c_drain')).toHaveLength(8);
-    const alleyWallLights = city.props.filter((prop) => prop.type === 'c_wall_light');
-    expect(alleyWallLights).toHaveLength(4);
-    expect(alleyWallLights.every((light) => light.pos[1] === 2.45)).toBe(true);
-    expect(alleyWallLights.every((light) => (
-      Math.abs(Math.abs(light.pos[0] + 8) - ALLEY_W / 2) < 0.08
-        || Math.abs(Math.abs(light.pos[0] - 9.1) - ALLEY_W / 2) < 0.08
+    expect(city.bounds.maxX - city.bounds.minX).toBe(48);
+    expect(city.bounds.maxZ - city.bounds.minZ).toBe(24);
+    expect(ROAD_W).toBe(4.2);
+    expect(ALLEY_W).toBe(2.6);
+    expect(ROADS).toHaveLength(2);
+    expect(ROADS[0]).toMatchObject({ w: 48, d: ROAD_W });
+    expect(ROADS[1]).toMatchObject({ x: -6.2, w: ALLEY_W });
+  });
+
+  it('旧高楼、剪影和仓库端景已全部退出地图数据', () => {
+    expect(BUILDINGS).toHaveLength(15);
+    expect(BUILDINGS.every((building) => (
+      ['shopfront', 'apartment', 'backstreet'].includes(building.style)
+      && !building.backdrop
+      && building.h >= 5.4
+      && building.h <= 8.1
     ))).toBe(true);
-    for (const light of alleyWallLights) {
+    expect(BUILDINGS.some((building) => ['tower', 'mediaTower', 'silhouette'].includes(building.style))).toBe(false);
+    for (const building of BUILDINGS) {
+      expect(building.x - building.w / 2).toBeGreaterThanOrEqual(CITY_BOUNDS.minX);
+      expect(building.x + building.w / 2).toBeLessThanOrEqual(CITY_BOUNDS.maxX);
+      expect(building.z - building.d / 2).toBeGreaterThanOrEqual(CITY_BOUNDS.minZ);
+      expect(building.z + building.d / 2).toBeLessThanOrEqual(CITY_BOUNDS.maxZ);
+      const centreDistance = Math.abs(building.z - streetCenterZ(building.x));
+      expect(centreDistance - building.d / 2).toBeGreaterThanOrEqual(ROAD_W / 2 + 0.8);
       expect(city.colliders.some((collider) => (
-        collider.kind === 'circle'
-          && collider.x === light.pos[0]
-          && collider.z === light.pos[2]
-      ))).toBe(false);
+        collider.kind === 'box'
+        && collider.x === building.x
+        && collider.z === building.z
+        && collider.w === building.w
+        && collider.d === building.d
+      ))).toBe(true);
     }
   });
 
-  it('中低层建筑形成连续街墙，招牌不再压过建筑本身', () => {
-    const active = BUILDINGS.filter((building) => building.style !== 'silhouette' && !building.backdrop);
-    expect(active).toHaveLength(17);
-    expect(active.filter((building) => building.h <= 22)).toHaveLength(17);
-    expect(Math.min(...active.map((building) => building.w))).toBeLessThanOrEqual(2.5);
-    expect(Math.max(...active.map((building) => building.w))).toBe(18);
-    expect(active.filter((building) => building.style === 'mediaTower')).toHaveLength(0);
-    expect(active.flatMap((building) => building.facadeSigns ?? []).length).toBeLessThanOrEqual(10);
-    const ordinaryShopfronts = active.filter(
-      (building) => building.style === 'shopfront' && !building.venue,
-    );
-    expect(ordinaryShopfronts).toHaveLength(8);
-    expect(ordinaryShopfronts.every((building) => building.groundUse && building.businessState)).toBe(true);
-    expect(ordinaryShopfronts.filter((building) => building.businessState === 'closed')).toHaveLength(1);
-    expect(ordinaryShopfronts.every((building) => building.businessNotice)).toBe(true);
-    expect(new Set(ordinaryShopfronts.map((building) => building.businessNotice))).toHaveLength(8);
+  it('北侧留出真实台阶巷，南侧留出树下飞行棋院落', () => {
+    const north = BUILDINGS.filter((building) => building.z < streetCenterZ(building.x));
+    const stairLeft = north.filter((building) => building.x < -6.2).sort((a, b) => b.x - a.x)[0];
+    const stairRight = north.filter((building) => building.x > -6.2).sort((a, b) => a.x - b.x)[0];
+    const stairGap = stairRight.x - stairRight.w / 2 - (stairLeft.x + stairLeft.w / 2);
+    expect(stairGap).toBeGreaterThan(ALLEY_W);
 
-    const northWall = active
-      .filter((building) => building.z === -10.7)
-      .sort((a, b) => a.x - b.x);
-    const southWall = active
-      .filter((building) => building.z === 10.7)
-      .sort((a, b) => a.x - b.x);
-    expect(northWall).toHaveLength(7);
-    expect(southWall).toHaveLength(6);
-    expect(northWall.every((building) => building.ry === 0)).toBe(true);
-    expect(southWall.every((building) => building.ry === Math.PI)).toBe(true);
-    const northGaps = northWall.slice(1).map((building, index) => (
-      building.x - building.w / 2 - (northWall[index].x + northWall[index].w / 2)
-    ));
-    const southGaps = southWall.slice(1).map((building, index) => (
-      building.x - building.w / 2 - (southWall[index].x + southWall[index].w / 2)
-    ));
-    expect(northGaps.filter((gap) => gap > 0.01)).toHaveLength(1);
-    expect(northGaps.find((gap) => gap > 0.01)).toBeCloseTo(ALLEY_W, 6);
-    expect(southGaps.filter((gap) => gap > 0.01)).toHaveLength(1);
-    expect(southGaps.find((gap) => gap > 0.01)).toBeCloseTo(ALLEY_W, 6);
+    const south = BUILDINGS.filter((building) => building.z > streetCenterZ(building.x));
+    const yardLeft = south.filter((building) => building.x < -4).sort((a, b) => b.x - a.x)[0];
+    const yardRight = south.filter((building) => building.x > -4).sort((a, b) => a.x - b.x)[0];
+    const yardGap = yardRight.x - yardRight.w / 2 - (yardLeft.x + yardLeft.w / 2);
+    expect(yardGap).toBeGreaterThan(7);
+
+    expect(city.interactables.some((item) => item.id === 'gr-flight' && item.kind === 'flying')).toBe(true);
+    expect(city.interactables.filter((item) => item.id.startsWith('street-flight-s'))).toHaveLength(4);
+    expect(city.props.some((prop) => prop.type === 'club_flying_chess')).toBe(true);
   });
 
-  it('街上严格只开放电影院、电竞观战馆和团子轰趴馆', () => {
-    expect(VENUES.map((v) => v.key).sort()).toEqual(['cinema', 'gameroom', 'netcafe']);
+  it('街上严格只开放原有三个场馆入口，门和新街路线共用坐标', () => {
+    expect(VENUES.map((venue) => venue.key).sort()).toEqual(['cinema', 'gameroom', 'netcafe']);
     const targets: Record<string, string> = {
       cinema: SPACE.CINEMA,
       netcafe: SPACE.NETCAFE,
       gameroom: SPACE.GAMEROOM,
     };
-    const plazaDoors = city.interactables.filter((i) => i.kind === 'door');
-    expect(plazaDoors).toHaveLength(3);
+    const doors = city.interactables.filter((item) => item.kind === 'door');
+    expect(doors).toHaveLength(3);
     for (const venue of VENUES) {
-      const door = plazaDoors.find((i) => i.id === `d-${venue.key}`);
-      expect(door, venue.key).toBeTruthy();
+      const building = BUILDINGS.find((candidate) => candidate.venue === venue.key);
+      const door = doors.find((item) => item.id === `d-${venue.key}`);
+      expect(building).toBeTruthy();
       expect(door?.data?.target).toBe(targets[venue.key]);
       expect(door?.pos[0]).toBe(venue.x);
       expect(door?.pos[2]).toBe(venue.z);
       expect(venue.route.at(-1)).toEqual(venue.approach);
-    }
-    const cinema = VENUES.find((venue) => venue.key === 'cinema')!;
-    const cinemaFramingPoint = cinema.route.at(-2)!;
-    expect(cinemaFramingPoint[0]).toBeCloseTo(cinema.approach[0], 6);
-    expect(cinemaFramingPoint[1]).toBeGreaterThan(cinema.approach[1]);
-  });
-
-  it('住宅与场馆不压住道路和步道', () => {
-    const walkways = [...ROADS, ...CROSSINGS, ...CROSSWALKS, ...SIDEWALKS];
-    for (const building of BUILDINGS) {
-      if (building.style === 'silhouette' || building.backdrop) continue;
-      expect(building.x - building.w / 2).toBeGreaterThanOrEqual(CITY_BOUNDS.minX);
-      expect(building.x + building.w / 2).toBeLessThanOrEqual(CITY_BOUNDS.maxX);
-      expect(building.z - building.d / 2).toBeGreaterThanOrEqual(CITY_BOUNDS.minZ);
-      expect(building.z + building.d / 2).toBeLessThanOrEqual(CITY_BOUNDS.maxZ);
-      for (const walkway of walkways) {
-        const overlap = Math.abs(building.x - walkway.x) < (building.w + walkway.w) / 2 - 0.01
-          && Math.abs(building.z - walkway.z) < (building.d + walkway.d) / 2 - 0.01;
-        expect(overlap, `building(${building.x},${building.z}) vs walkway(${walkway.x},${walkway.z})`).toBe(false);
-      }
+      expect(venue.route.every(([x]) => x >= CITY_BOUNDS.minX && x <= CITY_BOUNDS.maxX)).toBe(true);
     }
   });
 
-  it('近景剪影只做视觉背景，不生成碰撞', () => {
-    const silhouettes = BUILDINGS.filter((b) => b.style === 'silhouette');
-    expect(silhouettes).toHaveLength(17);
-    for (const silhouette of silhouettes) {
-      expect(
-        silhouette.x < CITY_BOUNDS.minX
-          || silhouette.x > CITY_BOUNDS.maxX
-          || silhouette.z < CITY_BOUNDS.minZ
-          || silhouette.z > CITY_BOUNDS.maxZ,
-      ).toBe(true);
-      expect(city.colliders.some(
-        (c) => c.kind === 'box' && c.x === silhouette.x && c.z === silhouette.z && c.w === silhouette.w,
-      )).toBe(false);
-    }
+  it('自行车、盆栽、树荫、长椅与电线杆都贴着弯街边缘布置', () => {
+    expect(city.props.filter((prop) => prop.type === 'tree')).toHaveLength(5);
+    expect(city.props.filter((prop) => prop.type === 'c_bike')).toHaveLength(4);
+    expect(city.props.filter((prop) => prop.type === 'c_planter')).toHaveLength(4);
+    expect(city.props.filter((prop) => prop.type === 'c_bench')).toHaveLength(2);
+    expect(city.props.filter((prop) => prop.type === 'c_wires')).toHaveLength(3);
 
-    const eastWestBackground = silhouettes.filter(
-      (building) => Math.abs(building.x) > CITY_BOUNDS.maxX,
-    );
-    expect(eastWestBackground.length).toBeGreaterThan(0);
-    for (const building of eastWestBackground) {
-      // Account for the whole footprint, not just its centre: distant masses
-      // must leave the carriageway visible behind both detailed termini.
-      expect(Math.abs(building.z) - building.d / 2).toBeGreaterThanOrEqual(ROAD_W / 2);
-    }
-  });
-
-  it('两条尽端巷都由边界外的细化建筑收口，且不生成碰撞', () => {
-    const termini = BUILDINGS.filter(
-      (building) => building.backdrop && Math.abs(building.z) > CITY_BOUNDS.maxZ,
-    );
-    expect(termini).toHaveLength(2);
-    expect(termini.map((building) => building.x).sort((a, b) => a - b)).toEqual([-8, 9.1]);
-    for (const terminus of termini) {
-      expect(Math.abs(terminus.z) - terminus.d / 2).toBeCloseTo(CITY_BOUNDS.maxZ, 6);
-      expect(terminus.style).not.toBe('silhouette');
-      expect(city.colliders.some(
-        (collider) => collider.kind === 'box'
-          && collider.x === terminus.x && collider.z === terminus.z,
-      )).toBe(false);
-    }
-  });
-
-  it('主街东西两端也有边界外的正常建筑端景', () => {
-    const termini = BUILDINGS.filter(
-      (building) => building.backdrop && Math.abs(building.x) > CITY_BOUNDS.maxX,
-    );
-    expect(termini).toHaveLength(2);
-    expect(termini.map((building) => building.z)).toEqual([0, 0]);
-    for (const terminus of termini) {
-      expect(Math.abs(terminus.x) - terminus.w / 2).toBeCloseTo(CITY_BOUNDS.maxX, 6);
-      expect(city.colliders.some(
-        (collider) => collider.kind === 'box'
-          && collider.x === terminus.x && collider.z === terminus.z,
-      )).toBe(false);
-    }
-  });
-
-  it('巷口反光镜、服务表箱与街端反光柱使用显式安全位置', () => {
-    const mirrors = city.props.filter((prop) => prop.type === 'c_convex_mirror');
-    expect(mirrors).toHaveLength(2);
-    expect(mirrors.map((mirror) => mirror.pos[0]).sort((a, b) => a - b)).toEqual([-9.43, 10.53]);
-    for (const mirror of mirrors) {
+    const physicalProps = ['tree', 'c_bike', 'c_planter', 'c_bench'];
+    for (const prop of city.props.filter((candidate) => physicalProps.includes(candidate.type))) {
+      expect(Math.abs(prop.pos[2] - streetCenterZ(prop.pos[0])), `${prop.type}@${prop.pos}`).toBeGreaterThan(2.6);
       expect(city.colliders.some((collider) => (
-        collider.kind === 'circle'
-          && collider.x === mirror.pos[0]
-          && collider.z === mirror.pos[2]
-          && collider.r === 0.14
+        Math.hypot(collider.x - prop.pos[0], collider.z - prop.pos[2]) < 0.05
       ))).toBe(true);
     }
-
-    const meters = city.props.filter((prop) => prop.type === 'c_service_meters');
-    expect(meters).toHaveLength(2);
-    expect(meters.every((meter) => meter.pos[1] === 1.18)).toBe(true);
-    expect(meters.every((meter) => (
-      Math.abs(Math.abs(meter.pos[0] + 8) - ALLEY_W / 2) < 0.08
-        || Math.abs(Math.abs(meter.pos[0] - 9.1) - ALLEY_W / 2) < 0.08
-    ))).toBe(true);
-
-    const reflectorPosts = city.props.filter((prop) => prop.type === 'c_reflector_post');
-    expect(reflectorPosts).toHaveLength(4);
-    expect(reflectorPosts.every((post) => Math.abs(post.pos[0]) === 28.15)).toBe(true);
-    expect(reflectorPosts.every((post) => Math.abs(post.pos[2]) === 2.58)).toBe(true);
-    expect(reflectorPosts.every((post) => Math.abs(post.pos[2]) >= 2.3)).toBe(true);
-    for (const post of reflectorPosts) {
-      expect(city.colliders.some((collider) => (
-        collider.kind === 'circle'
-          && collider.x === post.pos[0]
-          && collider.z === post.pos[2]
-          && collider.r === 0.11
-      ))).toBe(true);
-    }
-
-    const recyclingStations = city.props.filter((prop) => prop.type === 'c_recycling_station');
-    expect(recyclingStations).toHaveLength(1);
-    expect(recyclingStations[0].pos).toEqual([-23.2, 0, 4.84]);
-    expect(city.colliders.some((collider) => (
-      collider.kind === 'box'
-        && collider.x === -23.2
-        && collider.z === 4.84
-        && collider.w === 2.1
-        && collider.d === 0.62
-    ))).toBe(true);
-    expect(VENUES.every((venue) => (
-      Math.hypot(venue.approach[0] + 23.2, venue.approach[1] - 4.84) > 3
-    ))).toBe(true);
   });
 
-  it('高街具复用共享碰撞并标注相机遮挡高度，低街具不会强制缩短镜头', () => {
-    const expectedHighProps = new Map<string, number>([
-      ['c_recycling_station', 1.58],
-      ['c_locker', 1.78],
-      ['c_phone', 2.25],
-      ['c_convex_mirror', 2.75],
-    ]);
-    for (const [type, expectedHeight] of expectedHighProps) {
-      for (const prop of city.props.filter((candidate) => candidate.type === type)) {
-        const collider = city.colliders.find((candidate) => (
-          candidate.x === prop.pos[0] && candidate.z === prop.pos[2]
-        ));
-        expect(collider, type).toBeDefined();
-        expect(collider?.cameraHeight, type).toBe(expectedHeight);
-      }
-    }
-
-    for (const type of ['c_bench', 'c_planter', 'c_bike', 'c_reflector_post']) {
-      for (const prop of city.props.filter((candidate) => candidate.type === type)) {
-        const collider = city.colliders.find((candidate) => (
-          candidate.x === prop.pos[0] && candidate.z === prop.pos[2]
-            && (type === 'c_planter' ? candidate.kind === 'box' && candidate.w === 0.9 && candidate.d === 0.9
-              : type === 'c_bike' ? candidate.kind === 'circle' && candidate.r === 0.35
-                : type === 'c_reflector_post' ? candidate.kind === 'circle' && candidate.r === 0.11
-                  : candidate.kind === 'box' && Math.max(candidate.w, candidate.d) === 1.9)
-        ));
-        expect(collider, type).toBeDefined();
-        expect(collider?.cameraHeight, type).toBeUndefined();
-      }
-    }
-
-    for (const id of ['city-board', 'v-vend1', 'v-vend2']) {
-      const interactable = city.interactables.find((candidate) => candidate.id === id)!;
-      const collider = city.colliders.find((candidate) => (
-        candidate.x === interactable.pos[0] && candidate.z === interactable.pos[2]
-      ));
-      expect(collider?.cameraHeight, id).toBeGreaterThan(1.9);
-    }
-
-    for (const wires of city.props.filter((prop) => prop.type === 'c_wires')) {
-      const len = wires.data?.len as number;
-      const anchors = [
-        [wires.pos[0], wires.pos[2]],
-        [wires.pos[0] + Math.sin(wires.ry) * len, wires.pos[2] + Math.cos(wires.ry) * len],
-      ];
-      for (const [x, z] of anchors) {
-        expect(city.colliders.some((collider) => (
-          collider.kind === 'circle'
-            && Math.abs(collider.x - x) < 1e-6
-            && Math.abs(collider.z - z) < 1e-6
-            && collider.r === 0.18
-            && collider.cameraHeight === 7.4
-        )), `wire support (${x},${z})`).toBe(true);
-      }
-    }
-  });
-
-  it('高街具相机遮挡体之间不重叠', () => {
-    const streetBlockers = city.colliders.filter((collider) => (
-      collider.cameraHeight != null && collider.cameraHeight <= 7.4
-    ));
-    const overlaps = (a: (typeof streetBlockers)[number], b: (typeof streetBlockers)[number]) => {
-      if (a.kind === 'circle' && b.kind === 'circle') {
-        return Math.hypot(a.x - b.x, a.z - b.z) < a.r + b.r - 0.01;
-      }
-      if (a.kind === 'box' && b.kind === 'box') {
-        return Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 0.01
-          && Math.abs(a.z - b.z) < (a.d + b.d) / 2 - 0.01;
-      }
-      const circle = a.kind === 'circle' ? a : b.kind === 'circle' ? b : null;
-      const box = a.kind === 'box' ? a : b.kind === 'box' ? b : null;
-      if (!circle || !box) return false;
-      const nearestX = Math.max(box.x - box.w / 2, Math.min(circle.x, box.x + box.w / 2));
-      const nearestZ = Math.max(box.z - box.d / 2, Math.min(circle.z, box.z + box.d / 2));
-      return Math.hypot(circle.x - nearestX, circle.z - nearestZ) < circle.r - 0.01;
-    };
-    for (let i = 0; i < streetBlockers.length; i++) {
-      for (let j = i + 1; j < streetBlockers.length; j++) {
-        expect(
-          overlaps(streetBlockers[i], streetBlockers[j]),
-          `${JSON.stringify(streetBlockers[i])} vs ${JSON.stringify(streetBlockers[j])}`,
-        ).toBe(false);
-      }
-    }
+  it('主街缓坡与九级石阶都提供服务器可走高度', () => {
+    const ramp = city.heightZones.filter((zone) => zone.kind === 'ramp');
+    const steps = city.heightZones.filter((zone) => zone.kind === 'deck');
+    expect(ramp).toHaveLength(1);
+    expect(steps).toHaveLength(9);
+    expect(city.heightZones.some((zone) => zone.kind === 'bridgeZ')).toBe(false);
+    expect(floorHeightAt(city, -24, streetCenterZ(-24))).toBeCloseTo(0, 5);
+    expect(floorHeightAt(city, 0, streetCenterZ(0))).toBeCloseTo(0.8, 5);
+    expect(floorHeightAt(city, 24, streetCenterZ(24))).toBeCloseTo(1.6, 5);
+    steps.forEach((step, index) => {
+      expect(step.y).toBeCloseTo(streetHeight(-6.2) + index * 0.16, 5);
+      expect(floorHeightAt(city, -6.2, (step.minZ + step.maxZ) / 2)).toBeCloseTo(step.y, 5);
+    });
   });
 });
 
-describe('一番街可走性', () => {
+describe('结缘坂可走性', () => {
   it('出生点和三个门前站位没有卡进碰撞体', () => {
     const standSpots: Array<[number, number]> = [
       [city.spawn[0], city.spawn[2]],
@@ -357,18 +152,12 @@ describe('一番街可走性', () => {
     }
   });
 
-  it.each(VENUES)('出生点能沿共享路线走到$label门前', (venue) => {
+  it.each(VENUES)('出生点能沿弯街路线走到$label门前', (venue) => {
     const p = march(city, [
       [city.spawn[0], city.spawn[2]],
       ...venue.route,
     ]);
     expect(near(p, venue.approach[0], venue.approach[1])).toBe(true);
-  });
-
-  it('户外不再有天桥高度区', () => {
-    expect(city.heightZones).toEqual([]);
-    expect(floorHeightAt(city, VENUES[0].approach[0], VENUES[0].approach[1])).toBe(0);
-    expect(floorHeightAt(city, 0, 0)).toBe(0);
   });
 });
 

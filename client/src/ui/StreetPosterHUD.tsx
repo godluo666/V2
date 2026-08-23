@@ -19,25 +19,26 @@ const VENUE_COPY: Record<VenueKey, {
     index: '01',
     eyebrow: 'AURORA SCREEN',
     detail: '巨幕放映 / 同步观影',
-    action: '沿一番街向东',
+    action: '沿缓坡向东',
   },
   gameroom: {
     index: '02',
     eyebrow: 'DANGO CLUB',
     detail: '象棋 / 飞行棋 / 社团活动',
-    action: '穿过北侧商店街',
+    action: '杂货店旁',
   },
   netcafe: {
     index: '03',
     eyebrow: 'MIRROR ARENA',
     detail: '电竞直播 / 团队观战',
-    action: '由南口转入',
+    action: '弯道南侧',
   },
 };
 
 function mapPoint([x, z]: [number, number]): [number, number] {
-  const px = ((x - CITY_BOUNDS.minX) / (CITY_BOUNDS.maxX - CITY_BOUNDS.minX)) * 100;
-  const py = ((z - CITY_BOUNDS.minZ) / (CITY_BOUNDS.maxZ - CITY_BOUNDS.minZ)) * 100;
+  const bounds = CITY_BOUNDS;
+  const px = ((x - bounds.minX) / (bounds.maxX - bounds.minX)) * 100;
+  const py = ((z - bounds.minZ) / (bounds.maxZ - bounds.minZ)) * 100;
   return [px, py];
 }
 

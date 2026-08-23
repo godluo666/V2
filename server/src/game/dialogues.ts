@@ -20,7 +20,7 @@ export interface DialogueCtx {
 export const DIALOGUES: Record<string, Record<string, DNode>> = {
   greeter: {
     root: {
-      text: (c) => `${c.username},欢迎来到月汐町·一番街!第一次来吗?`,
+      text: (c) => `${c.username}，欢迎来到月汐町·结缘坂！第一次来吗？`,
       options: [
         { id: 'tour', label: '这里有什么好玩的?', next: 'tour' },
         { id: 'controls', label: '怎么操作呀?', next: 'controls' },

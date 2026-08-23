@@ -10,7 +10,7 @@ import type { Bounds, Collider } from './math';
 import type { AvatarConfig } from './types';
 import { SPACE } from './constants';
 import {
-  BUILDINGS, CITY_BOUNDS, VENUES, cityBuildingLocalSize,
+  BUILDINGS, CITY_BOUNDS, VENUES, cityBuildingLocalSize, streetCenterZ, streetHeight,
 } from './cityplan';
 import { ARENA_SPATIAL_CONTRACT, CINEMA_SPATIAL_CONTRACT } from './venueSpatialContracts';
 
@@ -98,12 +98,12 @@ class B {
     this.interactables.push({ id, kind, pos: [x, y, z], ry, label, data }); return this;
   }
   /** Street bench: prop + 2 seats + collider. Bench faces +Z at ry=0. */
-  bench(id: string, x: number, z: number, ry: number, type = 'c_bench') {
-    this.prop(type, x, 0, z, ry);
+  bench(id: string, x: number, z: number, ry: number, type = 'c_bench', y = 0) {
+    this.prop(type, x, y, z, ry);
     const cos = Math.cos(ry), sin = Math.sin(ry);
     for (let i = 0; i < 2; i++) {
       const lx = i === 0 ? -0.55 : 0.55;
-      this.inter(`${id}-s${i}`, 'seat', x + lx * cos, 0.46, z - lx * sin, ry, '坐下');
+      this.inter(`${id}-s${i}`, 'seat', x + lx * cos, y + 0.46, z - lx * sin, ry, '坐下');
     }
     this.box(x, z, Math.abs(cos) * 1.9 + Math.abs(sin) * 0.65, Math.abs(sin) * 1.9 + Math.abs(cos) * 0.65);
     return this;
@@ -128,154 +128,125 @@ class B {
 
 /** Safe fallback used by archived rooms that no longer have a public façade. */
 /** 从生活主街西段进入；出生镜头沿街看向连续店面而不是正对大路口。 */
-const STREET_SPAWN: [number, number, number, number] = [-17, 0, 1.2, Math.PI / 2];
+const STREET_SPAWN: [number, number, number, number] = [-21.5, 0.08, streetCenterZ(-21.5), Math.PI / 2];
 
 function streetReturnFor(key: (typeof VENUES)[number]['key']): [number, number, number, number] {
   const venue = VENUES.find((candidate) => candidate.key === key);
   if (!venue) return STREET_SPAWN;
-  return [venue.approach[0], 0, venue.approach[1], venue.ry + Math.PI];
+  return [venue.approach[0], streetHeight(venue.approach[0]), venue.approach[1], venue.ry + Math.PI];
 }
 
-// ═══════════════════════ 月汐町·一番街(户外) ════════════════════════════════
+// ═══════════════════════ 月汐町·结缘坂（户外） ═══════════════════════════════
+function cozyStreetHeight(x: number): number {
+  return streetHeight(x);
+}
+
+function cozyStreetZ(x: number): number {
+  return streetCenterZ(x);
+}
+
 function buildCity(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { ...CITY_BOUNDS };
 
-  // 连续住宅街墙全部参与碰撞；远景剪影纯视觉。
-  for (const bd of BUILDINGS) {
-    if (bd.style === 'silhouette' || bd.backdrop) continue;
-    // Convert the renderer's local frontage/depth back to the world-aligned
-    // footprint used by the shared AABB collision solver.  A quarter turn
-    // exchanges the local axes; keeping that conversion explicit prevents a
-    // door from being trapped behind an invisible side wall.
-    const { frontage, depth } = cityBuildingLocalSize(bd);
-    const quarterTurn = Math.abs(Math.round((bd.ry ?? 0) / (Math.PI / 2))) % 2 === 1;
-    b.box(bd.x, bd.z, quarterTurn ? depth : frontage, quarterTurn ? frontage : depth, bd.h);
+  // Low two- and three-storey street walls follow the shallow S bend. The
+  // south row intentionally opens around x=-5 for the tree-shaded game stall.
+  for (const building of BUILDINGS) {
+    const { frontage, depth } = cityBuildingLocalSize(building);
+    b.box(building.x, building.z, frontage, depth, building.h);
   }
 
-  // 首阶段严格只开放三个入口。
-  for (const v of VENUES) {
-    b.inter(`d-${v.key}`, 'door', v.x, 0, v.z, v.ry, `进入${v.label}`, { target: v.key });
+  for (const venue of VENUES) {
+    b.inter(
+      `d-${venue.key}`, 'door', venue.x, cozyStreetHeight(venue.x), venue.z,
+      venue.ry, `进入${venue.label}`, { target: venue.key },
+    );
   }
 
-  // 设施按用途成组贴墙：公告栏在社区一侧，售货机靠店铺服务面，座椅避开入口。
-  b.inter('city-board', 'board', 13.2, 0, 4.62, Math.PI, '月汐町社团公告栏', {});
-  b.box(13.2, 4.62, 1.6, 0.45, 2.25);
-  b.inter('v-vend1', 'vending', -18.25, 0, -4.55, 0, '草莓汽水机', { items: ['soda', 'pizza'] });
-  b.box(-18.25, -4.55, 0.8, 0.9, 1.95);
-  b.inter('v-vend2', 'vending', 24.8, 0, 4.55, Math.PI, '蓝色海盐汽水机', { items: ['soda', 'pizza'] });
-  b.box(24.8, 4.55, 0.8, 0.9, 1.95);
-
-  b.bench('sb0', -18.5, 4.58, Math.PI);
-  b.bench('sb1', 1.5, -4.58, 0);
-  b.bench('sb2', 15.7, 4.58, Math.PI);
-
-  const lamps: Array<[number, number]> = [
-    [-26.5, -4.65], [-16.8, 4.65], [-7.2, 4.65], [2.5, -4.65],
-    [11.5, 4.65], [21.5, -4.65], [27.2, 4.65], [-9.85, -13],
-    [11, 13.5],
-  ];
-  for (const [lx, lz] of lamps) b.lamp(lx, lz);
-
-  // Short alleys use small building-mounted service lights instead of more
-  // full-height lamp posts. Their alternating sides preserve the 3.4m clear
-  // lane while lighting residential doors and the small restaurant at dusk.
-  for (const [x, z, ry] of [
-    [-9.64, -11, Math.PI / 2], [-9.64, -18.3, Math.PI / 2],
-    [7.46, 11.5, Math.PI / 2], [10.74, 18.2, -Math.PI / 2],
+  // The flying-chess stall is outdoors, under the large courtyard tree. The
+  // low rug, four cushions and machine share one server-authoritative id.
+  const flightX = -4.0, flightZ = 6.55, flightY = cozyStreetHeight(flightX);
+  b.prop('club_flying_chess', flightX, flightY, flightZ, -0.06);
+  b.box(flightX, flightZ, 1.75, 1.75, 0.5);
+  b.inter('gr-flight', 'flying', flightX, flightY + 0.34, flightZ, 0, '坐到树下玩飞行棋');
+  for (const [x, z, ry, colour] of [
+    [flightX, flightZ - 1.85, Math.PI, 0], [flightX + 1.85, flightZ, -Math.PI / 2, 1],
+    [flightX, flightZ + 1.85, 0, 2], [flightX - 1.85, flightZ, Math.PI / 2, 3],
   ] as const) {
-    b.prop('c_wall_light', x, 2.45, z, ry);
+    b.prop('chair', x, cozyStreetHeight(x), z, ry, { style: 'floor', accent: colour });
+    b.inter(`street-flight-s${colour}`, 'seat', x, cozyStreetHeight(x) + 0.3, z, ry, '围坐飞行棋');
   }
-  b.prop('c_ac', -9.66, 2.05, -16.7, Math.PI / 2);
-  b.prop('c_ac', 7.44, 2.05, 16.4, Math.PI / 2);
 
-  // Utility meters occupy the otherwise blank ground-floor side elevations at
-  // both alley mouths. They are wall-mounted and deliberately have no ground
-  // collider, preserving the full shared lane.
-  b.prop('c_service_meters', -6.34, 1.18, -7.45, -Math.PI / 2);
-  b.prop('c_service_meters', 7.44, 1.18, 7.55, Math.PI / 2);
+  // Everyday interaction pockets: board by the grocery, vending machine by
+  // the laundry, and two shaded benches away from the moving lane.
+  b.inter('city-board', 'board', -18.0, cozyStreetHeight(-18), cozyStreetZ(-18) + 3.2, Math.PI, '结缘坂留言板', {});
+  b.box(-18.0, cozyStreetZ(-18) + 3.2, 1.55, 0.42, 2.2);
+  b.inter('v-vend1', 'vending', 12.0, cozyStreetHeight(12), cozyStreetZ(12) - 3.2, 0, '橘子汽水机', { items: ['soda', 'pizza'] });
+  b.box(12.0, cozyStreetZ(12) - 3.2, 0.8, 0.8, 1.95);
+  b.bench('sb0', -19.0, cozyStreetZ(-19) + 3.15, Math.PI, 'c_bench', cozyStreetHeight(-19));
+  b.bench('sb1', 5.2, cozyStreetZ(5.2) + 3.2, Math.PI, 'c_bench', cozyStreetHeight(5.2));
 
-  // Orange convex traffic mirrors are common at Japanese blind corners. Keep
-  // their slim poles within 0.3m of the alley wall and make only the pole base
-  // collidable so the mirror head cannot create an invisible shoulder-height
-  // obstruction.
-  for (const [x, z, ry] of [
-    [-9.43, -5.78, Math.PI / 4],
-    [10.53, 5.78, -Math.PI * 3 / 4],
+  // Dense but human-scale shade, bikes, pots, tiny signs and utility poles.
+  for (const [x, z, variant, scale] of [
+    [-23.0, cozyStreetZ(-23) - 3.25, 0, 1.08], [-8.2, 5.0, 1, 1.12], [-4.1, 8.35, 2, 1.22],
+    [6.0, cozyStreetZ(6) + 3.15, 0, 0.95], [22.8, cozyStreetZ(22.8) - 3.2, 1, 1.15],
   ] as const) {
-    b.prop('c_convex_mirror', x, 0, z, ry);
-    b.circle(x, z, 0.14, 2.75);
+    b.prop('tree', x, cozyStreetHeight(x), z, 0, { variant, scale });
+    b.circle(x, z, 0.42, 4.8 * scale);
   }
-
-  // Four low reflector posts mark the finite playable road without turning
-  // either end into a gate. The centre 4.6m remains completely clear.
+  for (const [x, z, ry] of [
+    [-19.0, cozyStreetZ(-19) - 3.15, 0.2], [-10.0, cozyStreetZ(-10) + 3.15, 2.8],
+    [3.0, cozyStreetZ(3) - 3.15, 0.3], [19.0, cozyStreetZ(19) + 3.1, 2.7],
+  ] as const) {
+    b.prop('c_bike', x, cozyStreetHeight(x), z, ry); b.circle(x, z, 0.32);
+  }
   for (const [x, z] of [
-    [-28.15, -2.58], [-28.15, 2.58],
-    [28.15, -2.58], [28.15, 2.58],
+    [-11, cozyStreetZ(-11) - 3.15], [2.5, cozyStreetZ(2.5) + 3.15],
+    [13, cozyStreetZ(13) - 3.15], [-7.8, cozyStreetZ(-7.8) + 3.1],
   ] as const) {
-    b.prop('c_reflector_post', x, 0, z);
-    b.circle(x, z, 0.11);
+    b.prop('c_planter', x, cozyStreetHeight(x), z); b.box(x, z, 0.8, 0.8);
   }
-
-  // 住宅生活细节沿实际店面服务边布置，不占道路中心或门厅缓冲区。
-  for (const [x, z] of [[-12.2, -4.65], [6.2, -4.65], [10.8, 4.65], [27.2, 4.65]] as const) {
-    b.prop('c_planter', x, 0, z);
-    b.box(x, z, 0.9, 0.9);
-  }
-  b.prop('c_phone', 17.5, 0, 4.65, Math.PI); b.box(17.5, 4.65, 0.9, 0.9, 2.25);
-  // One organised neighbourhood collection point is more credible than
-  // scattered loose bags. It sits against the south residential facade,
-  // clear of its entrance/service window and the west bench.
-  b.prop('c_recycling_station', -23.2, 0, 4.84, Math.PI);
-  b.box(-23.2, 4.84, 2.1, 0.62, 1.58);
-  // Lockers live on the cinema's service wing, not across the narrow
-  // stationery storefront where they previously hid most of the display.
-  b.prop('c_locker', 12.25, 0, -4.68, 0); b.box(12.25, -4.68, 1.4, 0.6, 1.78);
-  for (const [x, z, ry] of [
-    [-21.5, -4.62, 0.2], [-10.8, 4.62, 2.8],
-    [5.0, -4.62, 0.35], [21.8, 4.62, 2.7],
-    [-9.8, -15.6, 1.4], [10.8, 15.4, -1.4],
+  for (const [x, z] of [
+    [-16.2, cozyStreetZ(-16.2) + 3.05], [-1.2, cozyStreetZ(-1.2) - 3.05],
+    [9.7, cozyStreetZ(9.7) + 3.05], [20.4, cozyStreetZ(20.4) - 3.05],
   ] as const) {
-    b.prop('c_bike', x, 0, z, ry); b.circle(x, z, 0.35);
+    b.prop('c_lamp', x, cozyStreetHeight(x), z);
+    b.circle(x, z, 0.22, 4.8);
   }
   for (const [x, z, ry] of [
-    [3.8, -5.22, 0], [13.8, 5.22, Math.PI],
-    [26.8, -5.22, 0], [-12.7, -19.2, Math.PI / 2],
+    [-12.5, cozyStreetZ(-12.5) - 3.4, 0], [3.1, cozyStreetZ(3.1) - 3.35, 0],
+    [15.5, cozyStreetZ(15.5) + 3.4, Math.PI],
   ] as const) {
-    b.prop('c_poster', x, 1.45, z, ry);
-  }
-  b.prop('c_hydrant', -1.2, 0, 4.7); b.circle(-1.2, 4.7, 0.25);
-  b.prop('c_manhole', -18, 0, 0.7);
-  b.prop('c_manhole', 13, 0, -0.6);
-  b.prop('c_manhole', -8.5, 0, -12.5);
-  for (const [x, z, ry] of [
-    [-21, -3.04, 0], [-14, 3.04, 0], [-1, -3.04, 0],
-    [16, 3.04, 0], [25.5, -3.04, 0], [-6.34, -10.5, Math.PI / 2],
-    [7.44, 10.8, Math.PI / 2], [10.76, 17.2, Math.PI / 2],
-  ] as const) {
-    b.prop('c_drain', x, 0, z, ry);
+    b.prop('c_poster', x, cozyStreetHeight(x) + 1.35, z, ry);
   }
   for (const [x, z, ry, len] of [
-    [-26, -4.85, Math.PI / 2, 11],
-    [-12, 4.85, Math.PI / 2, 12],
-    [3, -4.85, Math.PI / 2, 11],
-    [19, 4.85, Math.PI / 2, 9],
-    [-10.35, -19.5, 0, 10],
-    [11.45, 19.4, Math.PI, 10],
+    [-20, cozyStreetZ(-20) - 3.55, Math.PI / 2, 10],
+    [-7, cozyStreetZ(-7) + 3.55, Math.PI / 2, 9],
+    [8, cozyStreetZ(8) - 3.55, Math.PI / 2, 10],
   ] as const) {
-    b.prop('c_wires', x, 7.4, z, ry, { len, sag: 0.65, strands: 2 });
-    // CWires renders a grounded pole at both cable anchors. Keep the shared
-    // collision contract on both supports and expose their true height to the
-    // third-person camera instead of allowing the lens through either pole.
-    b.circle(x, z, 0.18, 7.4);
-    b.circle(x + Math.sin(ry) * len, z + Math.cos(ry) * len, 0.18, 7.4);
+    b.prop('c_wires', x, cozyStreetHeight(x) + 6.5, z, ry, { len, sag: 0.55, strands: 2 });
+    b.circle(x, z, 0.16, 6.8);
   }
 
+  // Nine shallow stone steps climb north between retaining walls. Step zones
+  // precede the broad street ramp so this small branch has real walkable height.
+  const stairBase = cozyStreetHeight(-6.2);
+  for (let step = 0; step < 9; step += 1) {
+    const maxZ = -3.25 - step * 0.9;
+    b.heightZones.push({
+      minX: -7.25, maxX: -5.15, minZ: maxZ - 0.9, maxZ,
+      kind: 'deck', y: stairBase + step * 0.16,
+    });
+  }
+  b.box(-7.52, -7.3, 0.28, 8.5, 1.6);
+  b.box(-4.88, -7.3, 0.28, 8.5, 1.6);
+  b.heightZones.push({ ...CITY_BOUNDS, kind: 'ramp', dir: 'w', y: 1.6 });
+
   return {
-    key: SPACE.PLAZA, label: '月汐町·一番街', indoor: false, bounds,
+    key: SPACE.PLAZA, label: '月汐町·结缘坂', indoor: false, bounds,
     spawn: STREET_SPAWN,
     colliders: b.colliders, interactables: b.interactables, props: b.props,
-    npcs: [], heightZones: [], hasBall: false,
+    npcs: [], heightZones: b.heightZones, hasBall: false,
   };
 }
 

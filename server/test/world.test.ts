@@ -54,7 +54,7 @@ describe('world membership and movement', () => {
     const { world, mkSession } = testRig();
     const a = mkSession('alice');
     world.join(a.session, SPACE.PLAZA);
-    const target = BUILDINGS.find((building) => building.sign?.text === '潮路商店');
+    const target = BUILDINGS.find((building) => building.sign?.text === '结缘杂货');
     if (!target) throw new Error('missing compact street shop');
     const targetX = target.x;
     const targetZ = target.z;

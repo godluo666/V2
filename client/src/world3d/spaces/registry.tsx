@@ -164,7 +164,7 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
       return <Door key={key} position={it.pos} rotation={it.ry} wide={wide} />;
     }
     case 'switch': return <SwitchWrapper key={key} it={it} />;
-    case 'board': return <MessageBoard key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} boardId={it.id} />;
+    case 'board': return <MessageBoard key={key} position={it.pos} rotation={it.ry} boardId={it.id} />;
     case 'whiteboard': return (
       <WhiteboardSurface key={key} position={it.pos} rotation={it.ry} boardId={String(it.data?.boardId ?? it.id)} />
     );
@@ -185,7 +185,7 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'vending': {
       // 晴日生活街户外售货机(v-vend*):城市赛璐璐外观(c_vend 可互动版,红/蓝按标签)
       if (it.id.startsWith('v-vend')) {
-        return <CVend key={key} position={[it.pos[0], 0, it.pos[2]]} ry={it.ry} kind={it.label.includes('蓝') ? 'blue' : 'red'} />;
+        return <CVend key={key} position={it.pos} ry={it.ry} kind={it.label.includes('蓝') ? 'blue' : 'red'} />;
       }
       const items = (it.data?.items as string[]) ?? [];
       return <VendingMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} kind={items.includes('coffee') ? 'coffee' : 'drinks'} />;
