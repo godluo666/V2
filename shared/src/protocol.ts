@@ -71,6 +71,7 @@ export const c2s = {
     machineId: z.string().min(1).max(32),
     action: z.enum(['join', 'leave', 'roll', 'move', 'pass']),
     pawn: z.number().int().min(0).max(3).optional(),
+    colour: z.number().int().min(0).max(3).optional(),
   }),
   xq_move: z.object({ tableId: z.string().min(1).max(32), from: z.number().int().min(0).max(89), to: z.number().int().min(0).max(89) }),
   mj_action: z.object({

@@ -204,6 +204,28 @@ const CANOPIES: { geo: THREE.BufferGeometry; y: number }[] = [
   },
 ];
 
+function branchPart(
+  from: [number, number, number],
+  to: [number, number, number],
+  baseRadius: number,
+  tipRadius: number,
+  color: string,
+): { geo: THREE.BufferGeometry; m: THREE.Matrix4; color: string } {
+  const a = new THREE.Vector3(...from);
+  const b = new THREE.Vector3(...to);
+  const direction = b.clone().sub(a);
+  const matrix = new THREE.Matrix4().compose(
+    a.clone().lerp(b, 0.5),
+    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize()),
+    new THREE.Vector3(1, 1, 1),
+  );
+  return {
+    geo: new THREE.CylinderGeometry(tipRadius, baseRadius, direction.length(), 7),
+    m: matrix,
+    color,
+  };
+}
+
 // 树干:3 段微倾斜圆柱合成的微弯曲暖棕树干(1 份几何,顶点色由深到浅)
 const TRUNK_GEO = mergeParts([
   { geo: new THREE.CylinderGeometry(0.2, 0.28, 0.95, 9), m: mat4(0, 0.45, 0), color: '#7c5a40' },
@@ -211,19 +233,45 @@ const TRUNK_GEO = mergeParts([
   { geo: new THREE.CylinderGeometry(0.11, 0.155, 0.85, 9), m: mat4(0.15, 2.0, 0, 1, 1, 1, -0.16), color: '#94714f' },
 ]);
 
+// Forks and root flares remain visible below the crown. They are merged into
+// one draw call so the anime silhouette gains believable botany without
+// turning nine foreground trees into dozens of independent cylinders.
+const BRANCH_GEO = mergeParts([
+  branchPart([0.08, 1.52, 0], [-0.66, 2.34, 0.18], 0.13, 0.065, '#7c5a40'),
+  branchPart([0.09, 1.68, -0.02], [0.7, 2.4, -0.22], 0.12, 0.06, '#87644a'),
+  branchPart([0.12, 1.86, 0.03], [0.25, 2.58, 0.68], 0.105, 0.052, '#8c684a'),
+  branchPart([-0.38, 2.02, 0.1], [-0.88, 2.45, 0.4], 0.065, 0.032, '#8c684a'),
+  branchPart([0.42, 2.08, -0.12], [0.9, 2.52, -0.48], 0.06, 0.03, '#94714f'),
+  branchPart([0, 0.18, 0], [-0.46, 0.055, 0.18], 0.12, 0.035, '#735238'),
+  branchPart([0.03, 0.17, 0], [0.48, 0.05, 0.13], 0.11, 0.032, '#735238'),
+  branchPart([0, 0.15, 0.02], [0.12, 0.04, -0.45], 0.1, 0.03, '#735238'),
+]);
+
 const CANOPY_OUTLINE = new THREE.MeshBasicMaterial({ color: '#3d6b41', side: THREE.BackSide });
 const TRUNK_OUTLINE = new THREE.MeshBasicMaterial({ color: '#553f2e', side: THREE.BackSide });
 
 export function Tree({ position, variant = 0, scale = 1 }: { position: [number, number, number]; variant?: number; scale?: number }) {
   const v = CANOPIES[((variant % CANOPIES.length) + CANOPIES.length) % CANOPIES.length];
+  const crown = useRef<THREE.Group>(null);
   // 由摆放坐标确定性地转个角度,同种树不会看起来完全一样
   const ry = useMemo(() => (Math.abs(position[0] * 12.9898 + position[2] * 78.233) % (Math.PI * 2)), [position]);
+  const windPhase = useMemo(() => Math.abs(position[0] * 0.37 + position[2] * 0.61) % (Math.PI * 2), [position]);
+  useFrame(({ clock }) => {
+    if (!crown.current) return;
+    const sway = Math.sin(clock.elapsedTime * 0.42 + windPhase) * 0.012;
+    crown.current.rotation.z = sway;
+    crown.current.rotation.x = Math.cos(clock.elapsedTime * 0.31 + windPhase) * 0.006;
+  });
   return (
     <group position={position} rotation={[0, ry, 0]} scale={scale}>
       <mesh geometry={TRUNK_GEO} material={VERT_TOON} castShadow />
       <mesh geometry={TRUNK_GEO} material={TRUNK_OUTLINE} scale={[1.14, 1.015, 1.14]} />
-      <mesh geometry={v.geo} material={VERT_TOON} position={[0, v.y, 0]} castShadow />
-      <mesh geometry={v.geo} material={CANOPY_OUTLINE} position={[0, v.y, 0]} scale={1.04} />
+      <mesh geometry={BRANCH_GEO} material={VERT_TOON} castShadow />
+      <mesh geometry={BRANCH_GEO} material={TRUNK_OUTLINE} scale={[1.08, 1.01, 1.08]} />
+      <group ref={crown} position={[0, v.y, 0]}>
+        <mesh geometry={v.geo} material={VERT_TOON} castShadow />
+        <mesh geometry={v.geo} material={CANOPY_OUTLINE} scale={1.04} />
+      </group>
     </group>
   );
 }

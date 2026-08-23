@@ -1,5 +1,5 @@
 /** 象棋与福州麻将的操作面板(便捷 2D 视角;3D 桌面供围观)。 */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useWorld } from '../state/stores';
 import { connection } from '../net/connection';
 import { hot } from '../state/hot';
@@ -8,6 +8,9 @@ import {
   xqMovesFrom, xqIsRed, XQ_CHAR, mjTileName, mjSuit,
 } from '@nexuspark/shared';
 import type { MahjongView } from '@nexuspark/shared';
+import {
+  FLIGHT_HANGARS, FLIGHT_TRACK, PAWN_OFFSETS, pawnPoint, runwayPoint,
+} from './flightBoard';
 
 /* ─── 象棋 ───────────────────────────────────────────────────────────────── */
 export function XiangqiPanel({ tableId }: { tableId: string }) {
@@ -117,64 +120,204 @@ export function XiangqiPanel({ tableId }: { tableId: string }) {
   );
 }
 
-/** Authoritative four-colour flying-chess board for the club's floor stall. */
+const FLIGHT_COLORS = ['#e8545f', '#3f9fe8', '#e8b83f', '#4dab6d'] as const;
+const FLIGHT_DARK = ['#9f303b', '#24689d', '#9a741f', '#2d7647'] as const;
+const FLIGHT_NAMES = ['红', '蓝', '黄', '绿'] as const;
+
+function DiceFace({ value, active, pass, onActivate }: {
+  value: number | null; active: boolean; pass: boolean; onActivate: () => void;
+}) {
+  const dots: Record<number, Array<[number, number]>> = {
+    1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]],
+    4: [[-1, -1], [1, -1], [-1, 1], [1, 1]],
+    5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]],
+    6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]],
+  };
+  return (
+    <g
+      className={`flight-dice${value ? ' rolled' : ''}${active ? ' active' : ''}`}
+      role={active ? 'button' : undefined}
+      tabIndex={active ? 0 : undefined}
+      aria-label={active
+        ? pass ? '没有可走飞机，结束回合' : '掷骰子'
+        : value === null ? '等待掷骰子' : `骰子点数 ${value}`}
+      onClick={active ? onActivate : undefined}
+      onKeyDown={active ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onActivate();
+        }
+      } : undefined}
+    >
+      <rect x={268} y={268} width={64} height={64} rx={13} fill="#fffdf6" stroke="#5e5143" strokeWidth={4} />
+      {(value ? dots[value] : []).map(([dx, dy], index) => (
+        <circle key={index} cx={300 + dx * 17} cy={300 + dy * 17} r={5.2} fill="#4d433a" />
+      ))}
+      {!value && <path d="M286 300h28M300 286v28" stroke="#9a8b78" strokeWidth={5} strokeLinecap="round" />}
+    </g>
+  );
+}
+
+/** Fully graphical, authoritative four-colour flying-chess board. */
 export function FlyingChessPanel({ machineId }: { machineId: string }) {
   const game = useWorld((s) => s.flying[machineId]);
   if (!game) return <div className="dim">地摊棋局正在准备中…</div>;
   const me = game.players.findIndex((player) => player?.id === hot.selfId);
   const myTurn = me >= 0 && game.turn === me && game.winner < 0;
-  const send = (action: 'join' | 'leave' | 'roll' | 'move' | 'pass', pawn?: number) => {
-    connection.send('flight_action', { machineId, action, ...(pawn === undefined ? {} : { pawn }) });
+  const movable = new Set(game.legalMoves);
+  const canRoll = myTurn && game.dice === null;
+  const canPass = myTurn && game.dice !== null && movable.size === 0;
+  const send = (action: 'join' | 'leave' | 'roll' | 'move' | 'pass', options: { pawn?: number; colour?: number } = {}) => {
+    connection.send('flight_action', { machineId, action, ...options });
     audio.click();
   };
+
   return (
-    <div className="col" style={{ gap: 8 }}>
-      <div className="dim" style={{ fontSize: 12 }}>
-        四色地摊飞行棋 · 掷六起飞 · 同色格跳跃 · 撞机回家 · 精确进入终点
-      </div>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 5 }}>
-        {game.players.map((player, slot) => {
-          const color = ['#ff5b67', '#48c8ff', '#ffd35a', '#69db8b'][slot];
-          const done = game.pawns[slot].filter((position) => position === game.finish).length;
+    <div className="flight-game">
+      <div className="flight-roster">
+        {game.players.map((player, colour) => {
+          const done = game.pawns[colour].filter((position) => position === game.finish).length;
           return (
-            <div key={slot} style={{ border: `2px solid ${color}`, padding: '4px 7px', minWidth: 92, opacity: player ? 1 : 0.45 }}>
-              <b style={{ color }}>{player?.username ?? `颜色 ${slot + 1}`}</b>
-              <div style={{ fontSize: 11 }}>{done}/4 到达终点</div>
+            <div
+              key={colour}
+              className={`flight-player ${game.turn === colour ? 'active' : ''} ${me === colour ? 'mine' : ''}`}
+              style={{ '--flight-color': FLIGHT_COLORS[colour] } as CSSProperties}
+            >
+              <span className="flight-player-plane">✈</span>
+              <span><b>{player?.username ?? `${FLIGHT_NAMES[colour]}色空位`}</b><small>{done}/4 抵达</small></span>
             </div>
           );
         })}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>
-        {(game.pawns[me >= 0 ? me : 0] ?? []).map((position, pawn) => {
-          const label = position < 0
-            ? '机库'
-            : position === game.finish
-              ? '到达'
-              : position >= 52
-                ? `终点跑道 ${position - 51}/4`
-                : `航线 ${position + 1}/52`;
-          return (
-          <button
-            key={pawn}
-            className="btn small"
-            disabled={!myTurn || game.dice === null || !game.legalMoves.includes(pawn)}
-            onClick={() => send('move', pawn)}
-          >
-            飞机 {pawn + 1}<br />{label}
-          </button>
-          );
-        })}
+
+      <div className="flight-board-shell">
+        <svg className="flight-board" viewBox="0 0 600 600" role="group" aria-label="可操作的四色飞行棋棋盘">
+          <defs>
+            <filter id="flight-shadow" x="-40%" y="-40%" width="180%" height="180%">
+              <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="#3b2b20" floodOpacity=".28" />
+            </filter>
+            <pattern id="flight-paper" width="18" height="18" patternUnits="userSpaceOnUse">
+              <rect width="18" height="18" fill="#f7efd9" />
+              <path d="M0 18L18 0" stroke="#e9dec5" strokeWidth=".7" opacity=".55" />
+            </pattern>
+          </defs>
+          <rect x={8} y={8} width={584} height={584} rx={32} fill="url(#flight-paper)" stroke="#755e47" strokeWidth={8} />
+
+          {FLIGHT_HANGARS.map((home, colour) => {
+            const joinable = me < 0 && !game.players[colour];
+            return (
+            <g
+              key={`home-${colour}`}
+              className={`flight-hangar${joinable ? ' joinable' : ''}`}
+              role={joinable ? 'button' : undefined}
+              tabIndex={joinable ? 0 : undefined}
+              aria-label={joinable ? `选择${FLIGHT_NAMES[colour]}色机库` : undefined}
+              onClick={joinable ? () => send('join', { colour }) : undefined}
+              onKeyDown={joinable ? (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  send('join', { colour });
+                }
+              } : undefined}
+            >
+              <rect x={home.x - 67} y={home.y - 67} width={134} height={134} rx={30}
+                fill={FLIGHT_COLORS[colour]} opacity={game.players[colour] ? 0.19 : 0.1}
+                stroke={FLIGHT_COLORS[colour]} strokeWidth={5} strokeDasharray={game.players[colour] ? undefined : '10 8'} />
+              <path d={`M${home.x - 35} ${home.y + 48} Q${home.x} ${home.y + 25} ${home.x + 35} ${home.y + 48}`}
+                fill="none" stroke={FLIGHT_DARK[colour]} strokeWidth={5} strokeLinecap="round" opacity={0.55} />
+              <text x={home.x} y={home.y - 42} textAnchor="middle" fill={FLIGHT_DARK[colour]} fontSize={18} fontWeight={800}>✈ {FLIGHT_NAMES[colour]}色机库</text>
+              {PAWN_OFFSETS.map((offset, pawn) => (
+                <circle key={pawn} cx={home.x + offset.x * 1.65} cy={home.y + offset.y * 1.65} r={16}
+                  fill="#fffaf0" stroke={FLIGHT_COLORS[colour]} strokeWidth={3} opacity={0.72} />
+              ))}
+            </g>
+            );
+          })}
+
+          {FLIGHT_COLORS.map((colour, slot) => {
+            const shortcutStart = FLIGHT_TRACK[(16 + slot * 13) % 52];
+            const shortcutEnd = FLIGHT_TRACK[(30 + slot * 13) % 52];
+            const takeoff = FLIGHT_TRACK[slot * 13];
+            const home = FLIGHT_HANGARS[slot];
+            return (
+              <g key={`flight-guides-${slot}`} opacity={0.3}>
+                <path d={`M${shortcutStart.x} ${shortcutStart.y}Q300 300 ${shortcutEnd.x} ${shortcutEnd.y}`}
+                  fill="none" stroke={colour} strokeWidth={6} strokeDasharray="9 9" strokeLinecap="round" />
+                <path d={`M${home.x} ${home.y}Q${(home.x + takeoff.x) / 2} ${(home.y + takeoff.y) / 2 - 12} ${takeoff.x} ${takeoff.y}`}
+                  fill="none" stroke={colour} strokeWidth={4} strokeDasharray="6 7" strokeLinecap="round" />
+              </g>
+            );
+          })}
+
+          {FLIGHT_TRACK.map((point, index) => {
+            const startColour = index % 13 === 0 ? Math.floor(index / 13) : -1;
+            return (
+              <g key={`track-${index}`}>
+                <circle cx={point.x} cy={point.y} r={15.5}
+                  fill={startColour >= 0 ? FLIGHT_COLORS[startColour] : index % 4 === 0 ? '#ead9b4' : '#fffaf0'}
+                  stroke={startColour >= 0 ? FLIGHT_DARK[startColour] : '#a99273'} strokeWidth={startColour >= 0 ? 3.5 : 2} />
+                {index % 4 === 0 && startColour < 0 && <path d={`M${point.x - 5} ${point.y}h10`} stroke="#b58e55" strokeWidth={3} strokeLinecap="round" />}
+              </g>
+            );
+          })}
+
+          {FLIGHT_COLORS.map((colour, slot) => (
+            <g key={`runway-${slot}`}>
+              <path d={`M${runwayPoint(slot, 0).x} ${runwayPoint(slot, 0).y}L${runwayPoint(slot, 3).x} ${runwayPoint(slot, 3).y}`}
+                stroke={FLIGHT_DARK[slot]} strokeWidth={5} opacity={0.38} />
+              {[0, 1, 2, 3].map((step) => {
+                const point = runwayPoint(slot, step);
+                return <circle key={step} cx={point.x} cy={point.y} r={17} fill={colour} opacity={0.78 + step * 0.05} stroke={FLIGHT_DARK[slot]} strokeWidth={2.5} />;
+              })}
+            </g>
+          ))}
+
+          <path d="M300 244L356 300L300 356L244 300Z" fill="#fff8e6" stroke="#806c54" strokeWidth={4} />
+          <DiceFace
+            value={game.dice}
+            active={canRoll || canPass}
+            pass={canPass}
+            onActivate={() => send(canPass ? 'pass' : 'roll')}
+          />
+
+          {game.pawns.flatMap((positions, colour) => positions.map((progress, pawn) => {
+            const point = pawnPoint(colour, pawn, progress, game.finish);
+            const legal = colour === me && myTurn && game.dice !== null && movable.has(pawn);
+            const stackIndex = game.pawns[colour].slice(0, pawn).filter((other) => other === progress).length;
+            const dx = progress >= 0 && progress < 52 ? (stackIndex % 2) * 8 - 4 : 0;
+            const dy = progress >= 0 && progress < 52 ? Math.floor(stackIndex / 2) * 8 - 4 : 0;
+            return (
+              <g key={`pawn-${colour}-${pawn}`} transform={`translate(${point.x + dx} ${point.y + dy})`}
+                className={legal ? 'flight-pawn legal' : 'flight-pawn'} role={legal ? 'button' : undefined}
+                tabIndex={legal ? 0 : undefined} onClick={legal ? () => send('move', { pawn }) : undefined}
+                onKeyDown={legal ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    send('move', { pawn });
+                  }
+                } : undefined}
+                aria-label={`${FLIGHT_NAMES[colour]}色 ${pawn + 1} 号飞机`}>
+                {legal && <circle r={25} fill="none" stroke={FLIGHT_COLORS[colour]} strokeWidth={5} opacity={0.48} />}
+                <circle r={16} fill={FLIGHT_COLORS[colour]} stroke="#fffaf0" strokeWidth={3.5} filter="url(#flight-shadow)" />
+                <path d="M-10 2L9-8L5 0L12 5L3 5L-1 13L-4 5L-11 6Z" fill="#fff" />
+                <text x={0} y={-20} textAnchor="middle" fontSize={13} fontWeight={900} fill={FLIGHT_DARK[colour]}>{pawn + 1}</text>
+              </g>
+            );
+          }))}
+        </svg>
+        {me >= 0 && game.dice !== null && movable.size > 0 && (
+          <div className="flight-board-hint">直接点击发光的飞机移动</div>
+        )}
       </div>
-      <div className="row">
-        {me < 0 && <button className="btn primary" onClick={() => send('join')}>加入地摊棋局</button>}
+
+      <div className="flight-actions">
+        {me < 0 && <button className="btn primary" onClick={() => send('join')}>自动选择空余颜色</button>}
         {me >= 0 && game.winner >= 0 && <button className="btn primary" onClick={() => send('join')}>再来一局</button>}
-        {me >= 0 && game.winner < 0 && game.dice === null && <button className="btn primary" disabled={!myTurn} onClick={() => send('roll')}>掷骰子</button>}
-        {me >= 0 && game.winner < 0 && game.dice !== null && game.legalMoves.length === 0 && <button className="btn" disabled={!myTurn} onClick={() => send('pass')}>无棋可走（{game.dice}）</button>}
-        {me >= 0 && <button className="btn ghost" onClick={() => send('leave')}>离开棋局</button>}
+        {me >= 0 && game.winner < 0 && game.dice === null && <button className="btn primary flight-roll" disabled={!myTurn} onClick={() => send('roll')}>🎲 掷骰子</button>}
+        {me >= 0 && game.winner < 0 && game.dice !== null && movable.size === 0 && <button className="btn" disabled={!myTurn} onClick={() => send('pass')}>没有飞机可走 · 结束回合</button>}
+        {me >= 0 && <button className="btn ghost" onClick={() => send('leave')}>离席</button>}
       </div>
-      <div className="dim" style={{ fontSize: 12 }}>
-        {game.lastEvent}
-      </div>
+      <div className={`flight-event ${game.winner >= 0 ? 'winner' : ''}`} role="status" aria-live="polite">{game.lastEvent}</div>
     </div>
   );
 }

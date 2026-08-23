@@ -1,25 +1,21 @@
 /**
- * 「月汐町·晴日生活街」参数化赛璐璐建筑(工单 P3-2,总纲 §2/§4/§5)。
+ * 「月汐町·结缘坂」原创参数化住宅街建筑。
  *
- * 按 cityplan.BUILDINGS 的 style 渲染:
- * - shopfront:一层骑楼店面(卷帘门/玻璃窗/门棚/竖招牌 canvas 霓虹,venue 留门洞)
- *   + 二层住家窗(少量暖窗自发光)+ 女儿墙;
- * - mediaTower:路口椭圆媒体塔、低位巨幕与错层冠部，建立非对称城市地标;
- * - tower:路口高楼,分段体块错落 + 屋顶水塔/天线剪影 + 零星亮窗点阵(禁止整面亮);
- * - apartment / backstreet:阳台 / 外走廊 / 空调位;
- * - silhouette:纯色块二阶 toon,不描边(§4.2 背景三层)。
+ * cityplan 的运行时契约严格只有三种低层类型：
+ * - shopfront：一层凹入店面、实体橱窗与各行业陈列，上层为住家；
+ * - apartment：二至三层小住宅，含阳台、窗帘、檐沟与生活设备；
+ * - backstreet：面向巷道的朴素住商混合建筑与外走廊。
  *
- * 性能(§10):全部体块经 MergeBag 合并 + 顶点色(per-building 色相±3%/明度±6%
- * 种子抖动),分近景/远景两大合并网格 + 卷帘 / 暖窗 / 高楼 / 剪影各自合并;
- * 全图建筑合计 ≤ 120 draw call,silhouette 合并为 ≤ 6 mesh。
- * 构建经 BuildQueue 分帧执行,出生点 80m 半径优先(§10 加载)。
+ * 墙体、窗框、玻璃、金属、暖窗和招牌按物理材质分别合批；顶点色只做
+ * 克制的逐栋差异。出生点附近优先分帧生成，完整街区仍保持可控 draw call。
  */
 import { useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seededRandom } from '@nexuspark/shared';
 import {
-  BUILDINGS, ROADS, VENUES, cityBuildingLocalSize,
+  BUILDINGS, ROADS, VENUES, cityBuildingLocalSize, streetHeight,
 } from '@nexuspark/shared/src/cityplan';
 import { ENV, ACCENT } from './palette';
 import { toonMat } from './toon';
@@ -30,8 +26,12 @@ import { MergeBag, unitBox, unitCylinder, vertexToonMat, makeCanvas, canvasTextu
 import { shutterTexture } from './props2';
 import { surfaceMaterial } from './materials';
 import { applyPhysicalUv } from './physicalUv';
+import { useWorld } from '../../state/stores';
+import { createEnvSample, currentTod, sampleEnv } from '../env/daynight';
 
 type Building = (typeof BUILDINGS)[number];
+
+const baseY = (building: Building): number => streetHeight(building.x);
 
 let _uPlane: THREE.PlaneGeometry | null = null;
 function unitPlane(): THREE.PlaneGeometry {
@@ -133,7 +133,7 @@ function put(
     ? unitFacade()
     : extra?.profile === 'window' ? unitWindowFrame() : unitBox();
   bag.add(profile, {
-    x, y, z, ry: ry + (extra?.lry ?? 0), rx: extra?.rx, rz: extra?.rz,
+    x, y: y + baseY(b), z, ry: ry + (extra?.lry ?? 0), rx: extra?.rx, rz: extra?.rz,
     sx: w, sy: h, sz: d, color,
     // Only solid facade profiles opt in here. Window/glass planes, signs and
     // screen content retain their authored UVs.
@@ -148,7 +148,7 @@ function putPlane(
   color: THREE.ColorRepresentation, lry = 0
 ): void {
   const [x, z] = l2w(b, ry, lx, lz);
-  bag.add(unitPlane(), { x, y, z, ry: ry + lry, sx: w, sy: h, sz: 1, color });
+  bag.add(unitPlane(), { x, y: y + baseY(b), z, ry: ry + lry, sx: w, sy: h, sz: 1, color });
 }
 
 // ── 招牌(canvas 霓虹,全部文字程序化)──────────────────────────────────────
@@ -203,16 +203,41 @@ function signTexture(text: string, color: string, vertical: boolean): THREE.Canv
   return tex;
 }
 
-function makeSignMesh(s: SignSpec): THREE.Mesh {
+const signHardwareMat = toonMat('#555650');
+
+function makeSignMesh(s: SignSpec): THREE.Group {
   const tex = signTexture(s.text, s.color, s.vertical);
   // 亮度克制(§2.2 禁止过曝):自发光 ≤ 0.8,霓虹光晕交给 P4 Bloom
   const mat = toonMat(0xffffff, s.lit === false ? { map: tex } : {
-    map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.3, fog: false,
+    map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.12, fog: true,
   });
+  const root = new THREE.Group();
+  root.position.set(s.x, s.y, s.z);
+  root.rotation.y = s.ry + (s.projecting ? Math.PI / 2 : 0);
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h, 0.16), mat);
-  mesh.position.set(s.x, s.y, s.z);
-  mesh.rotation.y = s.ry + (s.projecting ? Math.PI / 2 : 0);
-  return mesh;
+  mesh.castShadow = true;
+  root.add(mesh);
+  if (s.projecting) {
+    // Projecting blade signs need visible load paths. Two steel arms continue
+    // from the inner edge to a wall plate; the sign is never a floating canvas.
+    const inner = s.w / 2;
+    for (const y of [-s.h * 0.3, s.h * 0.3]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.045, 0.045), signHardwareMat);
+      arm.position.set(inner + 0.19, y, 0);
+      arm.castShadow = true;
+      root.add(arm);
+    }
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.07, Math.max(0.28, s.h * 0.72), 0.22), signHardwareMat);
+    plate.position.set(inner + 0.42, 0, 0);
+    plate.castShadow = true;
+    root.add(plate);
+  } else {
+    const backing = new THREE.Mesh(new THREE.BoxGeometry(s.w + 0.08, s.h + 0.08, 0.055), signHardwareMat);
+    backing.position.z = -0.095;
+    backing.castShadow = true;
+    root.add(backing);
+  }
+  return root;
 }
 
 let _mediaTowerTex: THREE.CanvasTexture | null = null;
@@ -404,7 +429,7 @@ function appendFacadeSigns(
       text: sign.text,
       color: sign.color,
       x: sx,
-      y: Math.min(b.h - sign.h / 2 - 0.3, sign.y),
+      y: baseY(b) + Math.min(b.h - sign.h / 2 - 0.3, sign.y),
       z: sz,
       ry,
       w: sign.w,
@@ -450,6 +475,33 @@ interface Bags {
   shutters: MergeBag;   // 卷帘门(横纹贴图 × 顶点色)
   warm: MergeBag;       // 暖窗自发光
   signs: SignSpec[];
+}
+
+/** Restrained code-native wear: low contrast splash marks, old repairs and
+ * hairline cracks. These sit in the merged wall batch and never rely on a
+ * downloaded grime decal. */
+function appendFacadeWeathering(
+  b: Building, out: Bags, ry: number, w: number, d: number, variant: number,
+): void {
+  const stainColors = ['#9fa092', '#aaa596', '#8f968b'];
+  const anchors = [-0.36, 0.04, 0.34];
+  anchors.forEach((portion, index) => {
+    const patchW = 0.26 + ((variant + index) % 3) * 0.11;
+    const patchH = 0.18 + ((variant + index * 2) % 4) * 0.09;
+    putPlane(
+      out.walls, b, ry,
+      portion * w, 0.14 + patchH / 2, d / 2 + 0.155,
+      patchW, patchH, stainColors[(variant + index) % stainColors.length],
+    );
+  });
+  const repairX = ((variant % 5) - 2) * w * 0.075;
+  put(out.walls, b, ry, repairX, 1.05, d / 2 + 0.11,
+    0.5 + (variant % 2) * 0.18, 0.34, 0.025, '#c2bcae', { rz: (variant % 3 - 1) * 0.025 });
+  const crackX = -w * 0.43 + (variant % 4) * w * 0.08;
+  put(out.walls, b, ry, crackX, 0.83, d / 2 + 0.132,
+    0.018, 0.46, 0.018, '#777c77', { rz: variant % 2 ? 0.16 : -0.13 });
+  put(out.walls, b, ry, crackX + (variant % 2 ? 0.07 : -0.07), 0.98, d / 2 + 0.133,
+    0.015, 0.19, 0.018, '#777c77', { rz: variant % 2 ? -0.72 : 0.68 });
 }
 
 const AWNING_COLORS = [
@@ -628,6 +680,64 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
                 productColors[(shelf + product) % productColors.length]);
             }
           }
+          // The three shelf-based businesses must still read as different
+          // trades at player height. These small foreground clusters are
+          // physical geometry, not labels pasted over interchangeable boxes.
+          if (b.groundUse === 'general-store') {
+            put(out.detail, b, ry, bx - bayW * 0.23, 0.42, d / 2 - 0.13,
+              0.54, 0.44, 0.32, '#947451');
+            for (let bottle = 0; bottle < 4; bottle++) {
+              const bottleX = bx - bayW * 0.23 - 0.18 + bottle * 0.12;
+              const [worldX, worldZ] = l2w(b, ry, bottleX, d / 2 - 0.04);
+              out.detail.add(unitCylinder(), {
+                x: worldX, y: baseY(b) + 0.78 + (bottle % 2) * 0.035, z: worldZ,
+                ry, sx: 0.045, sy: 0.25 + (bottle % 2) * 0.07, sz: 0.045,
+                color: ['#8b694b', '#738a76', '#aa7867', '#b79a62'][bottle],
+              });
+            }
+            put(out.detail, b, ry, bx + bayW * 0.25, 0.62, d / 2 - 0.11,
+              0.5, 0.08, 0.32, '#c7b687', { rz: 0.035 });
+          } else if (b.groundUse === 'stationery') {
+            for (let notebook = 0; notebook < 4; notebook++) {
+              put(out.detail, b, ry,
+                bx - bayW * 0.22 + notebook * 0.08,
+                0.7 + notebook * 0.035,
+                d / 2 - 0.1 - notebook * 0.012,
+                0.42, 0.035, 0.28,
+                ['#728898', '#b69072', '#849477', '#c3a868'][notebook],
+                { rz: (notebook - 1.5) * 0.018 });
+            }
+            const cupX = bx + bayW * 0.24;
+            const [worldX, worldZ] = l2w(b, ry, cupX, d / 2 - 0.1);
+            out.detail.add(unitCylinder(), {
+              x: worldX, y: baseY(b) + 0.78, z: worldZ,
+              ry, sx: 0.12, sy: 0.26, sz: 0.12, color: '#8b765e',
+            });
+            for (let pencil = 0; pencil < 5; pencil++) {
+              const [pencilX, pencilZ] = l2w(b, ry,
+                cupX + (pencil - 2) * 0.026, d / 2 - 0.1 + (pencil % 2) * 0.025);
+              out.detail.add(unitCylinder(), {
+                x: pencilX, y: baseY(b) + 1.02 + (pencil % 3) * 0.025, z: pencilZ,
+                ry, rz: (pencil - 2) * 0.035,
+                sx: 0.018, sy: 0.38 + (pencil % 3) * 0.05, sz: 0.018,
+                color: pencil % 2 ? '#657d88' : '#b58a5d',
+              });
+            }
+          } else {
+            put(out.detail, b, ry, bx + bayW * 0.22, 1.78, d / 2 - 0.08,
+              0.5, 0.16, 0.055, '#6f9275');
+            put(out.detail, b, ry, bx + bayW * 0.22, 1.78, d / 2 - 0.05,
+              0.16, 0.5, 0.055, '#6f9275');
+            for (let vial = 0; vial < 4; vial++) {
+              const vialX = bx - bayW * 0.22 + vial * 0.13;
+              const [worldX, worldZ] = l2w(b, ry, vialX, d / 2 - 0.08);
+              out.detail.add(unitCylinder(), {
+                x: worldX, y: baseY(b) + 0.75 + (vial % 2) * 0.03, z: worldZ,
+                ry, sx: 0.045, sy: 0.2 + (vial % 2) * 0.05, sz: 0.045,
+                color: vial % 2 ? '#d7d9ca' : '#86a08d',
+              });
+            }
+          }
         } else if (b.groundUse === 'fishmonger') {
           // Pale enamel-and-steel cold counters remain readable under the
           // south facade's noon backlight. Keeping them in the concrete/detail
@@ -654,7 +764,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
               const fishX = trayX + (fish === 0 ? -0.13 : 0.14) * Math.min(1, trayW / 0.45);
               const [fishWorldX, fishWorldZ] = l2w(b, ry, fishX, d / 2 - 0.185 + fish * 0.025);
               out.detail.add(unitDisplaySphere(), {
-                x: fishWorldX, y: 1.205 + fish * 0.015, z: fishWorldZ,
+                x: fishWorldX, y: baseY(b) + 1.205 + fish * 0.015, z: fishWorldZ,
                 ry, sx: 0.28, sy: 0.075, sz: 0.09,
                 color: fish === 0 ? '#657b80' : '#879296',
               });
@@ -666,6 +776,76 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
             put(out.detail, b, ry, trayX + trayW * 0.32, 1.32, d / 2 - 0.16,
               0.14, 0.2, 0.025, trayIndex === 0 ? '#d8ccaa' : '#c9d5bd',
               { rz: trayIndex === 0 ? -0.07 : 0.06 });
+          }
+        } else if (b.groundUse === 'laundry') {
+          // Washer bodies, doors, control strips and detergent bottles remain
+          // readable through the glass; a blue display box alone is not a laundromat.
+          const machineCount = Math.max(1, Math.min(2, Math.floor(bayW / 0.8)));
+          for (let machine = 0; machine < machineCount; machine++) {
+            const mx = bx - (machineCount - 1) * 0.42 + machine * 0.84;
+            put(out.detail, b, ry, mx, 0.9, d / 2 - 0.39,
+              0.72, 1.42, 0.46, machine % 2 ? '#d8ddd9' : '#cbd5d3');
+            const [doorX, doorZ] = l2w(b, ry, mx, d / 2 - 0.13);
+            out.metal.add(unitCylinder(), {
+              x: doorX, y: baseY(b) + 0.82, z: doorZ,
+              rx: Math.PI / 2, ry, sx: 0.25, sy: 0.06, sz: 0.25, color: '#657477',
+            });
+            out.glass.add(unitCylinder(), {
+              x: doorX + Math.sin(ry) * 0.035, y: baseY(b) + 0.82, z: doorZ + Math.cos(ry) * 0.035,
+              rx: Math.PI / 2, ry, sx: 0.18, sy: 0.035, sz: 0.18, color: '#789194',
+            });
+            put(out.detail, b, ry, mx, 1.38, d / 2 - 0.13,
+              0.5, 0.12, 0.04, machine % 2 ? '#748b89' : '#82949a');
+            for (const button of [-0.15, 0, 0.15]) {
+              put(out.detail, b, ry, mx + button, 1.38, d / 2 - 0.105,
+                0.035, 0.035, 0.02, button === 0 ? '#c5a76b' : '#5e6d70');
+            }
+          }
+          for (const bottle of [-0.22, 0, 0.22]) {
+            put(out.detail, b, ry, bx + bottle, 1.74, d / 2 - 0.29,
+              0.1, 0.23 + Math.abs(bottle) * 0.15, 0.1,
+              bottle === 0 ? '#d4b785' : bottle < 0 ? '#8fa79c' : '#b89b94');
+          }
+        } else if (b.groundUse === 'cafe') {
+          put(out.detail, b, ry, bx, 0.72, d / 2 - 0.38,
+            bayW - 0.62, 0.58, 0.42, '#806650');
+          put(out.detail, b, ry, bx, 1.04, d / 2 - 0.22,
+            bayW - 0.48, 0.08, 0.58, '#b4946c');
+          const cupCount = Math.max(2, Math.min(4, Math.floor(bayW / 0.5)));
+          for (let cup = 0; cup < cupCount; cup++) {
+            const cupX = bx - (cupCount - 1) * 0.18 + cup * 0.36;
+            const [worldX, worldZ] = l2w(b, ry, cupX, d / 2 - 0.09);
+            out.detail.add(unitCylinder(), {
+              x: worldX, y: baseY(b) + 1.17, z: worldZ,
+              ry, sx: 0.08, sy: 0.2, sz: 0.08,
+              color: cup % 2 ? '#e8ddc7' : '#8f735e',
+            });
+            if (cup % 2 === 0) {
+              out.detail.add(unitDisplaySphere(), {
+                x: worldX + 0.03, y: baseY(b) + 1.31, z: worldZ,
+                ry, sx: 0.11, sy: 0.05, sz: 0.09, color: '#d3aa75',
+              });
+            }
+          }
+          put(out.metal, b, ry, bx + bayW * 0.27, 1.62, d / 2 - 0.34,
+            0.36, 0.48, 0.3, '#6f7775');
+          put(out.detail, b, ry, bx + bayW * 0.27, 1.72, d / 2 - 0.17,
+            0.18, 0.08, 0.06, '#d7c39d');
+        } else if (b.groundUse === 'restaurant') {
+          put(out.detail, b, ry, bx, 0.7, d / 2 - 0.4,
+            bayW - 0.66, 0.54, 0.44, '#765b45');
+          const [bowlX, bowlZ] = l2w(b, ry, bx, d / 2 - 0.1);
+          out.detail.add(unitCylinder(), {
+            x: bowlX, y: baseY(b) + 1.04, z: bowlZ,
+            ry, sx: 0.18, sy: 0.11, sz: 0.18, color: '#e3d6bf',
+          });
+          for (const dish of [-0.28, 0.28]) {
+            const [dishX, dishZ] = l2w(b, ry, bx + dish, d / 2 - 0.1);
+            out.detail.add(unitCylinder(), {
+              x: dishX, y: baseY(b) + 1.0, z: dishZ,
+              ry, sx: 0.16, sy: 0.035, sz: 0.16,
+              color: dish < 0 ? '#839477' : '#b77f6b',
+            });
           }
         }
       }
@@ -698,7 +878,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
         const stemZ = d / 2 + 0.12 + ((stem + item) % 2 ? 0.035 : -0.025);
         const [stemWorldX, stemWorldZ] = l2w(b, ry, stemX, stemZ);
         out.detail.add(unitCylinder(), {
-          x: stemWorldX, y: flowerY + 0.22 + stemHeight / 2, z: stemWorldZ,
+          x: stemWorldX, y: baseY(b) + flowerY + 0.22 + stemHeight / 2, z: stemWorldZ,
           ry, sx: 0.025, sy: stemHeight, sz: 0.025, color: '#526b4d',
         });
         const flowerColor = ['#8f6d63', '#c0a66c', '#7c8870'][(item + stem) % 3];
@@ -709,18 +889,18 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
           const petalZ = stemZ + Math.sin(angle) * 0.05;
           const [petalWorldX, petalWorldZ] = l2w(b, ry, petalX, petalZ);
           out.detail.add(unitDisplaySphere(), {
-            x: petalWorldX, y: flowerTop, z: petalWorldZ,
+            x: petalWorldX, y: baseY(b) + flowerTop, z: petalWorldZ,
             ry: ry + angle, sx: 0.105, sy: 0.05, sz: 0.075,
             color: flowerColor,
           });
         }
         out.detail.add(unitDisplaySphere(), {
-          x: stemWorldX, y: flowerTop + 0.012, z: stemWorldZ,
+          x: stemWorldX, y: baseY(b) + flowerTop + 0.012, z: stemWorldZ,
           ry, sx: 0.07, sy: 0.052, sz: 0.07, color: '#b59b62',
         });
         const [leafWorldX, leafWorldZ] = l2w(b, ry, stemX + (stem % 2 ? 0.07 : -0.06), stemZ);
         out.detail.add(unitDisplaySphere(), {
-          x: leafWorldX, y: flowerY + 0.31 + stem * 0.035, z: leafWorldZ,
+          x: leafWorldX, y: baseY(b) + flowerY + 0.31 + stem * 0.035, z: leafWorldZ,
           ry: ry + (stem % 2 ? 0.45 : -0.45), sx: 0.13, sy: 0.055, sz: 0.09,
           color: stem % 2 ? '#5c7553' : '#71835d',
         });
@@ -760,11 +940,11 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
           const potX = wx + side * 0.22;
           const [potWorldX, potWorldZ] = l2w(b, ry, potX, d / 2 + 0.16);
           out.detail.add(unitCylinder(), {
-            x: potWorldX, y: wy - 0.58, z: potWorldZ,
+            x: potWorldX, y: baseY(b) + wy - 0.58, z: potWorldZ,
             ry, sx: 0.14, sy: 0.16, sz: 0.14, color: '#7d6755',
           });
           out.detail.add(unitDisplaySphere(), {
-            x: potWorldX, y: wy - 0.43, z: potWorldZ,
+            x: potWorldX, y: baseY(b) + wy - 0.43, z: potWorldZ,
             ry, sx: 0.2, sy: 0.12, sz: 0.17,
             color: side < 0 ? '#607653' : '#71805b',
           });
@@ -790,7 +970,29 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
     const lz = d * 0.22 - (i % 3) * 1.8;
     put(out.metal, b, ry, lx, wy, lz, 0.5, 0.42, 0.38, ENV.metal);
     const [cx, cz] = l2w(b, ry, lx + sx * 0.27, lz);
-    out.metal.add(unitCylinder(), { x: cx, y: wy, z: cz, sx: 0.13, sy: 0.13, sz: 0.05, color: shade(ENV.metal, 0.06) });
+    out.metal.add(unitCylinder(), { x: cx, y: baseY(b) + wy, z: cz, sx: 0.13, sy: 0.13, sz: 0.05, color: shade(ENV.metal, 0.06) });
+    // The compressor is actually installed: two wall brackets carry its
+    // weight, a paired refrigerant conduit turns into the facade, and a thin
+    // condensate hose drops below the tray. Low-contrast splash staining is
+    // geometry on the side wall rather than a downloaded grime decal.
+    for (const bracketZ of [-0.13, 0.13]) {
+      put(out.metal, b, ry, lx, wy - 0.27, lz + bracketZ, 0.62, 0.045, 0.055, shade(ENV.metal, -0.07));
+    }
+    const pipeLocalX = lx + sx * 0.31;
+    const [pipeX, pipeZ] = l2w(b, ry, pipeLocalX, lz + 0.16);
+    out.metal.add(unitCylinder(), {
+      x: pipeX, y: baseY(b) + wy + 0.28, z: pipeZ,
+      sx: 0.026, sy: 0.62, sz: 0.026, color: '#d2c8ae',
+    });
+    put(out.metal, b, ry, lx + sx * 0.16, wy + 0.57, lz + 0.16,
+      0.34, 0.035, 0.035, '#d2c8ae');
+    const [hoseX, hoseZ] = l2w(b, ry, pipeLocalX, lz - 0.14);
+    out.metal.add(unitCylinder(), {
+      x: hoseX, y: baseY(b) + wy - 0.52, z: hoseZ,
+      sx: 0.018, sy: 0.72, sz: 0.018, color: '#8d9089',
+    });
+    put(out.walls, b, ry, lx + sx * 0.015, wy - 0.83, lz - 0.14,
+      0.018, 0.62, 0.24, shade(wallDark, 0.025));
   }
   // 女儿墙
   const pw = 0.22, ph = 0.55;
@@ -806,28 +1008,32 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
     const gutterX = serviceSide * (w / 2 - 0.28);
     const [gutterWorldX, gutterWorldZ] = l2w(b, ry, 0, d / 2 + 0.17);
     out.metal.add(unitCylinder(), {
-      x: gutterWorldX, y: h - 0.12, z: gutterWorldZ,
+      x: gutterWorldX, y: baseY(b) + h - 0.12, z: gutterWorldZ,
       ry, rz: Math.PI / 2, sx: 0.075, sy: w * 0.94, sz: 0.075,
       color: shade(ENV.metal, -0.02),
     });
     const [pipeWorldX, pipeWorldZ] = l2w(b, ry, gutterX, d / 2 + 0.18);
     out.metal.add(unitCylinder(), {
-      x: pipeWorldX, y: h / 2, z: pipeWorldZ,
+      x: pipeWorldX, y: baseY(b) + h / 2, z: pipeWorldZ,
       ry, sx: 0.085, sy: h - 0.18, sz: 0.085,
       color: shade(ENV.metal, -0.025),
     });
+    put(out.metal, b, ry, gutterX, 0.13, d / 2 + 0.33,
+      0.18, 0.14, 0.36, shade(ENV.metal, -0.025));
+    put(out.walls, b, ry, gutterX, 0.035, d / 2 + 0.58,
+      0.5, 0.07, 0.48, '#a7a39a');
     const roofVariant = (Math.round(Math.abs(b.x) * 2) + Math.round(b.h)) % 3;
     if (roofVariant === 0) {
       const antennaX = -serviceSide * w * 0.18;
       const antennaZ = -d * 0.12;
       const [antennaWorldX, antennaWorldZ] = l2w(b, ry, antennaX, antennaZ);
       out.metal.add(unitCylinder(), {
-        x: antennaWorldX, y: h + 1.15, z: antennaWorldZ,
+        x: antennaWorldX, y: baseY(b) + h + 1.15, z: antennaWorldZ,
         ry, sx: 0.045, sy: 2.3, sz: 0.045, color: ENV.metal,
       });
       for (const y of [h + 1.45, h + 1.88]) {
         out.metal.add(unitCylinder(), {
-          x: antennaWorldX, y, z: antennaWorldZ,
+          x: antennaWorldX, y: baseY(b) + y, z: antennaWorldZ,
           ry, rz: Math.PI / 2, sx: 0.035, sy: 1.05, sz: 0.035, color: ENV.metal,
         });
       }
@@ -836,18 +1042,18 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
         0.58, 0.62, 0.58, shade(ENV.metal, 0.04));
       const [ventWorldX, ventWorldZ] = l2w(b, ry, serviceSide * w * 0.17, -d * 0.14);
       out.metal.add(unitCylinder(), {
-        x: ventWorldX, y: h + 0.82, z: ventWorldZ,
+        x: ventWorldX, y: baseY(b) + h + 0.82, z: ventWorldZ,
         ry, sx: 0.36, sy: 0.1, sz: 0.36, color: shade(ENV.metal, -0.02),
       });
     }
   }
 
-  // 竖招牌(sign 文案 canvas 霓虹)
+  // 程序化竖招牌；低亮度、带实体背板与支架，不使用霓虹贴图拼接。
   if (b.sign && !b.venue) {
     const [sx, sz] = l2w(b, ry, -w / 2 + 0.55, d / 2 + 0.42);
     out.signs.push({
       text: b.sign.text, color: b.sign.color,
-      x: sx, y: Math.min(h - 0.8, 4.6), z: sz, ry,
+      x: sx, y: baseY(b) + Math.min(h - 0.8, 4.6), z: sz, ry,
       w: 0.48, h: Math.min(2.45, 0.5 * (b.sign.text.length + 1)), vertical: true, lit: false,
     });
   }
@@ -858,12 +1064,12 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
     out.signs.push({
       text: businessPlate,
       color: typeof shopProfile?.awning === 'string' ? shopProfile.awning : '#6b675f',
-      x: plateX, y: 2.38, z: plateZ, ry,
+      x: plateX, y: baseY(b) + 2.38, z: plateZ, ry,
       w: Math.min(1.8, w * 0.36), h: 0.34, vertical: false, lit: false,
     });
   }
   // 转角立面不再是纯色盲墙：沿两侧切出窄窗带、消防梯和少量冷暖错位窗，
-  // 让街口视线在斜向透视里持续获得“高楼夹缝”的细节。
+  // 让轻弯街道的斜向透视持续保持住家尺度的细节层次。
   const sideRows = Math.min(5, Math.max(2, Math.floor(d / 2.8)));
   for (let f = 0; f < sideFloors; f++) {
     const wy = groundH + 1.35 + f * ((h - groundH - 1.4) / sideFloors);
@@ -879,6 +1085,9 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
   }
   // Venue-specific portals now own the structural canopy and entrance accent;
   // do not lay the old full-width light strip across those deep openings.
+  if (!hasHeroVenue) {
+    appendFacadeWeathering(b, out, ry, w, d, Math.round(Math.abs(b.x) * 3 + h));
+  }
   // 数据驱动的多层招牌：贴墙大牌与垂直刀牌共用 cityplan，不在组件里散落坐标。
   appendFacadeSigns(b, out.signs, ry, w, d);
   // venue 横招牌(门头)
@@ -890,7 +1099,7 @@ function buildShopfront(b: Building, out: Bags, rnd: () => number): void {
     const [sx, sz] = l2w(b, ry, bx, d / 2 + 0.3);
     out.signs.push({
       text: label, color,
-      x: sx, y: 3.55, z: sz, ry,
+      x: sx, y: baseY(b) + 3.55, z: sz, ry,
       w: Math.min(bayW + 0.4, 4.6), h: 0.78, vertical: false,
     });
   }
@@ -1075,6 +1284,18 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
   for (let grille = 0; grille < 3; grille++) {
     put(out.metal, b, ry, serviceX, 0.72 + grille * 0.16, d / 2 + 0.18, 0.35, 0.035, 0.04, wallDark);
   }
+  // Foundation air bricks sit above the splash course and avoid both the
+  // vestibule and meter cabinet. Even a quiet residence now explains how the
+  // under-floor void is ventilated instead of ending in a featureless plinth.
+  for (const ventX of [-w * 0.36, 0, w * 0.36]) {
+    if (Math.abs(ventX - entryX) < 0.75 || Math.abs(ventX - serviceX) < 0.58) continue;
+    put(out.detail, b, ry, ventX, 0.31, d / 2 + 0.13,
+      0.52, 0.22, 0.055, shade(ENV.metal, -0.08));
+    for (const slitX of [-0.16, 0, 0.16]) {
+      put(out.metal, b, ry, ventX + slitX, 0.31, d / 2 + 0.17,
+        0.045, 0.13, 0.025, wallDark);
+    }
+  }
   if (backstreet) {
     // Service windows break up the long ground-floor blind wall at alley and
     // street termini. They stay cool and barred rather than reading as a shop.
@@ -1128,12 +1349,12 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
     const antennaZ = -d * 0.18;
     const [antennaWorldX, antennaWorldZ] = l2w(b, ry, antennaX, antennaZ);
     out.metal.add(unitCylinder(), {
-      x: antennaWorldX, y: h + 1.25, z: antennaWorldZ,
+      x: antennaWorldX, y: baseY(b) + h + 1.25, z: antennaWorldZ,
       ry, sx: 0.05, sy: 2.5, sz: 0.05, color: ENV.metal,
     });
     for (const y of [h + 1.55, h + 2.02]) {
       out.metal.add(unitCylinder(), {
-        x: antennaWorldX, y, z: antennaWorldZ,
+        x: antennaWorldX, y: baseY(b) + y, z: antennaWorldZ,
         ry, rz: Math.PI / 2, sx: 0.04, sy: 1.2, sz: 0.04, color: ENV.metal,
       });
     }
@@ -1142,7 +1363,7 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
       0.68, 0.52, 0.68, shade(ENV.metal, 0.04));
     const [ventWorldX, ventWorldZ] = l2w(b, ry, -w * 0.18, -d * 0.22);
     out.metal.add(unitCylinder(), {
-      x: ventWorldX, y: h + 0.69, z: ventWorldZ,
+      x: ventWorldX, y: baseY(b) + h + 0.69, z: ventWorldZ,
       ry, sx: 0.4, sy: 0.1, sz: 0.4, color: shade(ENV.metal, -0.03),
     });
   }
@@ -1252,16 +1473,16 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
             const potX = ux + side * 0.55;
             const [potWorldX, potWorldZ] = l2w(b, ry, potX, d / 2 + 0.72);
             out.detail.add(unitCylinder(), {
-              x: potWorldX, y: fy + 0.26, z: potWorldZ,
+              x: potWorldX, y: baseY(b) + fy + 0.26, z: potWorldZ,
               ry, sx: 0.22, sy: 0.25, sz: 0.22, color: '#796454',
             });
             out.detail.add(unitDisplaySphere(), {
-              x: potWorldX, y: fy + 0.7, z: potWorldZ,
+              x: potWorldX, y: baseY(b) + fy + 0.7, z: potWorldZ,
               ry, sx: 0.24, sy: 0.26, sz: 0.2,
               color: side < 0 ? '#627653' : '#73815b',
             });
             out.detail.add(unitCylinder(), {
-              x: potWorldX, y: fy + 0.56, z: potWorldZ,
+              x: potWorldX, y: baseY(b) + fy + 0.56, z: potWorldZ,
               ry, sx: 0.035, sy: 0.48, sz: 0.035, color: '#536a49',
             });
             for (const branch of [-1, 1] as const) {
@@ -1269,25 +1490,61 @@ function buildApartment(b: Building, out: Bags, rnd: () => number, backstreet: b
                 b, ry, potX + branch * 0.11, d / 2 + 0.72,
               );
               out.detail.add(unitDisplaySphere(), {
-                x: leafWorldX, y: fy + 0.82 + branch * 0.05, z: leafWorldZ,
+                x: leafWorldX, y: baseY(b) + fy + 0.82 + branch * 0.05, z: leafWorldZ,
                 ry: ry + branch * 0.5, sx: 0.2, sy: 0.1, sz: 0.14,
                 color: branch < 0 ? '#5d734f' : '#70815a',
               });
             }
           }
         }
-        // 空调位(§4.3)
-        if (rnd() < 0.4) put(out.metal, b, ry, ux + 0.75, fy + 0.35, d / 2 + 0.62, 0.5, 0.4, 0.24, jitterColor(ENV.metal, rnd));
+        // Balcony compressor with real support, grille and service route.
+        if (rnd() < 0.4) {
+          const acX = ux + 0.75;
+          const acColor = jitterColor(ENV.metal, rnd);
+          put(out.metal, b, ry, acX, fy + 0.35, d / 2 + 0.62,
+            0.5, 0.4, 0.24, acColor);
+          // Twin shelf arms and wall plates transfer the unit into the slab.
+          for (const supportX of [-0.17, 0.17]) {
+            put(out.metal, b, ry, acX + supportX, fy + 0.12, d / 2 + 0.54,
+              0.045, 0.045, 0.46, shade(ENV.metal, -0.08));
+            put(out.metal, b, ry, acX + supportX, fy + 0.24, d / 2 + 0.34,
+              0.055, 0.28, 0.045, shade(ENV.metal, -0.09));
+          }
+          // Front grille and two service bars make the appliance readable
+          // from the pavement without adding a unique texture per unit.
+          for (const grilleY of [-0.1, 0, 0.1]) {
+            put(out.detail, b, ry, acX, fy + 0.35 + grilleY, d / 2 + 0.755,
+              0.34, 0.025, 0.025, shade(ENV.metal, -0.12));
+          }
+          // Refrigerant conduit turns into the wall; a thinner condensate
+          // hose continues down behind the balcony rather than stopping in air.
+          const serviceDir = acX > ux ? 1 : -1;
+          put(out.metal, b, ry, acX + serviceDir * 0.31, fy + 0.36, d / 2 + 0.5,
+            0.16, 0.045, 0.045, '#c5c3b9');
+          put(out.metal, b, ry, acX + serviceDir * 0.39, fy + 0.59, d / 2 + 0.36,
+            0.045, 0.48, 0.045, '#c5c3b9');
+          put(out.metal, b, ry, acX - serviceDir * 0.22, fy - 0.08, d / 2 + 0.72,
+            0.025, 0.7, 0.025, '#777f7c');
+        }
       }
     }
   }
   // 侧墙落水管
   for (const sx of [-1, 1]) {
     if (rnd() < 0.6) {
-      const [px, pz] = l2w(b, ry, sx * (w / 2 - 0.2), d / 2 - 0.4);
-      out.walls.add(unitCylinder(), { x: px, y: h / 2, z: pz, sx: 0.12, sy: h, sz: 0.12, color: wallDark });
+      const drainX = sx * (w / 2 - 0.2);
+      const [px, pz] = l2w(b, ry, drainX, d / 2 - 0.4);
+      out.walls.add(unitCylinder(), { x: px, y: baseY(b) + h / 2, z: pz, sx: 0.12, sy: h, sz: 0.12, color: wallDark });
+      put(out.metal, b, ry, drainX, 0.17, d / 2 - 0.28,
+        0.17, 0.14, 0.42, shade(ENV.metal, -0.05), { rx: -0.16 });
+      put(out.walls, b, ry, drainX, 0.04, d / 2 + 0.02,
+        0.5, 0.08, 0.42, '#aaa79d');
+      // Clean-out collar at hand height makes maintenance possible.
+      put(out.metal, b, ry, drainX, 0.92, d / 2 - 0.33,
+        0.2, 0.08, 0.2, shade(ENV.metal, -0.1));
     }
   }
+  appendFacadeWeathering(b, out, ry, w, d, Math.round(Math.abs(b.x) * 2 + (backstreet ? 7 : 0)));
   appendFacadeSigns(b, out.signs, ry, w, d);
 }
 
@@ -1408,6 +1665,7 @@ function buildTower(
 
 // ── 组装(BuildQueue 分帧)──────────────────────────────────────────────────
 let buildingsGroup: THREE.Group | null = null;
+const warmWindowMaterials: THREE.MeshStandardMaterial[] = [];
 
 export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): THREE.Group {
   if (buildingsGroup) return buildingsGroup;
@@ -1423,17 +1681,10 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
     walls: new MergeBag(), detail: new MergeBag(), glass: new MergeBag(), shopGlass: new MergeBag(), metal: new MergeBag(),
     shutters: new MergeBag(), warm: new MergeBag(), signs: [],
   };
-  const towerWalls = new MergeBag();
-  const towerDetails = new MergeBag();
-  const towerGlow: THREE.BufferGeometry[] = [];
   const allSigns: SignSpec[] = [];
-  const landmarkGroup = new THREE.Group();
-  landmarkGroup.name = 'city-media-landmark';
-  group.add(landmarkGroup);
 
   const playable = BUILDINGS
     .map((b, i) => ({ b, i, dd: (b.x - spawn[0]) ** 2 + (b.z - spawn[1]) ** 2 }))
-    .filter((e) => e.b.style !== 'silhouette')
     .sort((a, z) => a.dd - z.dd);
 
   // 分块生成(每块 ~6 栋,出生点 80m 半径优先,§10)
@@ -1447,11 +1698,9 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
         const bags = isNear ? near : far;
         switch (b.style) {
           case 'shopfront': buildShopfront(b, bags, rnd); break;
-          case 'mediaTower': buildMediaTower(b, landmarkGroup, allSigns); break;
           case 'apartment': buildApartment(b, bags, rnd, false); break;
           case 'backstreet': buildApartment(b, bags, rnd, true); break;
-          case 'tower': buildTower(b, towerWalls, towerDetails, towerGlow, allSigns, rnd); break;
-          default: break;
+          default: throw new Error(`Unsupported rebuilt-street building style: ${String(b.style)}`);
         }
         allSigns.push(...bags.signs.splice(0));
       }
@@ -1479,9 +1728,9 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
       const glassGeo = bags.glass.build();
       if (glassGeo) {
         const glassMat = surfaceMaterial('darkGlass', true);
-        glassMat.color.set('#35596a');
-        glassMat.emissive.set('#0b2632');
-        glassMat.emissiveIntensity = 0.18;
+        glassMat.color.set('#6d8588');
+        glassMat.emissive.set('#314d50');
+        glassMat.emissiveIntensity = 0.08;
         const mesh = new THREE.Mesh(glassGeo, glassMat);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -1522,6 +1771,7 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
       if (warmGeo) {
         const m = surfaceMaterial('glass', true);
         m.emissive.set(ACCENT.windowWarm); m.emissiveIntensity = 0.42;
+        warmWindowMaterials.push(m);
         const warmMesh = new THREE.Mesh(warmGeo, m);
         warmMesh.castShadow = true; warmMesh.receiveShadow = true;
         group.add(warmMesh);
@@ -1531,47 +1781,9 @@ export function enqueueBuildings(queue: BuildQueue, spawn: [number, number]): TH
   finishBags(near, '建筑合并·近景', 34);
   finishBags(far, '建筑合并·远景', 32);
 
-  queue.add('路口高楼', () => {
-    const geo = towerWalls.build();
-    if (geo) {
-      const structuralMaterial = surfaceMaterial('metal', true, false);
-      structuralMaterial.roughness = 0.62;
-      structuralMaterial.metalness = 0.58;
-      const mesh = new THREE.Mesh(geo, structuralMaterial);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      addOutline(mesh);
-      group.add(mesh);
-    }
-    const detailGeo = towerDetails.build();
-    if (detailGeo) {
-      const towerConcrete = surfaceMaterial('paintedConcrete', true);
-      const mesh = new THREE.Mesh(detailGeo, towerConcrete);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      addOutline(mesh);
-      group.add(mesh);
-    }
-    if (towerGlow.length > 0) {
-      const merged = mergeGlowPlanes(towerGlow);
-      if (merged) {
-        const tex = towerDotTexture();
-        const m = toonMat(0xffffff, {
-          map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.7, transparent: true,
-        });
-        m.depthWrite = false;
-        const mesh = new THREE.Mesh(merged, m);
-        mesh.frustumCulled = false;
-        group.add(mesh);
-      }
-    }
-  }, 30);
-
   queue.add('招牌', () => {
     for (const s of allSigns) group.add(makeSignMesh(s));
   }, 28);
-
-  queue.add('背景剪影', () => buildSilhouettes(group), 26);
 
   return group;
 }
@@ -1587,7 +1799,9 @@ function mergeGlowPlanes(parts: THREE.BufferGeometry[]): THREE.BufferGeometry | 
 
 /** §4.2 三层背景街墙:退台体量 + 低对比窗带,合并批次,二阶 toon、不描边。 */
 function buildSilhouettes(group: THREE.Group): void {
-  const silos = BUILDINGS.filter((b) => b.style === 'silhouette');
+  // Archived implementation retained only for source-history readability;
+  // the rebuilt CityBuilding contract and queue no longer call this branch.
+  const silos = BUILDINGS.filter((b) => (b.style as string) === 'silhouette');
   if (silos.length === 0) return;
   const radii = silos.map((b) => Math.hypot(b.x, b.z)).sort((a, b) => a - b);
   const t1 = radii[Math.floor(radii.length / 3)] ?? 300;
@@ -1733,5 +1947,19 @@ function buildSilhouettes(group: THREE.Group): void {
 /** 建筑总组件:enqueue 一次,组模块级缓存。 */
 export function Buildings({ queue, spawn }: { queue: BuildQueue; spawn: [number, number] }) {
   const group = useMemo(() => enqueueBuildings(queue, spawn), [queue, spawn]);
+  const env = useWorld((state) => state.env);
+  const envSample = useMemo(() => createEnvSample(), []);
+  useFrame((_, delta) => {
+    const sample = sampleEnv(currentTod(env), env.weather, envSample);
+    const target = sample.lampsOn ? 0.48 : 0.1;
+    const blend = 1 - Math.exp(-delta * 1.25);
+    for (const windowMaterial of warmWindowMaterials) {
+      windowMaterial.emissiveIntensity = THREE.MathUtils.lerp(
+        windowMaterial.emissiveIntensity,
+        target,
+        blend,
+      );
+    }
+  });
   return <primitive object={group} />;
 }

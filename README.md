@@ -1,14 +1,16 @@
 # 🍡 月汐町 (Nexus Park)
 
-当前“一番街 + 三场馆”需求基线与扩展接入规则见
+当前“结缘坂住宅街 + 三场馆 + 树下飞行棋”需求基线与扩展接入规则见
+[docs/art-direction.md](docs/art-direction.md) 和
 [docs/CURRENT_SCENE_REQUIREMENTS.md](docs/CURRENT_SCENE_REQUIREMENTS.md)。
 
 A persistent, multiplayer 3D world for the browser where every player is a
-bouncy **dango** dumpling. The current public scene is a compact, sunny manga
-city street with three entrances: a cinema, a cozy Dango party hall, and an
-esports viewing arena. Players can watch server-synchronized media, play
-Xiangqi, sit around a flying-chess table, share screens and talk over proximity
-voice chat. **The in-game UI is in Chinese (中文).**
+bouncy **dango** dumpling. The current public scene is an 84-metre, gently
+curving and sloping anime residential street with layered low-rise homes,
+neighbourhood shops and three public venues. Players can watch synchronized
+media, play Xiangqi, gather around a fully playable outdoor flying-chess stall,
+share screens and talk over proximity voice chat. **The in-game UI is in
+Chinese (中文).**
 
 Everything is real, modeled 3D geometry rendered with Three.js — no flat
 image stand-ins — and every feature listed below is implemented and wired to
@@ -29,9 +31,10 @@ npm run dev        # 开发模式:服务器 :8080 + 客户端 :5173
 Esc 关面板。右下角按钮:✏️ 房间编辑器(在自己房间时)、🎭 表情、🎙 就近语音、
 📢 全世界语音(全服可闻)、🖥️ 屏幕共享、🎒 背包、🍡 捏团子、⚙️ 设置。
 
-**好玩的**：走进一条紧凑、明媚又绚烂的漫画都市街道；电影院与电竞观战馆使用
-服务器权威进度共同看片；温馨的团子轰趴馆里可以下象棋、围坐飞行棋桌，也可以在
-沙发区聊天。角色造型系统保持原样。
+**好玩的**：沿着有轻坡和弯道的结缘坂往前探索，在杂货店、咖啡店、花店、洗衣店、
+门前台阶、服务小巷和树荫下停留；电影院与电竞观战馆使用服务器权威进度共同看片；
+树下地摊飞行棋拥有图形棋盘、实体棋子、骰子和完整联机回合，团子馆里还可以下象棋、
+点歌或在沙发区聊天。角色造型系统保持原样。
 
 ---
 
@@ -41,11 +44,11 @@ Esc 关面板。右下角按钮:✏️ 房间编辑器(在自己房间时)、�
 | --- | --- |
 | **Multiplayer** | Live positions/animations/emotes at 10 Hz snapshots with client interpolation, join/leave/reconnect handling, duplicate-login supersede, per-space interest management |
 | **Avatars** | Customizable dango characters (body, scarf, blush, feet, sprout, hats, glasses) with squash-and-stretch hop animation, sit/wave/dance/clap/point/laugh, nametags, speaking indicators |
-| **World** | Compact 58m manga city street with continuous residential façades + cinema, Dango party hall and esports viewing arena; day/night cycle (20 min), weather and NPC routines |
+| **World** | 84m curved, gently sloping low-rise anime residential street with deep layered vistas, nine neighbourhood shop types, homes, stairs, service alleys, dense vegetation and lived-in infrastructure + three public venues; day/night cycle (20 min), weather and NPC routines |
 | **Personal rooms** | The persistent room/editor engine is retained for a future access flow, but the current three-venue street deliberately has no tower/lobby entrance |
 | **Media screens** | Cinema and arena screens show websites, YouTube or direct video. Timed providers use server revisions, RTT-midpoint clock calibration and one authoritative progress calculation; media still streams directly to each client |
 | **Interactions** | Street and venue seats, doors, light switches, shared whiteboards/message boards, a synchronized synth jukebox, vending machines, bookshelves and inventory |
-| **Games** | The current public scene features a full server-authoritative Xiangqi table and a warm flying-chess activity table in the Dango party hall; legacy game engines remain available to future room expansions but have no street entrance |
+| **Games** | Full server-authoritative Xiangqi plus a graphical four-player flying-chess game playable from the outdoor low table itself: join, roll the physical die, choose a glowing plane, move, pass and rematch without relying on text instructions |
 | **Voice & screens** | Proximity voice (WebRTC mesh, HRTF spatial audio, speaking indicators) plus a world-wide voice mode (📢 全世界语音) heard by everyone online in every space; screen sharing (720p@30fps, capped ~2.5 Mbps) that floats above your dango for nearby players |
 | **Audio** | Fully procedural: hop boings, UI chimes, wind/rain/birds/crickets ambience, three sequenced jukebox tracks — zero recorded assets |
 
@@ -59,7 +62,7 @@ npm run dev          # server on :8080 + Vite client on :5173
 ```
 
 Open **http://localhost:5173**, create an account (or *Continue as guest*),
-and you'll spawn on Ichiban Street. Open a second browser window to see
+and you'll spawn at the west entrance of Enmusubi Slope. Open a second browser window to see
 multiplayer in action.
 
 ### Production build

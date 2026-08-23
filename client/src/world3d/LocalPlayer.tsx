@@ -393,9 +393,9 @@ export default function LocalPlayer() {
     const cam = hot.camera;
     const streetView = spaceKey === SPACE.PLAZA;
     // A portrait viewport has less than one third of the desktop horizontal
-    // field of view at the same 42° vertical FOV. Near the shared street spawn,
-    // shift the *real* third-person composition toward the media-screen face
-    // and slightly upward instead of letting its centre sit on the right crop.
+    // field of view at the same vertical FOV. Near the west street entrance,
+    // shift the *real* third-person composition into the rising S-bend and
+    // slightly upward so roofs, tree crowns and the next curve survive the crop.
     // The blend fades with movement or a deliberate camera turn, so normal
     // exploration and every venue-return camera remain under player control.
     let portraitStreetFrame = 0;
@@ -466,11 +466,12 @@ export default function LocalPlayer() {
     if (camera instanceof THREE.PerspectiveCamera) {
       const venueWideFrame = Math.max(cinemaHeroFrame, arenaHeroFrame);
       // Portrait needs a modestly wider vertical lens as well as a longer arm;
-      // otherwise its ~10 degree horizontal half-angle reduces the crossroads
-      // to one billboard. Venue establishing shots retain their wider 54° cap.
+      // otherwise its narrow horizontal half-angle reduces the curved street
+      // to one doorway. Venue establishing shots retain their wider 54° cap.
+      const baseFov = streetView ? 50 : 42;
       const targetFov = Math.max(
-        THREE.MathUtils.lerp(42, 54, venueWideFrame),
-        THREE.MathUtils.lerp(42, 50, portraitStreetFrame),
+        THREE.MathUtils.lerp(baseFov, 54, venueWideFrame),
+        THREE.MathUtils.lerp(baseFov, 52, portraitStreetFrame),
       );
       const nextFov = THREE.MathUtils.lerp(camera.fov, targetFov, Math.min(1, dt * 8));
       if (Math.abs(nextFov - camera.fov) > 0.005) {
@@ -478,8 +479,8 @@ export default function LocalPlayer() {
         camera.updateProjectionMatrix();
       }
     }
-    // 玩家仍是原来的团子尺寸；户外把摄影目标抬到二层店招高度，让角色落在
-    // 画面下三分之一，同时保留略向上的都市峡谷视角。
+    // 玩家仍是原来的团子尺寸；户外把摄影目标抬到二层窗与树冠之间，让角色
+    // 落在画面下三分之一，同时保留坡道、屋檐、天空与远山的纵深关系。
     const streetCompositionLift = THREE.MathUtils.lerp(1.72, 3.75, portraitStreetFrame);
     const compositionLift = streetView
       ? streetCompositionLift
@@ -487,7 +488,7 @@ export default function LocalPlayer() {
         : spaceKey === SPACE.NETCAFE ? THREE.MathUtils.lerp(1.9, 3.85, arenaHeroFrame)
           : 0.8;
     const headY = l.y + compositionLift;
-    const streetPosterDistance = THREE.MathUtils.lerp(
+    const streetViewDistance = THREE.MathUtils.lerp(
       cam.dist,
       Math.max(cam.dist, 10.2),
       portraitStreetFrame,
@@ -497,7 +498,7 @@ export default function LocalPlayer() {
       && Math.abs(l.z - road.z) <= road.d / 2 + 0.12
     ));
     const viewDistance = streetView
-      ? inShortAlley ? Math.min(streetPosterDistance, 3.25) : streetPosterDistance
+      ? inShortAlley ? Math.min(streetViewDistance, 3.25) : streetViewDistance
       : spaceKey === SPACE.NETCAFE
         ? THREE.MathUtils.lerp(cam.dist, Math.max(cam.dist, 12.4), arenaHeroFrame)
         : cam.dist;
@@ -555,8 +556,8 @@ export default function LocalPlayer() {
     }
     const portraitAimRight = portraitStreetFrame * 1.0;
     // In a portrait viewport the near-player target leaves only asphalt in
-    // the narrow vertical cone. Aim down the actual northbound street so the
-    // media tower, crosswalk and layered facades remain the first visual read.
+    // the narrow vertical cone. Aim along the actual eastbound bend so the
+    // alternating façades, tree canopy and rising roofline remain the first read.
     const portraitAimForward = portraitStreetFrame * 8.4;
     const cinemaAimForward = cinemaHeroFrame * 18;
     const cinemaAimDown = cinemaHeroFrame * 3.25;
@@ -662,7 +663,7 @@ export default function LocalPlayer() {
     for (const e of hot.players.values()) {
       if (e.profile.isNpc) {
         consider({
-          id: `npc:${e.id}`, kind: 'npc', x: e.x, y: 0.5, z: e.z, ry: 0,
+          id: `npc:${e.id}`, kind: 'npc', x: e.x, y: e.y + 0.5, z: e.z, ry: 0,
           label: `和 ${e.profile.username} 聊聊`, data: { npcId: e.id },
         });
       }

@@ -62,9 +62,9 @@ const KEYS: Key[] = [
   { t: 0.36, skyTop: '#47bdf2', skyHorizon: '#ecf8ff', sun: 2.2, sunColor: '#fff1c8', hemi: 0.92, hemiSky: '#c7e8f5', hemiGround: '#87996f', stars: 0 },
   { t: 0.5,  skyTop: '#38afe8', skyHorizon: '#f2fbff', sun: 2.45, sunColor: '#fff4ce', hemi: 1, hemiSky: '#d0edf7', hemiGround: '#8ca076', stars: 0 },
   { t: 0.66, skyTop: '#76b6dc', skyHorizon: '#fff1d8', sun: 1.95, sunColor: '#ffe2ad', hemi: 0.88, hemiSky: '#c9d9eb', hemiGround: '#8f8da4', stars: 0 },
-  // 暖金黄昏
-  { t: 0.74, skyTop: '#75aeda', skyHorizon: '#f3c49f', sun: 1.35, sunColor: '#ffd19a', hemi: 0.7, hemiSky: '#a5bfd2', hemiGround: '#796e61', stars: 0.08 },
-  { t: 0.8,  skyTop: '#5c78a5', skyHorizon: '#eaa990', sun: 0.82, sunColor: '#ffc4a0', hemi: 0.56, hemiSky: '#748cab', hemiGround: '#554d4c', stars: 0.42 },
+  // 奶油橙晚光：保持蓝紫阴影，不进入戏剧化的通红晚霞。
+  { t: 0.74, skyTop: '#75aeda', skyHorizon: '#efd7c6', sun: 1.35, sunColor: '#ffd7a5', hemi: 0.7, hemiSky: '#a5bfd2', hemiGround: '#827f99', stars: 0.08 },
+  { t: 0.8,  skyTop: '#657fa8', skyHorizon: '#ddc9c1', sun: 0.82, sunColor: '#f6c9a2', hemi: 0.56, hemiSky: '#7f91ae', hemiGround: '#67677f', stars: 0.42 },
   { t: 0.88, skyTop: '#1b2942', skyHorizon: '#536a82', sun: 0.34, sunColor: '#9eb6df', hemi: 0.38, hemiSky: '#405578', hemiGround: '#283449', stars: 1 },
   { t: 1.0,  skyTop: '#1b2942', skyHorizon: '#536a82', sun: 0.34, sunColor: '#9eb6df', hemi: 0.38, hemiSky: '#405578', hemiGround: '#283449', stars: 1 },
 ];

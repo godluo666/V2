@@ -6,7 +6,7 @@ import type {
 } from '@nexuspark/shared';
 import {
   LAYOUTS, ROOM_BOUNDS, ROOM_DOOR, ROOM_SWITCH, FURNITURE_BY_TYPE, CHAT_HISTORY,
-  isRoomSpace, roomOwnerId, Anim, packState, dist2d,
+  isRoomSpace, roomOwnerId, Anim, packState, dist2d, floorHeightAt,
 } from '@nexuspark/shared';
 import type { Collider } from '@nexuspark/shared';
 import { loadRoom } from './roomService';
@@ -339,7 +339,10 @@ export class Space {
     }
     for (const n of this.npcs) {
       const st = packState(n.moving ? Anim.Walk : Anim.Idle, false, 0);
-      e.push([n.def.id, round2(n.x), 0, round2(n.z), round3(n.ry), st]);
+      e.push([
+        n.def.id, round2(n.x), round2(floorHeightAt(this.layout, n.x, n.z)),
+        round2(n.z), round3(n.ry), st,
+      ]);
     }
     const o: ObjSnap[] | undefined = this.ball
       ? [['ball', round2(this.ball.x), round2(this.ball.y), round2(this.ball.z)]]

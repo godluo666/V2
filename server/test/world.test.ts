@@ -31,8 +31,9 @@ describe('world membership and movement', () => {
     world.join(b.session, SPACE.PLAZA);
     const joinMsg = lastOf(a.ws, 'player_join');
     expect(joinMsg?.d.profile.username).toBe('bob');
-    // The street intentionally has no static NPC crowd; online players remain.
-    expect(initA.players.some((p) => p.isNpc)).toBe(false);
+    // The rebuilt street has five authored residents at real pause pockets,
+    // rather than the old anonymous crowd filler.
+    expect(initA.players.filter((p) => p.isNpc)).toHaveLength(5);
   });
 
   it('accepts valid movement and rejects teleports', () => {
@@ -113,6 +114,19 @@ describe('world membership and movement', () => {
     const received = b.ws.sent.filter((m) => m.t === 'chat' && (m.d as any).fromId === a.session.id);
     expect(received.length).toBeGreaterThan(0);
     expect(received.length).toBeLessThan(10); // limiter kicked in
+  });
+
+  it('joins the physical street flying-chess stall in the chosen colour', () => {
+    const { world, mkSession } = testRig();
+    const a = mkSession('alice');
+    world.join(a.session, SPACE.PLAZA);
+    moveToInteractable(a.session, SPACE.PLAZA, 'gr-flight');
+    handlers.flight_action(world, a.session, { machineId: 'gr-flight', action: 'join', colour: 3 });
+    const state = lastOf(a.ws, 'game_flight')?.d;
+    expect(state?.machineId).toBe('gr-flight');
+    expect(state?.players[3]?.username).toBe('alice');
+    expect(state?.players.slice(0, 3)).toEqual([null, null, null]);
+    expect(state?.lastEvent).toContain('绿色');
   });
 
   it('ping response carries a server timestamp for RTT-midpoint clock sync', () => {

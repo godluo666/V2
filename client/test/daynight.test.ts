@@ -19,4 +19,16 @@ describe('月汐町晴日光照', () => {
     expect(night.hemiIntensity).toBeGreaterThanOrEqual(0.36);
     expect(night.lampsOn).toBe(true);
   });
+
+  it('下午与傍晚保持奶油橙阳光和蓝紫阴影，不滑向通红晚霞', () => {
+    const afternoon = sampleEnv(0.66, 'clear', createEnvSample());
+    const dusk = sampleEnv(0.78, 'clear', createEnvSample());
+    expect(afternoon.sunColor.r).toBeGreaterThan(afternoon.sunColor.b);
+    expect(afternoon.hemiGround.b).toBeGreaterThan(afternoon.hemiGround.r * 0.98);
+    // Late light may be warm, but the horizon must retain substantial green
+    // and blue instead of becoming a saturated red stage backdrop.
+    expect(dusk.skyHorizon.g).toBeGreaterThan(dusk.skyHorizon.r * 0.78);
+    expect(dusk.skyHorizon.b).toBeGreaterThan(dusk.skyHorizon.r * 0.65);
+    expect(dusk.hemiGround.b).toBeGreaterThan(dusk.hemiGround.r);
+  });
 });

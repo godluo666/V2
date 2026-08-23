@@ -31,25 +31,25 @@ const near = (p: [number, number], x: number, z: number, tolerance = 0.8) =>
   Math.hypot(p[0] - x, p[1] - z) < tolerance;
 
 describe('月汐町·结缘坂坐标契约', () => {
-  it('是一条 48×24 米的窄弯坡地生活街', () => {
+  it('是一条 84×36 米、视野开阔但仍保持人尺度的窄弯坡地生活街', () => {
     expect(city.label).toBe('月汐町·结缘坂');
     expect(city.bounds).toEqual(CITY_BOUNDS);
-    expect(city.bounds.maxX - city.bounds.minX).toBe(48);
-    expect(city.bounds.maxZ - city.bounds.minZ).toBe(24);
-    expect(ROAD_W).toBe(4.2);
-    expect(ALLEY_W).toBe(2.6);
+    expect(city.bounds.maxX - city.bounds.minX).toBe(84);
+    expect(city.bounds.maxZ - city.bounds.minZ).toBe(36);
+    expect(ROAD_W).toBe(5.2);
+    expect(ALLEY_W).toBe(3);
     expect(ROADS).toHaveLength(2);
-    expect(ROADS[0]).toMatchObject({ w: 48, d: ROAD_W });
-    expect(ROADS[1]).toMatchObject({ x: -6.2, w: ALLEY_W });
+    expect(ROADS[0]).toMatchObject({ w: 84, d: ROAD_W });
+    expect(ROADS[1]).toMatchObject({ x: -12.4, w: ALLEY_W });
   });
 
   it('旧高楼、剪影和仓库端景已全部退出地图数据', () => {
-    expect(BUILDINGS).toHaveLength(15);
+    expect(BUILDINGS).toHaveLength(21);
     expect(BUILDINGS.every((building) => (
       ['shopfront', 'apartment', 'backstreet'].includes(building.style)
       && !building.backdrop
-      && building.h >= 5.4
-      && building.h <= 8.1
+      && building.h >= 6.6
+      && building.h <= 9.5
     ))).toBe(true);
     expect(BUILDINGS.some((building) => ['tower', 'mediaTower', 'silhouette'].includes(building.style))).toBe(false);
     for (const building of BUILDINGS) {
@@ -71,16 +71,16 @@ describe('月汐町·结缘坂坐标契约', () => {
 
   it('北侧留出真实台阶巷，南侧留出树下飞行棋院落', () => {
     const north = BUILDINGS.filter((building) => building.z < streetCenterZ(building.x));
-    const stairLeft = north.filter((building) => building.x < -6.2).sort((a, b) => b.x - a.x)[0];
-    const stairRight = north.filter((building) => building.x > -6.2).sort((a, b) => a.x - b.x)[0];
+    const stairLeft = north.filter((building) => building.x < -12.4).sort((a, b) => b.x - a.x)[0];
+    const stairRight = north.filter((building) => building.x > -12.4).sort((a, b) => a.x - b.x)[0];
     const stairGap = stairRight.x - stairRight.w / 2 - (stairLeft.x + stairLeft.w / 2);
     expect(stairGap).toBeGreaterThan(ALLEY_W);
 
     const south = BUILDINGS.filter((building) => building.z > streetCenterZ(building.x));
-    const yardLeft = south.filter((building) => building.x < -4).sort((a, b) => b.x - a.x)[0];
-    const yardRight = south.filter((building) => building.x > -4).sort((a, b) => a.x - b.x)[0];
+    const yardLeft = south.filter((building) => building.x < -2.5).sort((a, b) => b.x - a.x)[0];
+    const yardRight = south.filter((building) => building.x > -2.5).sort((a, b) => a.x - b.x)[0];
     const yardGap = yardRight.x - yardRight.w / 2 - (yardLeft.x + yardLeft.w / 2);
-    expect(yardGap).toBeGreaterThan(7);
+    expect(yardGap).toBeGreaterThan(6.2);
 
     expect(city.interactables.some((item) => item.id === 'gr-flight' && item.kind === 'flying')).toBe(true);
     expect(city.interactables.filter((item) => item.id.startsWith('street-flight-s'))).toHaveLength(4);
@@ -109,38 +109,97 @@ describe('月汐町·结缘坂坐标契约', () => {
   });
 
   it('自行车、盆栽、树荫、长椅与电线杆都贴着弯街边缘布置', () => {
-    expect(city.props.filter((prop) => prop.type === 'tree')).toHaveLength(5);
-    expect(city.props.filter((prop) => prop.type === 'c_bike')).toHaveLength(4);
-    expect(city.props.filter((prop) => prop.type === 'c_planter')).toHaveLength(4);
-    expect(city.props.filter((prop) => prop.type === 'c_bench')).toHaveLength(2);
-    expect(city.props.filter((prop) => prop.type === 'c_wires')).toHaveLength(3);
+    expect(city.props.filter((prop) => prop.type === 'tree')).toHaveLength(9);
+    expect(city.props.filter((prop) => prop.type === 'c_bike')).toHaveLength(8);
+    expect(city.props.filter((prop) => prop.type === 'c_planter')).toHaveLength(8);
+    expect(city.props.filter((prop) => prop.type === 'c_bench')).toHaveLength(4);
+    expect(city.props.filter((prop) => prop.type === 'c_wires')).toHaveLength(6);
 
     const physicalProps = ['tree', 'c_bike', 'c_planter', 'c_bench'];
     for (const prop of city.props.filter((candidate) => physicalProps.includes(candidate.type))) {
-      expect(Math.abs(prop.pos[2] - streetCenterZ(prop.pos[0])), `${prop.type}@${prop.pos}`).toBeGreaterThan(2.6);
+      expect(Math.abs(prop.pos[2] - streetCenterZ(prop.pos[0])), `${prop.type}@${prop.pos}`).toBeGreaterThan(3.8);
       expect(city.colliders.some((collider) => (
         Math.hypot(collider.x - prop.pos[0], collider.z - prop.pos[2]) < 0.05
       ))).toBe(true);
     }
   });
 
-  it('主街缓坡与九级石阶都提供服务器可走高度', () => {
+  it('主街缓坡与十二级石阶都提供服务器可走高度', () => {
     const ramp = city.heightZones.filter((zone) => zone.kind === 'ramp');
     const steps = city.heightZones.filter((zone) => zone.kind === 'deck');
     expect(ramp).toHaveLength(1);
-    expect(steps).toHaveLength(9);
+    expect(steps).toHaveLength(13);
     expect(city.heightZones.some((zone) => zone.kind === 'bridgeZ')).toBe(false);
-    expect(floorHeightAt(city, -24, streetCenterZ(-24))).toBeCloseTo(0, 5);
-    expect(floorHeightAt(city, 0, streetCenterZ(0))).toBeCloseTo(0.8, 5);
-    expect(floorHeightAt(city, 24, streetCenterZ(24))).toBeCloseTo(1.6, 5);
-    steps.forEach((step, index) => {
-      expect(step.y).toBeCloseTo(streetHeight(-6.2) + index * 0.16, 5);
-      expect(floorHeightAt(city, -6.2, (step.minZ + step.maxZ) / 2)).toBeCloseTo(step.y, 5);
+    expect(floorHeightAt(city, -42, streetCenterZ(-42))).toBeCloseTo(0, 5);
+    expect(floorHeightAt(city, 0, streetCenterZ(0))).toBeCloseTo(1.4, 5);
+    expect(floorHeightAt(city, 42, streetCenterZ(42))).toBeCloseTo(2.8, 5);
+    const stairSteps = steps.filter((step) => step.maxX - step.minX < 3);
+    expect(stairSteps).toHaveLength(12);
+    stairSteps.forEach((step, index) => {
+      expect(step.y).toBeCloseTo(streetHeight(-12.4) + index * 0.18, 5);
+      expect(floorHeightAt(city, -12.4, (step.minZ + step.maxZ) / 2)).toBeCloseTo(step.y, 5);
     });
+    const flight = city.interactables.find((item) => item.id === 'gr-flight')!;
+    expect(floorHeightAt(city, flight.pos[0], flight.pos[2])).toBeCloseTo(flight.pos[1] - 0.34, 5);
+  });
+
+  it('店前、石阶和树下棋摊都有可抵达的生活角色与对话停留点', () => {
+    expect(city.npcs.map((npc) => npc.dialogueId).sort()).toEqual([
+      'flight_regular', 'florist', 'greeter', 'stairwatcher', 'walker',
+    ]);
+    expect(new Set(city.npcs.map((npc) => npc.id)).size).toBe(city.npcs.length);
+    for (const npc of city.npcs) {
+      expect(npc.id).toBeLessThan(0);
+      expect(npc.waypoints.length).toBeGreaterThan(0);
+      for (const [x, z] of npc.waypoints) {
+        expect(x).toBeGreaterThanOrEqual(CITY_BOUNDS.minX);
+        expect(x).toBeLessThanOrEqual(CITY_BOUNDS.maxX);
+        expect(z).toBeGreaterThanOrEqual(CITY_BOUNDS.minZ);
+        expect(z).toBeLessThanOrEqual(CITY_BOUNDS.maxZ);
+        const [resolvedX, resolvedZ] = resolveCollisions(x, z, 0.28, city.colliders);
+        expect(Math.hypot(resolvedX - x, resolvedZ - z), `${npc.name}@${x},${z}`).toBeLessThan(0.08);
+      }
+    }
   });
 });
 
 describe('结缘坂可走性', () => {
+  it('从西口沿窄弯坡主街可连续走到东口，新增生活设施没有封死视线与通行带', () => {
+    const throughRoute: Array<[number, number]> = Array.from(
+      { length: 22 },
+      (_, index) => {
+        const x = CITY_BOUNDS.minX + index * 4;
+        return [x, streetCenterZ(x)];
+      },
+    );
+    const reached = march(city, throughRoute);
+    expect(near(reached, CITY_BOUNDS.maxX, streetCenterZ(CITY_BOUNDS.maxX), 0.45)).toBe(true);
+
+    // Sample the entire centre band, not just the authored route nodes. This
+    // catches an attractive prop whose collider accidentally projects into the
+    // 5.2m carriageway between tests.
+    for (let x = CITY_BOUNDS.minX; x <= CITY_BOUNDS.maxX; x += 1) {
+      const z = streetCenterZ(x);
+      const resolved = resolveCollisions(x, z, 0.34, city.colliders);
+      expect(Math.hypot(resolved[0] - x, resolved[1] - z), `road centre @ x=${x}`).toBeLessThan(0.01);
+    }
+  });
+
+  it('煤气瓶笼、消防箱和后院门都具有与可见实体一致的紧凑碰撞', () => {
+    const physicalFixtures = [
+      [26.1, streetCenterZ(26.1) - 4.72, 1.12, 0.58],
+      [-28.9, streetCenterZ(-28.9) + 4.68, 0.82, 0.4],
+      [24, streetCenterZ(24) + 13.08, 1.05, 0.14],
+    ] as const;
+    for (const [x, z, w, d] of physicalFixtures) {
+      expect(city.colliders.some((collider) => (
+        collider.kind === 'box'
+        && collider.x === x && collider.z === z
+        && collider.w === w && collider.d === d
+      )), `${x},${z}`).toBe(true);
+    }
+  });
+
   it('出生点和三个门前站位没有卡进碰撞体', () => {
     const standSpots: Array<[number, number]> = [
       [city.spawn[0], city.spawn[2]],
@@ -158,6 +217,53 @@ describe('结缘坂可走性', () => {
       ...venue.route,
     ]);
     expect(near(p, venue.approach[0], venue.approach[1])).toBe(true);
+  });
+
+  it('药房与游戏屋之间的服务小巷可以走到后院门前', () => {
+    const left = BUILDINGS.find((building) => building.x === 20 && building.z > streetCenterZ(20))!;
+    const right = BUILDINGS.find((building) => building.x === 28 && building.z > streetCenterZ(28))!;
+    const clearWidth = right.x - right.w / 2 - (left.x + left.w / 2);
+    expect(clearWidth).toBeGreaterThanOrEqual(1.3);
+    const centreZ = streetCenterZ(24);
+    const p = march(city, [[24, centreZ + 3.9], [24, centreZ + 12.25]]);
+    expect(near(p, 24, centreZ + 12.25, 0.45)).toBe(true);
+    const gate = city.colliders.find((collider) => (
+      collider.kind === 'box' && collider.x === 24 && Math.abs(collider.z - (centreZ + 13.08)) < 0.01
+    ));
+    expect(gate).toBeDefined();
+  });
+
+  it('树下棋院四席与十二级坡梯顶端都能从主街真实走到', () => {
+    const flight = city.interactables.find((item) => item.id === 'gr-flight')!;
+    const flightSeats = city.interactables.filter((item) => item.id.startsWith('street-flight-s'));
+    const streetEntry: [number, number] = [flight.pos[0], streetCenterZ(flight.pos[0]) + 5.75];
+    for (const seat of flightSeats) {
+      const sideStep: [number, number] = [
+        flight.pos[0] + (seat.pos[0] >= flight.pos[0] ? 2.35 : -2.35),
+        flight.pos[2] - 2.4,
+      ];
+      const p = march(city, [
+        [city.spawn[0], city.spawn[2]],
+        [-10, streetCenterZ(-10)],
+        [flight.pos[0], streetCenterZ(flight.pos[0])],
+        streetEntry,
+        sideStep,
+        [seat.pos[0], seat.pos[2]],
+      ]);
+      expect(near(p, seat.pos[0], seat.pos[2], 0.5), seat.id).toBe(true);
+    }
+
+    const stairX = -12.4;
+    const firstStepZ = streetCenterZ(stairX) - 4.7;
+    const stairRoute: Array<[number, number]> = [
+      [city.spawn[0], city.spawn[2]],
+      [-20, streetCenterZ(-20)],
+      [stairX, streetCenterZ(stairX)],
+      ...Array.from({ length: 12 }, (_, index): [number, number] => [stairX, firstStepZ - index * 0.9]),
+    ];
+    const stairTop = stairRoute.at(-1)!;
+    const reachedTop = march(city, stairRoute);
+    expect(near(reachedTop, stairTop[0], stairTop[1], 0.45)).toBe(true);
   });
 });
 

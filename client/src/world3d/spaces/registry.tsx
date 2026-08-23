@@ -183,9 +183,10 @@ export function renderInteractable(it: Interactable, key: string | number): Reac
     case 'ttt': return <TttMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'lightsout': return <LightsOutMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} machineId={it.id} />;
     case 'vending': {
-      // 晴日生活街户外售货机(v-vend*):城市赛璐璐外观(c_vend 可互动版,红/蓝按标签)
+      // 结缘坂两台户外售货机使用完整城市预制件，并按固定机器 ID
+      // 区分暖红汽水机与灰蓝牛奶/咖啡机，避免每次渲染随机换色。
       if (it.id.startsWith('v-vend')) {
-        return <CVend key={key} position={it.pos} ry={it.ry} kind={it.label.includes('蓝') ? 'blue' : 'red'} />;
+        return <CVend key={key} position={it.pos} ry={it.ry} kind={it.id.endsWith('2') ? 'blue' : 'red'} />;
       }
       const items = (it.data?.items as string[]) ?? [];
       return <VendingMachine key={key} position={[it.pos[0], 0, it.pos[2]]} rotation={it.ry} kind={items.includes('coffee') ? 'coffee' : 'drinks'} />;

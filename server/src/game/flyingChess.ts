@@ -73,13 +73,17 @@ export class FlyingChessTable {
     return legal;
   }
 
-  join(session: Session): string | null {
+  join(session: Session, preferredSlot?: number): string | null {
     const existing = this.slot(session);
     if (existing >= 0) {
       if (this.winner >= 0) this.reset();
       return null;
     }
-    const slot = this.players.findIndex((player) => player === null);
+    const wantsSpecific = Number.isInteger(preferredSlot) && preferredSlot! >= 0 && preferredSlot! <= 3;
+    if (wantsSpecific && this.players[preferredSlot!]) {
+      return `${['红', '蓝', '黄', '绿'][preferredSlot!]}色已经有人了，请点另一个空机库。`;
+    }
+    const slot = wantsSpecific ? preferredSlot! : this.players.findIndex((player) => player === null);
     if (slot < 0) return '地摊飞行棋的四个颜色都坐满了。';
     this.players[slot] = session;
     if (this.turn < 0) this.turn = slot;

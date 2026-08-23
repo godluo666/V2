@@ -29,6 +29,7 @@ describe('protocol', () => {
   it('accepts valid input messages', () => {
     expect(c2s.input.safeParse({ p: [1, 0, 2], ry: 0.5, st: 0, seq: 1 }).success).toBe(true);
     expect(c2s.chat.safeParse({ text: 'hello' }).success).toBe(true);
+    expect(c2s.flight_action.safeParse({ machineId: 'gr-flight', action: 'join', colour: 3 }).success).toBe(true);
   });
   it('rejects garbage', () => {
     expect(c2s.input.safeParse({ p: [1, 0], ry: 0, st: 0, seq: 0 }).success).toBe(false);
@@ -36,6 +37,7 @@ describe('protocol', () => {
     expect(c2s.chat.safeParse({ text: '' }).success).toBe(false);
     expect(c2s.media_set.safeParse({ url: 'x'.repeat(2000) }).success).toBe(false);
     expect(c2s.room_edit.safeParse({ op: 'add', type: 'sofa', x: 0, y: 0, z: 0, ry: 0, color: 'red' }).success).toBe(false);
+    expect(c2s.flight_action.safeParse({ machineId: 'gr-flight', action: 'join', colour: 4 }).success).toBe(false);
   });
   it('wire encode/parse round-trip', () => {
     const raw = encode('chat', { text: 'hi' });
@@ -101,15 +103,15 @@ describe('layouts', () => {
       expect(Math.hypot(x - sx, z - sz)).toBeLessThan(0.01);
     }
   });
-  it('keeps the compact residential-street ramp and walkable stair lane', () => {
+  it('keeps the long residential-street ramp, level game yard and walkable stair lane', () => {
     const city = LAYOUTS['plaza'];
-    expect(city.heightZones).toHaveLength(10);
-    expect(city.heightZones.filter((zone) => zone.kind === 'deck')).toHaveLength(9);
+    expect(city.heightZones).toHaveLength(14);
+    expect(city.heightZones.filter((zone) => zone.kind === 'deck')).toHaveLength(13);
     expect(city.heightZones.filter((zone) => zone.kind === 'ramp')).toHaveLength(1);
     expect(city.heightZones.some((zone) => zone.kind === 'bridgeZ')).toBe(false);
-    expect(floorHeightAt(city, -24, 0)).toBeCloseTo(0, 5);
-    expect(floorHeightAt(city, 0, 0)).toBeCloseTo(0.8, 5);
-    expect(floorHeightAt(city, 24, 0)).toBeCloseTo(1.6, 5);
+    expect(floorHeightAt(city, -42, 0)).toBeCloseTo(0, 5);
+    expect(floorHeightAt(city, 0, 0)).toBeCloseTo(1.4, 5);
+    expect(floorHeightAt(city, 42, 0)).toBeCloseTo(2.8, 5);
   });
 });
 

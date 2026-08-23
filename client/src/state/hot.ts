@@ -87,8 +87,8 @@ class HotState {
     l.grabbedBy = null; l.grabbing = null; l.grabPointLocal = null;
     this.selfSnap = null;
     this.camera.yaw = spawn[3] + Math.PI; // behind the player
-    // 户外默认是“人在街中、楼向上冲”的建立镜头：距离稍拉开，实际取景点
-    // 由 LocalPlayer 抬到招牌层。玩家模型不缩放，室内仍沿用家具视角。
+    // 户外默认沿西入口望入弯坡街：距离稍拉开，实际取景点由 LocalPlayer
+    // 抬到树冠与二层窗之间。玩家模型不缩放，室内仍沿用家具视角。
     this.camera.pitch = outdoor
       ? -0.02
       : spaceKey === 'cinema' ? -0.05
@@ -96,7 +96,7 @@ class HotState {
           : spaceKey === 'gameroom' ? 0.2
             : 0.32;
     this.camera.dist = outdoor
-      ? 8.2
+      ? 9.0
       : spaceKey === 'cinema' ? 8.4
         : spaceKey === 'netcafe' ? 10.6
           : spaceKey === 'gameroom' ? 6.2

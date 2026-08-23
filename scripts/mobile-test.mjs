@@ -82,10 +82,10 @@ try {
     timeout: 90_000,
     animations: 'disabled',
   });
-  check('移动端十字街景云端截图', true);
+  check('移动端结缘坂弯坡街云端截图', true);
 } catch (error) {
   console.log(`  移动端街景截图失败: ${error instanceof Error ? error.message : String(error)}`);
-  check('移动端十字街景云端截图', false);
+  check('移动端结缘坂弯坡街云端截图', false);
 }
 if (!evidenceWorldReady) {
   await abortJourney('截图前 plaza 已失去可渲染状态；停止触控输入验证');

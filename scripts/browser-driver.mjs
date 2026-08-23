@@ -447,8 +447,8 @@ export async function walkRoute(page, points) {
 
 /**
  * Follow the collision-valid route stored with the shared venue façade.
- * The compact crossroads has multiple pavement orientations, so inferring a route
- * from coordinate signs would recreate layout logic in the test harness.
+ * The curved sloped street has continuously changing centre and height, so
+ * inferring a route from coordinate signs would recreate layout logic here.
  */
 export async function walkToVenueDoor(page, venueKey) {
   if (!await spaceIs(page, 'plaza')) return false;

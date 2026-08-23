@@ -10,6 +10,17 @@ function player(id: number, username: string): Session {
 }
 
 describe('physical flying-chess stall rules', () => {
+  it('lets a player choose a graphical colour hangar and protects occupied colours', () => {
+    const table = new FlyingChessTable('street-flight');
+    const red = player(1, 'red');
+    const green = player(2, 'green');
+    expect(table.join(red, 0)).toBeNull();
+    expect(table.join(green, 0)).toContain('红色已经有人');
+    expect(table.join(green, 3)).toBeNull();
+    expect(table.players[0]).toBe(red);
+    expect(table.players[3]).toBe(green);
+  });
+
   it('requires a six to launch and grants another roll after moving a six', () => {
     const table = new FlyingChessTable('street-flight');
     const red = player(1, 'red');

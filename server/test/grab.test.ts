@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { testRig, lastOf } from './helpers';
 import type { FakeWs } from './helpers';
 import { handlers } from '../src/game/handlers';
-import { SPACE, LIFT_MAX, BREAK_DIST, ESCAPE_BREAK, HOLD_MAX } from '@nexuspark/shared';
+import {
+  SPACE, LIFT_MAX, BREAK_DIST, ESCAPE_BREAK, HOLD_MAX, LAYOUTS, floorHeightAt,
+} from '@nexuspark/shared';
 import type { World } from '../src/game/world';
 import type { Session } from '../src/game/session';
 
@@ -163,7 +165,8 @@ describe('grab: server-authoritative simulation', () => {
     expect(lastOf(b.ws, 'grab_state')?.d.phase).toBe('released');
     expect(b.session.grabAirborne).toBe(true); // 保留速度/高度,自然抛落
     tickN(world, 'plaza', 120, 1 / 60); // 2s 自由落体
-    expect(b.session.y).toBeCloseTo(0, 3); // 落回地面,不穿地
+    const floor = floorHeightAt(LAYOUTS[SPACE.PLAZA], b.session.x, b.session.z);
+    expect(b.session.y).toBeCloseTo(floor, 3); // 落回结缘坂坡面,不穿地
     expect(b.session.grabAirborne).toBe(false);
   });
 
@@ -175,7 +178,8 @@ describe('grab: server-authoritative simulation', () => {
     // 距离先夹到 [HOLD_MIN,HOLD_MAX],y 随后再夹到 [地面+0.2, 抓取者y+LIFT_MAX](契约顺序)
     const dh = Math.hypot(t[0] - a.session.x, t[2] - a.session.z);
     expect(dh).toBeLessThanOrEqual(HOLD_MAX + 1e-9);
-    expect(t[1]).toBeGreaterThanOrEqual(0.2 - 1e-9); // 地面为 0
+    const floor = floorHeightAt(LAYOUTS[SPACE.PLAZA], t[0], t[2]);
+    expect(t[1]).toBeGreaterThanOrEqual(floor + 0.2 - 1e-9);
     expect(t[1]).toBeLessThanOrEqual(a.session.y + LIFT_MAX + 1e-9);
   });
 });

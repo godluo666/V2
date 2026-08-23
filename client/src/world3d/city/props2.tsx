@@ -1,12 +1,12 @@
 /**
- * 「月汐町·晴日生活街」城市道具库(工单 P3-3,总纲 §2/§4.3/§5)。
+ * 「月汐町·结缘坂」城市道具库。
  *
  * - c_* 全套道具组件(经 spaces/registry.tsx 按 layout prop type 挂载):
  *   钠灯 / 售货机 / 长椅 / 施工围栏 / 自行车 / 垃圾袋堆+乌鸦 / 旧海报 /
  *   空调外机 / 壁挂表箱 / 道路反光镜 / 反光柱 / 悬垂电缆 / 红绿灯 /
  *   电话亭 / 储物柜 / 井盖 / 消防栓 / 花坛;
  * - StationEntrance / Overpass 仅为旧存档预制件归档，不从当前 cityplan 取坐标，
- *   也不在一番街注册。
+ *   也不在结缘坂注册。
  *
  * 全部程序化、全走 palette/toon/outline;重复道具几何模块级缓存共享,
  * 每实例只做种子化旋转/缩放抖动(§5 重复物体变化)。
@@ -1215,6 +1215,8 @@ let _wireMat: THREE.MeshToonMaterial | null = null;
 const wireSupportMaterial = surfaceMaterial('brushedMetal', true, false);
 wireSupportMaterial.roughness = 0.52;
 wireSupportMaterial.metalness = 0.72;
+const wireBirdSphere = new THREE.SphereGeometry(1, 10, 7);
+const wireBirdBeak = new THREE.ConeGeometry(1, 1, 6);
 export function CWires({
   position, ry = 0, to, len = 12, sag = 1.0, strands = 2,
 }: { position: P3; ry?: number; to?: P3; len?: number; sag?: number; strands?: number }) {
@@ -1232,6 +1234,7 @@ export function CWires({
     const crossX = -run.z / horizontalLength;
     const crossZ = run.x / horizontalLength;
     const rnd = seededRandom(posSeed(position) + 21);
+    let perch: THREE.Vector3 | null = null;
     for (let s = 0; s < strands; s++) {
       const off = (s - (strands - 1) / 2) * 0.14;
       const a = start.clone(); a.x += crossX * off; a.z += crossZ * off;
@@ -1243,6 +1246,51 @@ export function CWires({
       const curve = new THREE.CatmullRomCurve3([a, q1, mid, q3, b]);
       const tube = new THREE.TubeGeometry(curve, 20, 0.018 + rnd() * 0.008, 5, false);
       g.add(new THREE.Mesh(tube, _wireMat));
+      if (s === Math.floor(strands / 2)) perch = curve.getPoint(0.46);
+    }
+
+    // One deterministic run in two carries a small sparrow. Feet terminate on
+    // the sampled centre cable point, so the bird never reads as a floating
+    // decoration when viewed against the sky.
+    if (perch && posSeed(position) % 2 === 0) {
+      const alongX = run.x / horizontalLength;
+      const alongZ = run.z / horizontalLength;
+      const bird = new MergeBag();
+      bird.add(wireBirdSphere, {
+        x: perch.x, y: perch.y + 0.135, z: perch.z,
+        ry: Math.atan2(alongX, alongZ), sx: 0.115, sy: 0.11, sz: 0.17,
+        color: '#6d6258',
+      });
+      bird.add(wireBirdSphere, {
+        x: perch.x + alongX * 0.12, y: perch.y + 0.2, z: perch.z + alongZ * 0.12,
+        ry: Math.atan2(alongX, alongZ), sx: 0.085, sy: 0.08, sz: 0.09,
+        color: '#7f7366',
+      });
+      for (const wingSide of [-1, 1]) {
+        bird.add(wireBirdSphere, {
+          x: perch.x + crossX * wingSide * 0.075,
+          y: perch.y + 0.14,
+          z: perch.z + crossZ * wingSide * 0.075,
+          ry: Math.atan2(alongX, alongZ),
+          sx: 0.035, sy: 0.075, sz: 0.12,
+          color: wingSide < 0 ? '#554f49' : '#5f5750',
+        });
+      }
+      bird.add(wireBirdBeak, {
+        x: perch.x + alongX * 0.205, y: perch.y + 0.2, z: perch.z + alongZ * 0.205,
+        rx: Math.PI / 2, ry: Math.atan2(alongX, alongZ),
+        sx: 0.035, sy: 0.075, sz: 0.035, color: '#b59465',
+      });
+      for (const foot of [-1, 1]) {
+        const footX = perch.x + crossX * foot * 0.032;
+        const footZ = perch.z + crossZ * foot * 0.032;
+        cylBetween(bird, footX, perch.y + 0.01, footZ,
+          footX + alongX * 0.015, perch.y + 0.09, footZ + alongZ * 0.015,
+          0.008, '#8f7354');
+      }
+      const birdMesh = bagMesh(bird, false, 2);
+      birdMesh.name = 'cable-perched-sparrow';
+      g.add(birdMesh);
     }
 
     // Both cable ends terminate on real grounded utility supports. Their

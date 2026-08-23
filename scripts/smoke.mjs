@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 import {
   JOURNEY_CHROMIUM_ARGS, enterStreetVenue, exitToStreet,
   interactWhenPrompt, prepareWorldInput, sitOnHighestSeat,
-  waitForRenderedWorld, walkFromVenueDoorToSpawn, walkTo, walkToVenueDoor,
+  waitForRenderedWorld, walkFromVenueDoorToSpawn, walkRoute, walkTo, walkToVenueDoor,
 } from './browser-driver.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:8080';
@@ -142,7 +142,45 @@ check('WebGL context available', await p1.evaluate(() => {
   const canvas = document.querySelector('canvas');
   return !!(canvas?.getContext('webgl2') || canvas?.getContext('webgl'));
 }));
-await captureEvidence(p1, 'street-crossroads-desktop.png', 'compact crossroads desktop', 'plaza');
+// Keep the historical filename because the evidence validator and workflow
+// contract consume it; the image itself is now the west entrance of 结缘坂.
+await captureEvidence(p1, 'street-crossroads-desktop.png', '结缘坂弯坡街西入口桌面画面', 'plaza');
+
+// Walk the actual shared route to the outdoor stall before entering any
+// venue. This locks the user's core requirement: the street board is physical,
+// reachable and backed by the same authoritative coloured game state as its UI.
+const outdoorFlightRoute = await p1.evaluate(() => {
+  const nx = window.__nx;
+  const cinema = nx.cityMap.venues.find((candidate) => candidate.key === 'cinema');
+  const board = nx.layouts.plaza.interactables.find((candidate) => candidate.id === 'gr-flight');
+  const seat = nx.layouts.plaza.interactables.find((candidate) => candidate.id === 'street-flight-s0');
+  if (!cinema?.route || !board || !seat) throw new Error('Missing shared outdoor flight-stall route');
+  const streetLeg = cinema.route.filter(([x]) => x <= 0).map(([x, z]) => [x, z]);
+  return {
+    approach: [...streetLeg, [board.pos[0], board.pos[2] - 3.25], [seat.pos[0], seat.pos[2]]],
+    return: [[board.pos[0], board.pos[2] - 3.25], ...streetLeg.slice().reverse()],
+  };
+});
+const reachedOutdoorFlight = await walkRoute(p1, outdoorFlightRoute.approach);
+check('physically reached the tree-shaded outdoor flying-chess stall', reachedOutdoorFlight);
+if (reachedOutdoorFlight) {
+  await p1.evaluate(() => window.__nx.connection.send('flight_action', {
+    machineId: 'gr-flight', action: 'join', colour: 2,
+  }));
+  const joinedOutdoorFlight = await p1.waitForFunction(() => {
+    const nx = window.__nx;
+    return nx.world.getState().flying['gr-flight']?.players[2]?.id === nx.hot.selfId;
+  }, undefined, { timeout: 8_000, polling: 100 }).then(() => true).catch(() => false);
+  check('outdoor board accepted the selected yellow hangar', joinedOutdoorFlight);
+  await captureEvidence(p1, 'street-flight-stall-desktop.png', '树下实体飞行棋近景', 'plaza');
+  await p1.evaluate(() => window.__nx.connection.send('flight_action', {
+    machineId: 'gr-flight', action: 'leave',
+  }));
+  check('returned from the outdoor stall to the west street entrance', await walkRoute(p1, outdoorFlightRoute.return));
+} else {
+  check('outdoor board accepted the selected yellow hangar', false);
+  check('树下实体飞行棋近景 cloud screenshot captured', false);
+}
 const reachedCinemaFacade = await walkToVenueDoor(p1, 'cinema');
 check('cinema facade close-view route reached its shared approach', reachedCinemaFacade);
 if (reachedCinemaFacade) {

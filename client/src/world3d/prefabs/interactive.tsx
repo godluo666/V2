@@ -85,11 +85,23 @@ export function MessageBoard({ position, rotation, boardId }: {
     ctx.fillRect(0, 0, 512, 384);
     ctx.fillStyle = '#a8895f';
     ctx.fillRect(14, 14, 484, 356);
+    const streetBoard = boardId === 'city-board';
+    if (streetBoard) {
+      ctx.fillStyle = '#6f7d70';
+      ctx.fillRect(14, 14, 484, 42);
+      ctx.fillStyle = '#fff5df';
+      ctx.font = '700 23px "Noto Sans SC", "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('结缘坂 · 街坊留言', 256, 35);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    }
     const notes = (posts ?? []).slice(0, 8);
     const noteColors = ['#fdf6b2', '#c8e6f5', '#f5c8d8', '#d8f5c8'];
     notes.forEach((p, i) => {
       const col = i % 4, row = Math.floor(i / 4);
-      const x = 28 + col * 118, y = 30 + row * 168;
+      const x = 28 + col * 118, y = (streetBoard ? 62 : 30) + row * (streetBoard ? 158 : 168);
       ctx.save();
       ctx.translate(x + 52, y + 75);
       ctx.rotate(((i * 37) % 10 - 5) * 0.012);
@@ -113,7 +125,7 @@ export function MessageBoard({ position, rotation, boardId }: {
       ctx.restore();
     });
     tex.t.needsUpdate = true;
-  }, [posts, tex]);
+  }, [boardId, posts, tex]);
   return (
     <group position={position} rotation={[0, rotation, 0]}>
       {[-0.75, 0.75].map((x, i) => (
@@ -128,6 +140,20 @@ export function MessageBoard({ position, rotation, boardId }: {
       <mesh position={[0, 2.28, 0]} castShadow material={useMemo(() => mat('#5e4632', 0.85), [])}>
         <boxGeometry args={[1.85, 0.12, 0.14]} />
       </mesh>
+      {boardId === 'city-board' && (
+        <>
+          <mesh position={[0, 2.44, -0.08]} rotation={[-0.22, 0, 0]} castShadow>
+            <boxGeometry args={[2.05, 0.1, 0.62]} />
+            <meshStandardMaterial color="#7f705e" roughness={0.92} />
+          </mesh>
+          {[-0.62, 0.62].map((x) => (
+            <group key={`board-pot-${x}`} position={[x, 0.18, 0.08]}>
+              <mesh castShadow><cylinderGeometry args={[0.17, 0.14, 0.34, 9]} /><meshStandardMaterial color="#9a735b" roughness={1} /></mesh>
+              <mesh position={[0, 0.34, 0]} castShadow><dodecahedronGeometry args={[0.25, 0]} /><meshStandardMaterial color="#6d825e" roughness={1} /></mesh>
+            </group>
+          ))}
+        </>
+      )}
     </group>
   );
 }

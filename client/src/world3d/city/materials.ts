@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 export type SurfaceKind =
   | 'oldConcrete' | 'paintedConcrete' | 'brick' | 'metal' | 'brushedMetal'
-  | 'darkGlass' | 'glass' | 'wetAsphalt' | 'sidewalk' | 'plasticLightbox'
+  | 'darkGlass' | 'glass' | 'dryAsphalt' | 'wetAsphalt' | 'sidewalk' | 'plasticLightbox'
   | 'wood' | 'acousticFabric' | 'cinemaCarpet' | 'seatFabric';
 
 const DETAIL_SIZE = 96;
@@ -20,6 +20,7 @@ const ALBEDO_REPEAT: Record<SurfaceKind, [number, number]> = {
   brushedMetal: [3.2, 3.2],
   darkGlass: [1.25, 1.25],
   glass: [1.25, 1.25],
+  dryAsphalt: [3.2, 3.2],
   wetAsphalt: [3.2, 3.2],
   sidewalk: [2.6, 2.6],
   plasticLightbox: [1, 1],
@@ -37,6 +38,7 @@ const ROUGHNESS_BASE: Record<SurfaceKind, number> = {
   brushedMetal: 218,
   darkGlass: 216,
   glass: 222,
+  dryAsphalt: 248,
   wetAsphalt: 224,
   sidewalk: 244,
   plasticLightbox: 230,
@@ -189,6 +191,20 @@ function albedoTexture(kind: SurfaceKind): THREE.CanvasTexture {
       line(ctx, 'rgba(86,135,147,0.07)', 1, 96, 0, 96, size);
       break;
     }
+    case 'dryAsphalt': {
+      fill('#f0f1ee');
+      mottling(16, 'rgba(42,45,43,0.055)', 4, 13);
+      flecks(118, 'rgba(38,41,40,0.16)', 0.4, 1.15);
+      flecks(34, 'rgba(250,248,238,0.1)', 0.3, 0.75);
+      ctx.strokeStyle = 'rgba(50,52,49,0.13)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-6, 96);
+      ctx.bezierCurveTo(31, 88, 52, 105, 83, 96);
+      ctx.bezierCurveTo(103, 90, 116, 91, 136, 84);
+      ctx.stroke();
+      break;
+    }
     case 'wetAsphalt': {
       fill('#f0f2f4');
       mottling(18, 'rgba(37,45,52,0.07)', 5, 16);
@@ -328,7 +344,7 @@ function roughnessTexture(kind: SurfaceKind): THREE.CanvasTexture {
       ctx.bezierCurveTo(15, y - 1.5, 34, y + 1.5, size, y - 0.5);
       ctx.stroke();
     }
-  } else if (kind === 'wetAsphalt') {
+  } else if (kind === 'wetAsphalt' || kind === 'dryAsphalt') {
     ctx.fillStyle = grey(210, 0.26);
     for (let i = 0; i < 10; i += 1) {
       ctx.beginPath();
@@ -421,6 +437,7 @@ const CONFIG: Record<SurfaceKind, { color: string; roughness: number; metalness:
   brushedMetal: { color: '#68727b', roughness: 0.34, metalness: 0.88, bump: 0.035 },
   darkGlass: { color: '#122734', roughness: 0.18, metalness: 0.56, bump: 0.02 },
   glass: { color: '#96c9d5', roughness: 0.16, metalness: 0.26, bump: 0.012 },
+  dryAsphalt: { color: '#656862', roughness: 0.96, metalness: 0.015, bump: 0.075 },
   wetAsphalt: { color: '#34383c', roughness: 0.72, metalness: 0.04, bump: 0.08 },
   sidewalk: { color: '#c9c2b6', roughness: 0.86, metalness: 0.02, bump: 0.11 },
   plasticLightbox: { color: '#e3e6e5', roughness: 0.3, metalness: 0.16, bump: 0.02 },

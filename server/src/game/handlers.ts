@@ -448,7 +448,7 @@ export const handlers: Record<string, (world: World, s: Session, d: any) => void
     const table = sp?.flying.get(d.machineId);
     if (!sp || !table || !nearInteractable(sp, s, d.machineId, ['flying'])) return;
     let error: string | null = null;
-    if (d.action === 'join') error = table.join(s);
+    if (d.action === 'join') error = table.join(s, d.colour);
     else if (d.action === 'leave') table.leave(s);
     else if (d.action === 'roll') error = table.roll(s);
     else if (d.action === 'pass') error = table.pass(s);

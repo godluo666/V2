@@ -164,7 +164,7 @@ const send = async (t, d) => {
   );
 };
 
-// ── 两人沿紧凑的一番街进入北侧电影院 ──
+// ── 两人沿结缘坂的共享弯坡路线进入星汐小剧场 ──
 for (const p of [p1, p2]) {
   const entered = await enterStreetVenue(p, 'cinema');
   if (!entered) console.log('  没能进入电影院', JSON.stringify(await state(p)));

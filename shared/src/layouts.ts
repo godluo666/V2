@@ -128,7 +128,7 @@ class B {
 
 /** Safe fallback used by archived rooms that no longer have a public façade. */
 /** 从生活主街西段进入；出生镜头沿街看向连续店面而不是正对大路口。 */
-const STREET_SPAWN: [number, number, number, number] = [-21.5, 0.08, streetCenterZ(-21.5), Math.PI / 2];
+const STREET_SPAWN: [number, number, number, number] = [-38, streetHeight(-38) + 0.08, streetCenterZ(-38), Math.PI / 2];
 
 function streetReturnFor(key: (typeof VENUES)[number]['key']): [number, number, number, number] {
   const venue = VENUES.find((candidate) => candidate.key === key);
@@ -149,8 +149,8 @@ function buildCity(): SpaceLayout {
   const b = new B();
   const bounds: Bounds = { ...CITY_BOUNDS };
 
-  // Low two- and three-storey street walls follow the shallow S bend. The
-  // south row intentionally opens around x=-5 for the tree-shaded game stall.
+  // Detailed two- and three-storey street walls follow the long S bend. The
+  // south row intentionally opens around x=-2 for the tree-shaded game stall.
   for (const building of BUILDINGS) {
     const { frontage, depth } = cityBuildingLocalSize(building);
     b.box(building.x, building.z, frontage, depth, building.h);
@@ -165,88 +165,227 @@ function buildCity(): SpaceLayout {
 
   // The flying-chess stall is outdoors, under the large courtyard tree. The
   // low rug, four cushions and machine share one server-authoritative id.
-  const flightX = -4.0, flightZ = 6.55, flightY = cozyStreetHeight(flightX);
-  b.prop('club_flying_chess', flightX, flightY, flightZ, -0.06);
+  const flightX = -2.5, flightZ = cozyStreetZ(flightX) + 9.25, flightY = cozyStreetHeight(flightX);
+  const flightSurfaceY = flightY + 0.055;
+  b.prop('club_flying_chess', flightX, flightSurfaceY, flightZ, -0.06);
   b.box(flightX, flightZ, 1.75, 1.75, 0.5);
-  b.inter('gr-flight', 'flying', flightX, flightY + 0.34, flightZ, 0, '坐到树下玩飞行棋');
+  b.inter('gr-flight', 'flying', flightX, flightSurfaceY + 0.34, flightZ, 0, '坐到树下玩飞行棋');
   for (const [x, z, ry, colour] of [
-    [flightX, flightZ - 1.85, Math.PI, 0], [flightX + 1.85, flightZ, -Math.PI / 2, 1],
-    [flightX, flightZ + 1.85, 0, 2], [flightX - 1.85, flightZ, Math.PI / 2, 3],
+    [flightX, flightZ - 1.95, Math.PI, 0], [flightX + 1.95, flightZ, -Math.PI / 2, 1],
+    [flightX, flightZ + 1.95, 0, 2], [flightX - 1.95, flightZ, Math.PI / 2, 3],
   ] as const) {
-    b.prop('chair', x, cozyStreetHeight(x), z, ry, { style: 'floor', accent: colour });
-    b.inter(`street-flight-s${colour}`, 'seat', x, cozyStreetHeight(x) + 0.3, z, ry, '围坐飞行棋');
+    b.prop('chair', x, flightSurfaceY, z, ry, { style: 'floor', accent: colour });
+    b.inter(`street-flight-s${colour}`, 'seat', x, flightSurfaceY + 0.3, z, ry, '围坐飞行棋');
   }
 
   // Everyday interaction pockets: board by the grocery, vending machine by
   // the laundry, and two shaded benches away from the moving lane.
-  b.inter('city-board', 'board', -18.0, cozyStreetHeight(-18), cozyStreetZ(-18) + 3.2, Math.PI, '结缘坂留言板', {});
-  b.box(-18.0, cozyStreetZ(-18) + 3.2, 1.55, 0.42, 2.2);
-  b.inter('v-vend1', 'vending', 12.0, cozyStreetHeight(12), cozyStreetZ(12) - 3.2, 0, '橘子汽水机', { items: ['soda', 'pizza'] });
-  b.box(12.0, cozyStreetZ(12) - 3.2, 0.8, 0.8, 1.95);
-  b.bench('sb0', -19.0, cozyStreetZ(-19) + 3.15, Math.PI, 'c_bench', cozyStreetHeight(-19));
-  b.bench('sb1', 5.2, cozyStreetZ(5.2) + 3.2, Math.PI, 'c_bench', cozyStreetHeight(5.2));
+  b.inter('city-board', 'board', -35.5, cozyStreetHeight(-35.5), cozyStreetZ(-35.5) + 4.55, Math.PI, '结缘坂留言板', {});
+  b.box(-35.5, cozyStreetZ(-35.5) + 4.55, 1.55, 0.42, 2.2);
+  b.inter('v-vend1', 'vending', 15.0, cozyStreetHeight(15), cozyStreetZ(15) - 4.55, 0, '橘子汽水机', { items: ['soda', 'pizza'] });
+  b.box(15.0, cozyStreetZ(15) - 4.55, 0.8, 0.8, 1.95);
+  b.inter('v-vend2', 'vending', 29.5, cozyStreetHeight(29.5), cozyStreetZ(29.5) + 4.5, Math.PI, '牛奶与咖啡机', { items: ['soda'] });
+  b.box(29.5, cozyStreetZ(29.5) + 4.5, 0.8, 0.8, 1.95);
+  b.bench('sb0', -29.5, cozyStreetZ(-29.5) + 4.45, Math.PI, 'c_bench', cozyStreetHeight(-29.5));
+  b.bench('sb1', 3.8, cozyStreetZ(3.8) - 4.45, 0, 'c_bench', cozyStreetHeight(3.8));
+  b.bench('sb2', 25.5, cozyStreetZ(25.5) + 4.45, Math.PI, 'c_bench', cozyStreetHeight(25.5));
+  b.bench('sb3', 37.5, cozyStreetZ(37.5) - 4.45, 0, 'c_bench', cozyStreetHeight(37.5));
 
   // Dense but human-scale shade, bikes, pots, tiny signs and utility poles.
   for (const [x, z, variant, scale] of [
-    [-23.0, cozyStreetZ(-23) - 3.25, 0, 1.08], [-8.2, 5.0, 1, 1.12], [-4.1, 8.35, 2, 1.22],
-    [6.0, cozyStreetZ(6) + 3.15, 0, 0.95], [22.8, cozyStreetZ(22.8) - 3.2, 1, 1.15],
+    [-40, cozyStreetZ(-40) - 4.55, 0, 1.08], [-31, cozyStreetZ(-31) + 4.6, 1, 1.12],
+    [-20.5, cozyStreetZ(-20.5) - 4.55, 2, 1.04], [-12.3, cozyStreetZ(-12.3) + 4.7, 0, 1.1],
+    [-2.7, flightZ + 3.25, 2, 1.3], [7.4, cozyStreetZ(7.4) + 4.55, 1, 1.02],
+    [18.5, cozyStreetZ(18.5) - 4.55, 0, 1.08], [30.5, cozyStreetZ(30.5) - 4.6, 2, 1.14],
+    [40.5, cozyStreetZ(40.5) + 4.5, 1, 1.16],
   ] as const) {
     b.prop('tree', x, cozyStreetHeight(x), z, 0, { variant, scale });
     b.circle(x, z, 0.42, 4.8 * scale);
   }
   for (const [x, z, ry] of [
-    [-19.0, cozyStreetZ(-19) - 3.15, 0.2], [-10.0, cozyStreetZ(-10) + 3.15, 2.8],
-    [3.0, cozyStreetZ(3) - 3.15, 0.3], [19.0, cozyStreetZ(19) + 3.1, 2.7],
+    [-37, cozyStreetZ(-37) - 4.4, 0.2], [-27, cozyStreetZ(-27) + 4.45, 2.8],
+    [-16.2, cozyStreetZ(-16.2) - 4.4, 0.15], [-7.0, cozyStreetZ(-7) + 4.42, 2.9],
+    [5.5, cozyStreetZ(5.5) - 4.4, 0.3], [14, cozyStreetZ(14) + 4.4, 2.7],
+    [25, cozyStreetZ(25) - 4.42, 0.2], [35.5, cozyStreetZ(35.5) + 4.4, 2.8],
   ] as const) {
     b.prop('c_bike', x, cozyStreetHeight(x), z, ry); b.circle(x, z, 0.32);
   }
   for (const [x, z] of [
-    [-11, cozyStreetZ(-11) - 3.15], [2.5, cozyStreetZ(2.5) + 3.15],
-    [13, cozyStreetZ(13) - 3.15], [-7.8, cozyStreetZ(-7.8) + 3.1],
+    [-34, cozyStreetZ(-34) - 4.45], [-23.5, cozyStreetZ(-23.5) + 4.42],
+    [-15.5, cozyStreetZ(-15.5) - 4.45], [-7.4, cozyStreetZ(-7.4) + 4.42],
+    [1.5, cozyStreetZ(1.5) - 4.45], [11.5, cozyStreetZ(11.5) + 4.42],
+    [22.5, cozyStreetZ(22.5) - 4.45], [34, cozyStreetZ(34) + 4.42],
   ] as const) {
     b.prop('c_planter', x, cozyStreetHeight(x), z); b.box(x, z, 0.8, 0.8);
   }
   for (const [x, z] of [
-    [-16.2, cozyStreetZ(-16.2) + 3.05], [-1.2, cozyStreetZ(-1.2) - 3.05],
-    [9.7, cozyStreetZ(9.7) + 3.05], [20.4, cozyStreetZ(20.4) - 3.05],
+    [-38, cozyStreetZ(-38) + 4.25], [-28, cozyStreetZ(-28) - 4.25],
+    [-18, cozyStreetZ(-18) + 4.25], [-8, cozyStreetZ(-8) - 4.25],
+    [2, cozyStreetZ(2) + 4.25], [12, cozyStreetZ(12) - 4.25],
+    [22, cozyStreetZ(22) + 4.25], [32, cozyStreetZ(32) - 4.25], [40, cozyStreetZ(40) + 4.2],
   ] as const) {
     b.prop('c_lamp', x, cozyStreetHeight(x), z);
     b.circle(x, z, 0.22, 4.8);
   }
   for (const [x, z, ry] of [
-    [-12.5, cozyStreetZ(-12.5) - 3.4, 0], [3.1, cozyStreetZ(3.1) - 3.35, 0],
-    [15.5, cozyStreetZ(15.5) + 3.4, Math.PI],
+    [-33, cozyStreetZ(-33) - 4.8, 0], [-19, cozyStreetZ(-19) + 4.8, Math.PI],
+    [-5.5, cozyStreetZ(-5.5) - 4.8, 0], [10, cozyStreetZ(10) + 4.8, Math.PI],
+    [24, cozyStreetZ(24) - 4.8, 0], [37, cozyStreetZ(37) + 4.8, Math.PI],
   ] as const) {
     b.prop('c_poster', x, cozyStreetHeight(x) + 1.35, z, ry);
   }
   for (const [x, z, ry, len] of [
-    [-20, cozyStreetZ(-20) - 3.55, Math.PI / 2, 10],
-    [-7, cozyStreetZ(-7) + 3.55, Math.PI / 2, 9],
-    [8, cozyStreetZ(8) - 3.55, Math.PI / 2, 10],
+    [-38, cozyStreetZ(-38) - 5.2, Math.PI / 2, 12],
+    [-24, cozyStreetZ(-24) + 5.2, Math.PI / 2, 12],
+    [-10, cozyStreetZ(-10) - 5.2, Math.PI / 2, 12],
+    [5, cozyStreetZ(5) + 5.2, Math.PI / 2, 12],
+    [20, cozyStreetZ(20) - 5.2, Math.PI / 2, 12],
+    [35, cozyStreetZ(35) + 5.2, Math.PI / 2, 12],
   ] as const) {
-    b.prop('c_wires', x, cozyStreetHeight(x) + 6.5, z, ry, { len, sag: 0.55, strands: 2 });
-    b.circle(x, z, 0.16, 6.8);
+    b.prop('c_wires', x, cozyStreetHeight(x) + 7.2, z, ry, { len, sag: 0.72, strands: 3 });
+    b.circle(x, z, 0.16, 7.6);
   }
 
-  // Nine shallow stone steps climb north between retaining walls. Step zones
+  // Building-service layer: meters, exterior lamps, bins, mirrors and utility
+  // hardware sit at real facade/curb heights instead of being painted details.
+  for (const [x, side, ry] of [
+    [-34.8, 1, Math.PI], [-21.4, -1, 0], [-14.9, 1, Math.PI], [-7.9, -1, 0],
+    [5.7, 1, Math.PI], [13.5, -1, 0], [26.3, 1, Math.PI], [35.2, -1, 0],
+  ] as const) {
+    b.prop('c_service_meters', x, cozyStreetHeight(x) + 1.08, cozyStreetZ(x) + side * 5.12, ry);
+  }
+  for (const [x, side, ry] of [
+    [-39.5, -1, 0], [-31.2, 1, Math.PI], [-24.8, -1, 0], [-17.2, 1, Math.PI],
+    [-6.2, -1, 0], [0.8, -1, 0], [8.5, -1, 0], [16.1, -1, 0],
+    [20.5, 1, Math.PI], [28.4, 1, Math.PI], [36.8, 1, Math.PI],
+  ] as const) {
+    b.prop('c_wall_light', x, cozyStreetHeight(x) + 2.65, cozyStreetZ(x) + side * 5.05, ry);
+  }
+  for (const [x, side, ry, type] of [
+    [-37, 1, Math.PI, 'c_trash'], [-22.8, -1, 0, 'c_recycling_station'],
+    [-8.6, 1, Math.PI, 'c_trash'], [14.5, -1, 0, 'c_recycling_station'],
+    [27.2, 1, Math.PI, 'c_trash'], [39, -1, 0, 'c_trash'],
+  ] as const) {
+    const z = cozyStreetZ(x) + side * 4.62;
+    b.prop(type, x, cozyStreetHeight(x), z, ry, { crow: false });
+    b.box(x, z, type === 'c_recycling_station' ? 1.1 : 0.65, 0.65, 1.25);
+  }
+  for (const [x, side, ry] of [
+    [-14.2, -1, 0], [3.2, 1, Math.PI], [23.8, -1, 0], [38.7, 1, Math.PI],
+  ] as const) {
+    const z = cozyStreetZ(x) + side * 4.15;
+    b.prop('c_convex_mirror', x, cozyStreetHeight(x), z, ry);
+    b.circle(x, z, 0.16, 2.7);
+  }
+  for (const [x, side] of [[-40.3, 1], [-13.8, -1], [9.5, 1], [33.2, -1]] as const) {
+    b.prop('c_reflector_post', x, cozyStreetHeight(x), cozyStreetZ(x) + side * 3.95, side > 0 ? Math.PI : 0);
+  }
+  for (const [x, side, ry] of [
+    [-27.8, -1, 0], [-4.8, 1, Math.PI], [18.2, -1, 0], [32, 1, Math.PI],
+  ] as const) {
+    b.prop('c_ac', x, cozyStreetHeight(x) + 1.05, cozyStreetZ(x) + side * 5.05, ry);
+  }
+  for (const [x, side, ry] of [
+    [-35, -1, 0], [-18, 1, Math.PI], [1, -1, 0], [21, 1, Math.PI], [38, -1, 0],
+  ] as const) {
+    b.prop('c_drain', x, cozyStreetHeight(x) + 0.07, cozyStreetZ(x) + side * 2.78, ry);
+  }
+  for (const [x, offset] of [[-26, -0.7], [-8, 0.65], [11, -0.6], [30, 0.7]] as const) {
+    b.prop('c_manhole', x, cozyStreetHeight(x) + 0.03, cozyStreetZ(x) + offset);
+  }
+
+  // Code-native foreground architecture in CozyResidentialStreet is also
+  // authoritative physical space. These compact colliders keep players from
+  // walking through visible courtyard walls, closed residential gates, shop
+  // crates or the parked delivery scooter.
+  b.box(flightX - 3.22, flightZ + 0.8, 0.28, 4.75, 1.0);
+  b.box(flightX + 3.22, flightZ + 0.8, 0.28, 4.75, 1.0);
+  b.box(flightX, flightZ + 3.18, 6.7, 0.32, 1.0);
+  for (const [x, side] of [[-32.8, -1], [23.1, -1], [4.2, 1], [36.3, 1]] as const) {
+    const z = cozyStreetZ(x) + side * 4.55;
+    b.box(x - 1.05, z + side * 0.28, 0.92, 0.28, 0.95);
+    b.box(x + 1.05, z + side * 0.28, 0.92, 0.28, 0.95);
+    b.box(x, z + side * 0.25, 1.02, 0.12, 1.35);
+  }
+  b.box(16.8, cozyStreetZ(16.8) - 3.95, 1.6, 0.58, 1.45);
+  // The visible LPG cage and neighbourhood fire cabinet are physical street
+  // furniture. Their compact footprints preserve the clear sidewalk band.
+  b.box(26.1, cozyStreetZ(26.1) - 4.72, 1.12, 0.58, 1.5);
+  b.box(-28.9, cozyStreetZ(-28.9) + 4.68, 0.82, 0.4, 1.6);
+  for (const [x, side] of [[-18.1, -1], [-9.1, 1], [32.3, -1]] as const) {
+    b.box(x, cozyStreetZ(x) + side * 4.62, 1.9, 0.66, 0.9);
+  }
+  b.box(24, cozyStreetZ(24) + 13.08, 1.05, 0.14, 2.05);
+
+  // The borrowed yard is a level 5.5cm slab laid over the street slope. Its
+  // visual top, props, seat snaps and authoritative feet share one height.
+  b.heightZones.push({
+    minX: flightX - 3.05, maxX: flightX + 3.05,
+    minZ: flightZ - 3.0, maxZ: flightZ + 3.0,
+    kind: 'deck', y: flightSurfaceY,
+  });
+
+  // Twelve shallow stone steps climb north between retaining walls. Step zones
   // precede the broad street ramp so this small branch has real walkable height.
-  const stairBase = cozyStreetHeight(-6.2);
-  for (let step = 0; step < 9; step += 1) {
-    const maxZ = -3.25 - step * 0.9;
+  const stairX = -12.4;
+  const stairBase = cozyStreetHeight(stairX);
+  const stairStartZ = cozyStreetZ(stairX) - 4.25;
+  for (let step = 0; step < 12; step += 1) {
+    const maxZ = stairStartZ - step * 0.9;
     b.heightZones.push({
-      minX: -7.25, maxX: -5.15, minZ: maxZ - 0.9, maxZ,
-      kind: 'deck', y: stairBase + step * 0.16,
+      minX: stairX - 1.28, maxX: stairX + 1.28, minZ: maxZ - 0.9, maxZ,
+      kind: 'deck', y: stairBase + step * 0.18,
     });
   }
-  b.box(-7.52, -7.3, 0.28, 8.5, 1.6);
-  b.box(-4.88, -7.3, 0.28, 8.5, 1.6);
-  b.heightZones.push({ ...CITY_BOUNDS, kind: 'ramp', dir: 'w', y: 1.6 });
+  const stairWallZ = stairStartZ - 5.25;
+  b.box(stairX - 1.62, stairWallZ, 0.3, 11.5, 2.2);
+  b.box(stairX + 1.62, stairWallZ, 0.3, 11.5, 2.2);
+  b.box(stairX, cozyStreetZ(stairX) - 15.35, 2.35, 0.28, 2.2);
+  b.heightZones.push({ ...CITY_BOUNDS, kind: 'ramp', dir: 'w', y: 2.8 });
+
+  const npcs: NpcDef[] = [
+    {
+      id: -1, name: 'Momo', dialogueId: 'greeter', speed: 0.65, pause: 7,
+      avatar: npcAvatar('#df8a78', '#705341', '#f0b7a8', '#554032', 1, '#65523d', 0),
+      waypoints: [[-35, cozyStreetZ(-35) + 3.95], [-32.8, cozyStreetZ(-32.8) + 4.0]],
+    },
+    {
+      id: -2, name: 'Sora', dialogueId: 'walker', speed: 0.82, pause: 3.5,
+      avatar: npcAvatar('#7596a3', '#4b5352', '#d6b49b', '#3d4140', 3, '#66735d', 2),
+      waypoints: [
+        [-29, cozyStreetZ(-29)], [-18, cozyStreetZ(-18)], [-6, cozyStreetZ(-6)],
+        [7, cozyStreetZ(7)], [19, cozyStreetZ(19)], [31, cozyStreetZ(31)],
+        [20, cozyStreetZ(20)], [5, cozyStreetZ(5)], [-12, cozyStreetZ(-12)],
+      ],
+    },
+    {
+      id: -3, name: 'Hana', dialogueId: 'florist', speed: 0.42, pause: 8,
+      avatar: npcAvatar('#a78273', '#65705d', '#e0bda4', '#574c43', 2, '#806c58', 1),
+      waypoints: [
+        [-7.2, cozyStreetZ(-7.2) - 4.02], [-5.6, cozyStreetZ(-5.6) - 4.05],
+      ],
+    },
+    {
+      id: -4, name: 'Yui', dialogueId: 'stairwatcher', speed: 0.5, pause: 6,
+      avatar: npcAvatar('#7e8797', '#61594f', '#d9b59d', '#4d463f', 0, '#706b58', 3),
+      waypoints: [
+        [stairX, stairStartZ - 1.2], [stairX, stairStartZ - 4.8], [stairX, stairStartZ - 8.6],
+      ],
+    },
+    {
+      id: -5, name: 'Ren', dialogueId: 'flight_regular', speed: 0.36, pause: 9,
+      avatar: npcAvatar('#70918a', '#69594c', '#d6af94', '#4b443e', 3, '#8b7458', 2),
+      waypoints: [
+        [flightX - 2.45, flightZ - 0.7], [flightX - 2.2, flightZ + 1.1],
+      ],
+    },
+  ];
 
   return {
     key: SPACE.PLAZA, label: '月汐町·结缘坂', indoor: false, bounds,
     spawn: STREET_SPAWN,
     colliders: b.colliders, interactables: b.interactables, props: b.props,
-    npcs: [], heightZones: b.heightZones, hasBall: false,
+    npcs, heightZones: b.heightZones, hasBall: false,
   };
 }
 
