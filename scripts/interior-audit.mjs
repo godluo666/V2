@@ -177,9 +177,11 @@ async function auditArena(page) {
   await face(page, -Math.PI / 2, -0.05, 4.4);
   await capture(page, 'netcafe', '10c-arena-refreshments.png', 'arena refreshments and recycling service');
 
-  await reach(page, 0, 3.0, 'arena stage apron');
-  await face(page, 0, -0.16, 9.2);
-  await capture(page, 'netcafe', '11-arena-stage-apron.png', 'arena stage apron and main screen');
+  await reach(page, 0, 6.2, 'arena central stage apron');
+  await face(page, 0, -0.18, 10.5);
+  await capture(page, 'netcafe', '11-arena-stage-apron.png', 'central 4v4 stage and four-sided audience bowl');
+  await face(page, 0, -0.34, 9.2);
+  await capture(page, 'netcafe', '11b-arena-jumbotron.png', 'eight-share overhead broadcast jumbotron');
 
   await reach(page, -11.7, 0.3, 'arena west evacuation gate');
   // Keep the camera on the competition-floor side of the portal so the
@@ -187,9 +189,10 @@ async function auditArena(page) {
   await face(page, Math.PI / 2, -0.03, 6.4);
   await capture(page, 'netcafe', '12-arena-side-gate.png', 'arena side stand evacuation gate and handrails');
 
-  await reach(page, 7.2, -11.1, 'arena screen-side maintenance route');
+  await reach(page, 0, 0, 'arena centre evacuation axis');
+  await reach(page, 0, -15.75, 'arena north-stand central maintenance route');
   await face(page, 0, 0.12, 7.2);
-  await capture(page, 'netcafe', '13-arena-screen-side.png', 'arena screen-side and host platform');
+  await capture(page, 'netcafe', '13-arena-screen-side.png', 'north stands, main wall screen and maintenance axis');
   await face(page, Math.PI, 0.03, 8.5);
   await capture(page, 'netcafe', '14-arena-return-view.png', 'arena floor looking back to concourse');
 }

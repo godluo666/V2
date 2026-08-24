@@ -47,14 +47,35 @@ export const ARENA_SPATIAL_CONTRACT = {
     height: 7.6,
   },
   stations: {
-    // Five contiguous starters form the central player bench; three reserves
-    // stay on the rear tier so nc-s0..7 interactions remain available.
-    x: [-4.4, -2.2, 0, 2.2, 4.4] as const,
-    reserveX: [-2.2, 0, 2.2] as const,
-    rowZ: [-6.3, -1.6] as const,
-    seatZ: [-5.05, -2.85] as const,
+    // Two equal four-player teams sit back-to-back at the exact arena centre.
+    // This is both the visual tournament formation and the authoritative seat
+    // contract used by collision and interaction code.
+    x: [-3.3, -1.1, 1.1, 3.3] as const,
+    rowZ: [-2.25, 2.25] as const,
+    seatZ: [-1, 1] as const,
     deckY: 0.6,
     seatY: 1.07,
+  },
+  overheadBroadcast: {
+    // Four physical faces, two independent live-share panels per face. When
+    // more than eight people share, the client pages the roster so every
+    // participant still receives a jumbo panel instead of a tiny mosaic tile.
+    center: [0, 9.1, 0] as const,
+    faceWidth: 10.4,
+    faceHeight: 4.8,
+    faceDepth: 5.1,
+    panelsPerFace: 2,
+    visibleSlots: 8,
+  },
+  endStands: {
+    z: [-1, 1] as const,
+    firstCenterZ: 10.95,
+    rowSpacing: 1.25,
+    rows: 4,
+    rowRise: 0.58,
+    segmentCentersX: [-7.05, 7.05] as const,
+    segmentLength: 10.7,
+    centralAisleWidth: 3.4,
   },
   sideStandAisles: {
     x: [-1, 1] as const,

@@ -74,7 +74,6 @@ const MATERIAL = {
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 const CYLINDER = new THREE.CylinderGeometry(1, 1, 1, 10);
-const OCTAGON = new THREE.CylinderGeometry(1, 1, 1, 8);
 
 const serviceSignTextures = new Map<'staff' | 'refreshments', THREE.CanvasTexture>();
 
@@ -299,39 +298,78 @@ function SideEventDisplay({ side, active }: { side: -1 | 1; active: boolean }) {
   );
 }
 
-function useStationVideo(seatIdx: number): THREE.VideoTexture | null {
-  const occupantId = useWorld((state) => state.seats[`nc-s${seatIdx}`]);
-  const selfId = useSession((state) => state.self?.userId);
+interface SharedVideoTextureRecord {
+  element: HTMLVideoElement;
+  texture: THREE.VideoTexture;
+  refs: number;
+}
+
+// A seated sharer is visible on both their desk monitor and one jumbo panel.
+// Reuse one HTMLVideoElement/VideoTexture per MediaStream so the arena never
+// doubles decoder work merely because the same live feed has two physical
+// display surfaces.
+const sharedVideoTextures = new Map<MediaStream, SharedVideoTextureRecord>();
+
+function acquireVideoTexture(stream: MediaStream): SharedVideoTextureRecord {
+  const existing = sharedVideoTextures.get(stream);
+  if (existing) {
+    existing.refs += 1;
+    return existing;
+  }
+  const element = document.createElement('video');
+  element.srcObject = stream;
+  element.muted = true;
+  element.playsInline = true;
+  void element.play().catch(() => undefined);
+  const texture = new THREE.VideoTexture(element);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const record = { element, texture, refs: 1 };
+  sharedVideoTextures.set(stream, record);
+  return record;
+}
+
+function releaseVideoTexture(stream: MediaStream, record: SharedVideoTextureRecord): void {
+  record.refs -= 1;
+  if (record.refs > 0) return;
+  record.texture.dispose();
+  record.element.pause();
+  record.element.srcObject = null;
+  sharedVideoTextures.delete(stream);
+}
+
+function useSessionVideo(sessionId: number | undefined): THREE.VideoTexture | null {
+  const selfUserId = useSession((state) => state.self?.userId);
+  const selfSessionId = useWorld((state) => (
+    state.roster.find((profile) => profile.userId === selfUserId)?.id
+  ));
   const screenVersion = useVoice((state) => state.screenVersion);
   const [texture, setTexture] = useState<THREE.VideoTexture | null>(null);
 
   const stream = useMemo(() => {
-    if (occupantId === undefined) return null;
-    return occupantId === selfId
+    if (sessionId === undefined) return null;
+    return sessionId === selfSessionId
       ? voice.localScreenStream
-      : voice.screenStreams.get(occupantId) ?? null;
-  }, [occupantId, selfId, screenVersion]);
+      : voice.screenStreams.get(sessionId) ?? null;
+  }, [screenVersion, selfSessionId, sessionId]);
 
   useEffect(() => {
     if (!stream) {
       setTexture(null);
       return;
     }
-    const element = document.createElement('video');
-    element.srcObject = stream;
-    element.muted = true;
-    element.playsInline = true;
-    void element.play().catch(() => undefined);
-    const next = new THREE.VideoTexture(element);
-    next.colorSpace = THREE.SRGBColorSpace;
-    setTexture(next);
+    const record = acquireVideoTexture(stream);
+    setTexture(record.texture);
     return () => {
-      next.dispose();
-      element.srcObject = null;
+      releaseVideoTexture(stream, record);
     };
   }, [stream]);
 
   return texture;
+}
+
+function useStationVideo(seatIdx: number): THREE.VideoTexture | null {
+  const occupantId = useWorld((state) => state.seats[`nc-s${seatIdx}`]);
+  return useSessionVideo(occupantId);
 }
 
 function StationScreen({ seatIdx }: { seatIdx: number }) {
@@ -575,10 +613,8 @@ export function ArenaPlayerStation({
 }) {
   const switchedOn = useWorld((state) => state.switches['nc-lights'] ?? true);
   const stationLightsOn = lightsOn ?? switchedOn;
-  // The five starters are one contiguous team bench. Seats 5–7 are the rear
-  // reserve row; keeping that split here makes the architecture and business
-  // contract communicate the same grouping in every camera direction.
-  const teamMaterial = seatIdx < 5
+  // Eight equal starters form two four-player teams on the central stage.
+  const teamMaterial = seatIdx < 4
     ? (stationLightsOn ? MATERIAL.cyan : MATERIAL.cyanDim)
     : (stationLightsOn ? MATERIAL.violet : MATERIAL.violetDim);
 
@@ -657,29 +693,36 @@ export function ArenaPlayerStation({
 /* ───────────────────────────── 看台系统 ───────────────────────────── */
 
 /**
- * Five starters share one physical competition bench. The individual station
- * props remain the interaction anchors, while this recessed spine, cable
- * chase and five service bays make the team read as one broadcast desk.
+ * Two equal four-player benches sit back-to-back at the arena centre. The
+ * individual station props remain interaction anchors, while the shared
+ * spines and cable chases make each row read as a real tournament team desk.
  */
 function CentralTeamBench({ lightsOn }: { lightsOn: boolean }) {
-  const accents = [MATERIAL.cyan, MATERIAL.cyan, MATERIAL.cyan, MATERIAL.cyan, MATERIAL.cyan];
-  const accentDim = [MATERIAL.cyanDim, MATERIAL.cyanDim, MATERIAL.cyanDim, MATERIAL.cyanDim, MATERIAL.cyanDim];
-  const activeAccents = lightsOn ? accents : accentDim;
-  const bayX = [-4.4, -2.2, 0, 2.2, 4.4];
+  const bayX = [...ARENA_SPATIAL_CONTRACT.stations.x];
   return (
-    <group name="arena-five-player-bench">
-      <Part position={[0, 0.34, -6.34]} scale={[10.85, 0.5, 0.82]} material={MATERIAL.concrete} />
-      <Part position={[0, 0.61, -6.34]} scale={[10.66, 0.1, 0.9]} material={MATERIAL.deskTop} />
-      <Part position={[0, 0.48, -6.805]} scale={[10.46, 0.38, 0.1]} material={MATERIAL.equipmentPolymer} />
-      <Part position={[0, 1.03, -6.72]} scale={[10.72, 0.18, 0.18]} material={MATERIAL.darkSteel} />
-      <Part position={[0, 0.72, -6.865]} scale={[10.42, 0.045, 0.055]} material={lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim} castShadow={false} />
-      {bayX.map((x, index) => (
-        <group key={x}>
-          <Part position={[x, 0.69, -6.8]} scale={[1.52, 0.06, 0.1]} material={activeAccents[index]} castShadow={false} />
-          <Part position={[x - 0.92, 0.42, -6.35]} scale={[0.08, 0.46, 0.72]} material={MATERIAL.steel} />
-          <Part position={[x + 0.92, 0.42, -6.35]} scale={[0.08, 0.46, 0.72]} material={MATERIAL.steel} />
-        </group>
-      ))}
+    <group name="arena-central-four-v-four-benches">
+      {ARENA_SPATIAL_CONTRACT.stations.rowZ.map((z, team) => {
+        const accent = team === 0
+          ? (lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim)
+          : (lightsOn ? MATERIAL.violet : MATERIAL.violetDim);
+        const facing = team === 0 ? 1 : -1;
+        return (
+          <group key={z} position={[0, 0, z]}>
+            <Part position={[0, 0.34, 0]} scale={[8.65, 0.5, 0.82]} material={MATERIAL.concrete} />
+            <Part position={[0, 0.61, 0]} scale={[8.46, 0.1, 0.9]} material={MATERIAL.deskTop} />
+            <Part position={[0, 0.48, facing * -0.465]} scale={[8.26, 0.38, 0.1]} material={MATERIAL.equipmentPolymer} />
+            <Part position={[0, 1.03, facing * -0.38]} scale={[8.52, 0.18, 0.18]} material={MATERIAL.darkSteel} />
+            <Part position={[0, 0.72, facing * -0.515]} scale={[8.22, 0.045, 0.055]} material={accent} castShadow={false} />
+            {bayX.map((x) => (
+              <group key={x}>
+                <Part position={[x, 0.69, facing * -0.45]} scale={[1.52, 0.06, 0.1]} material={accent} castShadow={false} />
+                <Part position={[x - 0.92, 0.42, 0]} scale={[0.08, 0.46, 0.72]} material={MATERIAL.steel} />
+                <Part position={[x + 0.92, 0.42, 0]} scale={[0.08, 0.46, 0.72]} material={MATERIAL.steel} />
+              </group>
+            ))}
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -740,12 +783,15 @@ function buildAudienceInstances() {
     }
   }
 
-  for (let row = 0; row < 4; row += 1) {
-    const z = 11.0 + row * 1.25;
-    const y = 0.35 + row * 0.58;
-    for (const [start, count] of [[-11.4, 8], [2.45, 8]] as const) {
-      for (let seat = 0; seat < count; seat += 1) {
-        addSeat(start + seat * 1.28, y, z, 0);
+  const endStands = ARENA_SPATIAL_CONTRACT.endStands;
+  for (const end of endStands.z) {
+    for (let row = 0; row < endStands.rows; row += 1) {
+      const z = end * (endStands.firstCenterZ + row * endStands.rowSpacing);
+      const y = 0.35 + row * endStands.rowRise;
+      for (const [start, count] of [[-11.4, 8], [2.45, 8]] as const) {
+        for (let seat = 0; seat < count; seat += 1) {
+          addSeat(start + seat * 1.28, y, z, end < 0 ? Math.PI : 0);
+        }
       }
     }
   }
@@ -982,16 +1028,17 @@ function UpperArenaBowl() {
 
 function TieredStands({ lightsOn }: { lightsOn: boolean }) {
   const standAisles = ARENA_SPATIAL_CONTRACT.sideStandAisles;
+  const endStands = ARENA_SPATIAL_CONTRACT.endStands;
   const edgeLight = lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim;
-  const rearLight = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
+  const endLight = lightsOn ? MATERIAL.violet : MATERIAL.violetDim;
   const sideSegments = [
     { center: -4.55, length: 7.1 },
     { center: 6.05, length: 8.7 },
   ];
-  const rearSegments = [
-    { center: -7.05, length: 10.7 },
-    { center: 7.05, length: 10.7 },
-  ];
+  const endSegments = endStands.segmentCentersX.map((center) => ({
+    center,
+    length: endStands.segmentLength,
+  }));
 
   return (
     <group>
@@ -1021,26 +1068,26 @@ function TieredStands({ lightsOn }: { lightsOn: boolean }) {
         ));
       }))}
 
-      {/* 南后场看台：中央 3.4m 保留入口与主疏散楼梯。 */}
-      {Array.from({ length: 4 }, (_, row) => {
-        const height = 0.42 + row * 0.58;
-        const z = 10.95 + row * 1.25;
-        return rearSegments.map((segment) => (
-          <group key={`${row}-${segment.center}`}>
+      {/* 南北两端镜像看台：中央各保留 3.4m 疏散/检修轴。 */}
+      {endStands.z.flatMap((end) => Array.from({ length: endStands.rows }, (_, row) => {
+        const height = 0.42 + row * endStands.rowRise;
+        const z = end * (endStands.firstCenterZ + row * endStands.rowSpacing);
+        return endSegments.map((segment) => (
+          <group key={`${end}-${row}-${segment.center}`}>
             <Part
               position={[segment.center, height / 2, z]}
               scale={[segment.length, height, 1.2]}
               material={row % 2 ? MATERIAL.painted : MATERIAL.concrete}
             />
             <Part
-              position={[segment.center, height + 0.035, z - 0.55]}
+              position={[segment.center, height + 0.035, z - end * 0.55]}
               scale={[segment.length - 0.15, 0.07, 0.08]}
-              material={rearLight}
+              material={endLight}
               castShadow={false}
             />
           </group>
         ));
-      })}
+      }))}
 
       {/* 两侧横向通道的阶梯；每级对应一层平台，不再靠隐形高度区。 */}
       {standAisles.x.flatMap((side) => Array.from({ length: standAisles.rows }, (_, step) => {
@@ -1079,6 +1126,8 @@ function TieredStands({ lightsOn }: { lightsOn: boolean }) {
       <RailRun position={[19.1, 2.72, 6.05]} length={8.7} axis="z" />
       <RailRun position={[-7.05, 2.55, 15.3]} length={10.7} axis="x" />
       <RailRun position={[7.05, 2.55, 15.3]} length={10.7} axis="x" />
+      <RailRun position={[-7.05, 2.55, -15.3]} length={10.7} axis="x" />
+      <RailRun position={[7.05, 2.55, -15.3]} length={10.7} axis="x" />
     </group>
   );
 }
@@ -1194,14 +1243,14 @@ function ArenaBroadcastPerch({ lightsOn }: { lightsOn: boolean }) {
 
 /* ─────────────────────────── 比赛台与大屏 ─────────────────────────── */
 
-const STARTER_BAY_BOUNDARIES = [-5.5, -3.3, -1.1, 1.1, 3.3, 5.5];
-const COMPETITION_DECK_JOINTS: InstanceSpec[] = STARTER_BAY_BOUNDARIES.map((x) => ({
-  position: [x, 0.3, -4.25],
-  scale: [0.1, 0.34, 9.7],
+const TEAM_BAY_BOUNDARIES = [-4.4, -2.2, 0, 2.2, 4.4];
+const COMPETITION_DECK_JOINTS: InstanceSpec[] = TEAM_BAY_BOUNDARIES.map((x) => ({
+  position: [x, 0.3, 0],
+  scale: [0.1, 0.34, 8.4],
 }));
-const STARTER_BAY_GUIDES: InstanceSpec[] = STARTER_BAY_BOUNDARIES.map((x) => ({
-  position: [x, 0.62, -4.75],
-  scale: [0.055, 0.035, 3.8],
+const TEAM_BAY_GUIDES: InstanceSpec[] = TEAM_BAY_BOUNDARIES.map((x) => ({
+  position: [x, 0.62, 0],
+  scale: [0.055, 0.035, 8.0],
 }));
 
 function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
@@ -1210,55 +1259,40 @@ function CompetitionFloor({ lightsOn }: { lightsOn: boolean }) {
   return (
     <group>
       {/*
-       * 20 × 10m 主赛台：承重基座、浮筑层、设备沟和三段入口台阶。
-       * 可行走顶面由 shared/layouts 精确镜像：主体依次为 0.40 / 0.55 /
-       * 0.60m，三组入口踏步依次为 0.24 / 0.36 / 0.51m。
+       * 场馆正中心的 20 × 10m 主赛台：承重基座、浮筑层、设备沟和
+       * 南北双向入口踏步。可行走顶面由 shared/layouts 精确镜像。
        */}
-      <Part position={[0, 0.2, -4.25]} scale={[20.2, 0.4, 10.7]} material={MATERIAL.concrete} />
-      <Part position={[0, 0.46, -4.25]} scale={[19.5, 0.18, 10.05]} material={MATERIAL.stageDeck} />
-      <Part position={[0, 0.575, -4.25]} scale={[18.6, 0.05, 9.25]} material={MATERIAL.rubber} />
-      {/* Six physical deck joints frame the five 2.2m starter bays. The old
-          four-way cyan/violet split contradicted the contiguous five-player
-          bench and made the stage read like two mirrored exhibition teams. */}
+      <Part position={[0, 0.2, 0]} scale={[20.2, 0.4, 10.1]} material={MATERIAL.concrete} />
+      <Part position={[0, 0.4, 0]} scale={[19.5, 0.3, 9.3]} material={MATERIAL.stageDeck} />
+      <Part position={[0, 0.55, 0]} scale={[18.6, 0.1, 8.5]} material={MATERIAL.rubber} />
+      {/* Five joints divide four equal bays per row and make the 4v4 symmetry
+          readable from every audience side. */}
       <InstancedParts specs={COMPETITION_DECK_JOINTS} material={MATERIAL.darkSteel} />
       <InstancedParts
-        specs={STARTER_BAY_GUIDES}
+        specs={TEAM_BAY_GUIDES}
         material={cyan}
         castShadow={false}
         receiveShadow={false}
       />
-      {[-5.4, 0, 5.4].map((x) => (
-        <group key={x}>
-          <Part position={[x, 0.12, 1.45]} scale={[3.6, 0.24, 0.65]} material={MATERIAL.concrete} />
-          <Part position={[x, 0.3, 1.18]} scale={[3.2, 0.12, 0.62]} material={MATERIAL.painted} />
-          <Part position={[x, 0.44, 0.91]} scale={[2.8, 0.14, 0.62]} material={MATERIAL.rubber} />
+      {([-1, 1] as const).flatMap((side) => [-5.4, 0, 5.4].map((x) => (
+        <group key={`${side}-${x}`}>
+          <Part position={[x, 0.12, side * 5.425]} scale={[3.6, 0.24, 0.75]} material={MATERIAL.concrete} />
+          <Part position={[x, 0.255, side * 5.05]} scale={[3.2, 0.07, 0.08]} material={side < 0 ? cyan : violet} castShadow={false} />
         </group>
-      ))}
-
-      {/* 北端颁奖/主持台以八角体块打破整片方盒轮廓。 */}
-      <mesh geometry={OCTAGON} position={[0, 0.62, -12.15]} scale={[5.6, 0.62, 3.2]} material={MATERIAL.blackMetal} castShadow receiveShadow />
-      <mesh geometry={OCTAGON} position={[0, 1.07, -12.15]} scale={[5.05, 0.32, 2.75]} material={MATERIAL.acoustic} castShadow receiveShadow />
-      <Part position={[0, 1.28, -9.85]} scale={[5.2, 0.12, 0.18]} material={cyan} castShadow={false} />
-      {[-3.2, 3.2].map((x) => (
-        <group key={x} position={[x, 1.22, -12.05]}>
-          <Part position={[0, 0.44, 0]} scale={[1.15, 0.88, 0.75]} material={MATERIAL.darkSteel} />
-          <Part position={[0, 0.93, 0.12]} scale={[1.28, 0.1, 0.9]} material={MATERIAL.steel} />
-          <Part position={[0, 0.62, 0.4]} scale={[0.78, 0.25, 0.04]} material={x < 0 ? cyan : violet} castShadow={false} />
-        </group>
-      ))}
+      )))}
 
       {/* 舞台下方可见的电缆桥架、检修盖板与两侧设备机柜。 */}
-      <Part position={[0, 0.1, -8.95]} scale={[16.8, 0.18, 0.52]} material={MATERIAL.darkSteel} />
+      <Part position={[0, 0.1, 0]} scale={[0.52, 0.18, 8.15]} material={MATERIAL.darkSteel} />
       {Array.from({ length: 12 }, (_, index) => (
         <Part
           key={index}
-          position={[-7.7 + index * 1.4, 0.205, -8.95]}
-          scale={[0.06, 0.05, 0.42]}
+          position={[0, 0.205, -3.75 + index * 0.68]}
+          scale={[0.42, 0.05, 0.06]}
           material={MATERIAL.steel}
         />
       ))}
       {[-10.6, 10.6].map((x) => (
-        <group key={x} position={[x, 0, -7.1]}>
+        <group key={x} position={[x, 0, 0]}>
           <Part position={[0, 0.7, 0]} scale={[1.45, 1.4, 2.1]} material={MATERIAL.blackMetal} />
           {[-0.38, -0.12, 0.14, 0.4].map((y) => (
             <Part key={y} position={[0, 0.72 + y, 1.06]} scale={[1.05, 0.06, 0.035]} material={MATERIAL.steel} castShadow={false} />
@@ -1481,7 +1515,6 @@ function ArenaLuminaire({
   );
 }
 
-const overheadScreenTextures = new Map<number, THREE.CanvasTexture>();
 function ScreenCable({ points }: { points: P3[] }) {
   const geometry = useMemo(() => {
     const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)));
@@ -1491,121 +1524,224 @@ function ScreenCable({ points }: { points: P3[] }) {
   return <mesh geometry={geometry} material={MATERIAL.darkSteel} castShadow receiveShadow dispose={null} />;
 }
 
-function overheadScreenTexture(index: number): THREE.CanvasTexture {
-  const cached = overheadScreenTextures.get(index);
+const broadcastPanelTextures = new Map<string, THREE.CanvasTexture>();
+const broadcastLabelTextures = new Map<string, THREE.CanvasTexture>();
+
+function broadcastPanelTexture(slot: number, name: string, live: boolean): THREE.CanvasTexture {
+  const key = `${slot}:${name}:${live ? 'live' : 'ready'}`;
+  const cached = broadcastPanelTextures.get(key);
   if (cached) return cached;
   const canvas = document.createElement('canvas');
-  canvas.width = 640;
-  canvas.height = 360;
+  canvas.width = 768;
+  canvas.height = 432;
   const ctx = canvas.getContext('2d')!;
-  const colors = ['#25d7e8', '#a67bff', '#ff4f9a', '#ffd25a'];
-  const roles = [
-    { eyebrow: 'MATCH CONTROL', hero: '00 : 00', detail: 'ROUND 01 / READY' },
-    { eyebrow: 'TEAM ROSTER', hero: '5 + 5', detail: 'STARTERS / OPPONENT' },
-    { eyebrow: 'TACTICAL VIEW', hero: 'MAP 01', detail: 'OBJECTIVE / ROUTE' },
-    { eyebrow: 'EVENT STREAM', hero: 'LIVE', detail: 'CROWD / REPLAY / DATA' },
-  ];
-  const role = roles[index] ?? roles[0];
-  const accent = colors[index % colors.length];
-  const gradient = ctx.createLinearGradient(0, 0, 640, 360);
+  const accent = slot < 4 ? '#36d8eb' : '#a277ff';
+  const gradient = ctx.createLinearGradient(0, 0, 768, 432);
   gradient.addColorStop(0, '#101724');
-  gradient.addColorStop(0.48, index % 2 ? '#271b43' : '#12343e');
+  gradient.addColorStop(0.48, slot < 4 ? '#12343e' : '#271b43');
   gradient.addColorStop(1, '#080b12');
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 640, 360);
+  ctx.fillRect(0, 0, 768, 432);
   ctx.strokeStyle = `${accent}66`;
   ctx.lineWidth = 5;
-  for (let x = -360; x < 760; x += 48) {
+  for (let x = -420; x < 900; x += 52) {
     ctx.beginPath();
-    ctx.moveTo(x, 360);
-    ctx.lineTo(x + 360, 0);
+    ctx.moveTo(x, 432);
+    ctx.lineTo(x + 432, 0);
     ctx.stroke();
   }
   ctx.fillStyle = accent;
-  ctx.fillRect(36, 38, 150, 9);
-  ctx.font = '700 30px Arial';
-  ctx.fillText(role.eyebrow, 36, 94);
-  ctx.font = '700 58px Arial';
-  ctx.fillText(role.hero, 36, 177);
-  ctx.font = '700 22px Arial';
+  ctx.fillRect(36, 38, 188, 10);
+  ctx.font = '800 30px "Segoe UI", sans-serif';
+  ctx.fillText(`LIVE SHARE ${String(slot + 1).padStart(2, '0')}`, 36, 92);
+  ctx.font = '900 64px "Segoe UI", "Noto Sans SC", sans-serif';
+  ctx.fillStyle = '#f0f8ff';
+  ctx.fillText(name.slice(0, 16), 36, 196);
+  ctx.font = '700 24px "Segoe UI", sans-serif';
   ctx.fillStyle = '#e9f4ff';
-  ctx.fillText(role.detail, 36, 226);
+  ctx.fillText(
+    live ? 'ON AIR · PERSONAL SCREEN' : name.startsWith('SHARE SLOT')
+      ? 'READY · START SCREEN SHARE'
+      : 'CONNECTING · PERSONAL SCREEN',
+    36,
+    245,
+  );
   ctx.fillStyle = `${accent}bb`;
-  const meterCount = 4 + index;
-  for (let meter = 0; meter < meterCount; meter += 1) {
-    ctx.fillRect(36 + meter * 52, 264, 34, 8 + ((meter + index) % 3) * 8);
+  for (let meter = 0; meter < 10; meter += 1) {
+    ctx.fillRect(36 + meter * 52, 304, 34, 8 + ((meter + slot) % 3) * 8);
   }
   ctx.strokeStyle = `${accent}bb`;
   ctx.lineWidth = 3;
-  ctx.strokeRect(28, 28, 584, 302);
+  ctx.strokeRect(28, 28, 712, 376);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 2;
-  overheadScreenTextures.set(index, texture);
+  texture.anisotropy = 4;
+  broadcastPanelTextures.set(key, texture);
   return texture;
 }
 
+function broadcastLabelTexture(slot: number, name: string, live: boolean): THREE.CanvasTexture {
+  const key = `${slot}:${name}:${live ? 'live' : 'waiting'}`;
+  const cached = broadcastLabelTextures.get(key);
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = 768;
+  canvas.height = 72;
+  const ctx = canvas.getContext('2d')!;
+  const accent = slot < 4 ? '#36d8eb' : '#a277ff';
+  ctx.fillStyle = '#0b111a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, 12, canvas.height);
+  ctx.fillStyle = '#eef8ff';
+  ctx.font = '800 29px "Segoe UI", "Noto Sans SC", sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${live ? '● LIVE' : '○ READY'}  ${String(slot + 1).padStart(2, '0')}  ${name.slice(0, 18)}`, 34, 36);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  broadcastLabelTextures.set(key, texture);
+  return texture;
+}
+
+function BroadcastSharePanel({
+  slot,
+  sessionId,
+  lightsOn,
+}: {
+  slot: number;
+  sessionId: number | undefined;
+  lightsOn: boolean;
+}) {
+  const profile = useWorld((state) => state.roster.find((entry) => entry.id === sessionId));
+  const video = useSessionVideo(sessionId);
+  const name = profile?.username ?? `SHARE SLOT ${String(slot + 1).padStart(2, '0')}`;
+  const idle = useMemo(
+    () => broadcastPanelTexture(slot, name, video !== null),
+    [name, slot, video],
+  );
+  const label = useMemo(
+    () => broadcastLabelTexture(slot, name, video !== null),
+    [name, slot, video],
+  );
+  const material = useMemo(() => new THREE.MeshBasicMaterial({
+    map: video ?? idle,
+    color: lightsOn ? '#ffffff' : '#727984',
+    toneMapped: false,
+  }), [idle, lightsOn, video]);
+  const labelMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+    map: label,
+    color: lightsOn ? '#ffffff' : '#727984',
+    toneMapped: false,
+  }), [label, lightsOn]);
+  useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => () => labelMaterial.dispose(), [labelMaterial]);
+
+  return (
+    <group position={[slot % 2 === 0 ? -2.46 : 2.46, 0.18, 0.31]}>
+      <Part position={[0, 0, -0.06]} scale={[4.68, 2.82, 0.16]} material={MATERIAL.equipmentPolymer} />
+      <mesh position={[0, 0.12, 0.035]} material={material} castShadow={false}>
+        <planeGeometry args={[4.42, 2.49]} />
+      </mesh>
+      <mesh position={[0, -1.29, 0.06]} material={labelMaterial} castShadow={false}>
+        <planeGeometry args={[4.42, 0.32]} />
+      </mesh>
+      <Part position={[-2.22, 0, 0.04]} scale={[0.08, 2.75, 0.08]} material={MATERIAL.steel} />
+      <Part position={[2.22, 0, 0.04]} scale={[0.08, 2.75, 0.08]} material={MATERIAL.steel} />
+    </group>
+  );
+}
+
+const OVERHEAD_CENTRE = ARENA_SPATIAL_CONTRACT.overheadBroadcast.center;
+const OVERHEAD_FACE_WIDTH = ARENA_SPATIAL_CONTRACT.overheadBroadcast.faceWidth;
+const OVERHEAD_FACE_HEIGHT = ARENA_SPATIAL_CONTRACT.overheadBroadcast.faceHeight;
+const OVERHEAD_HALF_WIDTH = OVERHEAD_FACE_WIDTH / 2 - 0.05;
+const OVERHEAD_HALF_DEPTH = ARENA_SPATIAL_CONTRACT.overheadBroadcast.faceDepth / 2;
 const OVERHEAD_SCREENS: Array<{ position: P3; ry: number }> = [
-  { position: [0, 9.55, -0.55], ry: 0 },
-  { position: [3.9, 9.55, -2.5], ry: Math.PI / 2 },
-  { position: [0, 9.55, -4.45], ry: Math.PI },
-  { position: [-3.9, 9.55, -2.5], ry: -Math.PI / 2 },
+  { position: [OVERHEAD_CENTRE[0], OVERHEAD_CENTRE[1], OVERHEAD_CENTRE[2] + OVERHEAD_HALF_DEPTH], ry: 0 },
+  { position: [OVERHEAD_CENTRE[0] + OVERHEAD_HALF_WIDTH, OVERHEAD_CENTRE[1], OVERHEAD_CENTRE[2]], ry: Math.PI / 2 },
+  { position: [OVERHEAD_CENTRE[0], OVERHEAD_CENTRE[1], OVERHEAD_CENTRE[2] - OVERHEAD_HALF_DEPTH], ry: Math.PI },
+  { position: [OVERHEAD_CENTRE[0] - OVERHEAD_HALF_WIDTH, OVERHEAD_CENTRE[1], OVERHEAD_CENTRE[2]], ry: -Math.PI / 2 },
 ];
 const OVERHEAD_SCREEN_CABLES: P3[][] = ([-1, 1] as const).flatMap((xSide) => (
   [-1, 1] as const
 ).map((zSide) => [
-  [xSide * 3.82, 12.72, -2.5 + zSide * 1.88],
-  [xSide * 3.82, 11.5, -2.5 + zSide * 1.88],
-  [xSide * 3.72, 10.95, -2.5 + zSide * 1.78],
+  [xSide * (OVERHEAD_HALF_WIDTH - 0.2), 12.72, zSide * (OVERHEAD_HALF_DEPTH - 0.2)],
+  [xSide * (OVERHEAD_HALF_WIDTH - 0.2), 11.5, zSide * (OVERHEAD_HALF_DEPTH - 0.2)],
+  [xSide * (OVERHEAD_HALF_WIDTH - 0.33), 10.85, zSide * (OVERHEAD_HALF_DEPTH - 0.33)],
 ] as P3[]));
 
 function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
+  const screenRoster = useWorld((state) => state.screenRoster);
+  const roster = useWorld((state) => state.roster);
+  const capacity = ARENA_SPATIAL_CONTRACT.overheadBroadcast.visibleSlots;
+  const orderedSharers = useMemo(() => {
+    const rosterOrder = new Map(roster.map((profile, index) => [profile.id, index]));
+    return [...screenRoster].sort((a, b) => (
+      (rosterOrder.get(a) ?? Number.MAX_SAFE_INTEGER)
+      - (rosterOrder.get(b) ?? Number.MAX_SAFE_INTEGER)
+    ));
+  }, [roster, screenRoster]);
+  const pageCount = Math.max(1, Math.ceil(orderedSharers.length / capacity));
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount - 1));
+    if (pageCount <= 1) return undefined;
+    const timer = window.setInterval(() => {
+      setPage((current) => (current + 1) % pageCount);
+    }, 12_000);
+    return () => window.clearInterval(timer);
+  }, [pageCount]);
+
+  const visibleSharers = Array.from({ length: capacity }, (_, slot) => (
+    orderedSharers[page * capacity + slot]
+  ));
+
   return (
-    <group name="arena-four-sided-scoreboard">
-      {/* A four-sided suspended scoreboard serves the U-shaped audience bowl.
-          Each face has a dedicated housing/content layer, while a rectangular
-          carrier ring and four corner drops provide an observable load path. */}
-      {[-3.9, 3.9].map((x) => (
-        <Part key={`carrier-x-${x}`} position={[x, 11.55, -2.5]} scale={[0.22, 0.22, 4.1]} material={MATERIAL.steel} />
+    <group name="arena-eight-share-jumbotron">
+      {/* Four giant faces serve the complete arena bowl. Each face carries two
+          independent live WebRTC shares (eight at once); overflow pages every
+          twelve seconds so no participant is reduced to a station-size view. */}
+      {[-OVERHEAD_HALF_WIDTH, OVERHEAD_HALF_WIDTH].map((x) => (
+        <Part key={`carrier-x-${x}`} position={[x, 11.55, 0]} scale={[0.22, 0.22, ARENA_SPATIAL_CONTRACT.overheadBroadcast.faceDepth + 0.1]} material={MATERIAL.steel} />
       ))}
-      {[-4.45, -0.55].map((z) => (
-        <Part key={`carrier-z-${z}`} position={[0, 11.55, z]} scale={[8.0, 0.22, 0.22]} material={MATERIAL.steel} />
+      {[-OVERHEAD_HALF_DEPTH, OVERHEAD_HALF_DEPTH].map((z) => (
+        <Part key={`carrier-z-${z}`} position={[0, 11.55, z]} scale={[OVERHEAD_FACE_WIDTH + 0.1, 0.22, 0.22]} material={MATERIAL.steel} />
       ))}
-      <Part position={[0, 11.72, -2.5]} scale={[8.25, 0.14, 0.34]} material={MATERIAL.darkSteel} />
-      <Part position={[0, 11.72, -2.5]} rotation={[0, Math.PI / 2, 0]} scale={[4.25, 0.14, 0.34]} material={MATERIAL.darkSteel} />
+      <Part position={[0, 11.72, 0]} scale={[10.7, 0.14, 0.34]} material={MATERIAL.darkSteel} />
+      <Part position={[0, 11.72, 0]} rotation={[0, Math.PI / 2, 0]} scale={[5.35, 0.14, 0.34]} material={MATERIAL.darkSteel} />
       {([-1, 1] as const).flatMap((xSide) => ([-1, 1] as const).map((zSide) => (
         <group key={`scoreboard-drop-${xSide}-${zSide}`}>
           <CylinderPart
-            position={[xSide * 3.82, 12.12, -2.5 + zSide * 1.88]}
+            position={[xSide * (OVERHEAD_HALF_WIDTH - 0.2), 12.12, zSide * (OVERHEAD_HALF_DEPTH - 0.2)]}
             scale={[0.055, 1.14, 0.055]}
             material={MATERIAL.steel}
           />
           <Part
-            position={[xSide * 3.82, 12.66, -2.5 + zSide * 1.88]}
+            position={[xSide * (OVERHEAD_HALF_WIDTH - 0.2), 12.66, zSide * (OVERHEAD_HALF_DEPTH - 0.2)]}
             scale={[0.42, 0.12, 0.42]}
             material={MATERIAL.darkSteel}
           />
         </group>
       )))}
-      <Part position={[0, 9.55, -2.5]} scale={[7.16, 2.9, 3.5]} material={MATERIAL.blackMetal} />
+      <Part position={[...OVERHEAD_CENTRE]} scale={[OVERHEAD_FACE_WIDTH - 0.5, OVERHEAD_FACE_HEIGHT - 0.48, ARENA_SPATIAL_CONTRACT.overheadBroadcast.faceDepth - 0.3]} material={MATERIAL.blackMetal} />
       {OVERHEAD_SCREENS.map((screen, index) => {
         const accent = index % 2 === 0 ? (lightsOn ? MATERIAL.cyan : MATERIAL.cyanDim) : (lightsOn ? MATERIAL.violet : MATERIAL.violetDim);
         return (
           <group key={`scoreboard-face-${index}`} position={screen.position} rotation={[0, screen.ry, 0]}>
-            <group rotation={[0.1, 0, 0]}>
-              <Part position={[0, 0, 0]} scale={[7.62, 3.62, 0.42]} material={MATERIAL.blackMetal} />
-              <Part position={[0, 1.87, 0.08]} scale={[7.82, 0.14, 0.28]} material={MATERIAL.steel} />
-              <Part position={[0, -1.87, 0.08]} scale={[7.82, 0.14, 0.28]} material={MATERIAL.steel} />
-              {[-3.86, 3.86].map((x) => (
-                <Part key={x} position={[x, 0, 0.08]} scale={[0.14, 3.66, 0.28]} material={MATERIAL.steel} />
+            <group rotation={[0.06, 0, 0]}>
+              <Part position={[0, 0, 0]} scale={[OVERHEAD_FACE_WIDTH - 0.05, OVERHEAD_FACE_HEIGHT - 0.05, 0.42]} material={MATERIAL.blackMetal} />
+              <Part position={[0, OVERHEAD_FACE_HEIGHT / 2 + 0.05, 0.08]} scale={[OVERHEAD_FACE_WIDTH + 0.15, 0.14, 0.28]} material={MATERIAL.steel} />
+              <Part position={[0, -OVERHEAD_FACE_HEIGHT / 2 - 0.05, 0.08]} scale={[OVERHEAD_FACE_WIDTH + 0.15, 0.14, 0.28]} material={MATERIAL.steel} />
+              {[-OVERHEAD_FACE_WIDTH / 2 - 0.06, OVERHEAD_FACE_WIDTH / 2 + 0.06].map((x) => (
+                <Part key={x} position={[x, 0, 0.08]} scale={[0.14, OVERHEAD_FACE_HEIGHT, 0.28]} material={MATERIAL.steel} />
               ))}
-              <mesh position={[0, 0, 0.235]} castShadow={false}>
-                <planeGeometry args={[7.24, 3.22]} />
-                <meshBasicMaterial map={overheadScreenTexture(index)} toneMapped={false} side={THREE.DoubleSide} />
-              </mesh>
-              <Part position={[0, -2.13, 0.02]} scale={[3.1, 0.14, 0.22]} material={MATERIAL.darkSteel} />
+              <BroadcastSharePanel slot={index * 2} sessionId={visibleSharers[index * 2]} lightsOn={lightsOn} />
+              <BroadcastSharePanel slot={index * 2 + 1} sessionId={visibleSharers[index * 2 + 1]} lightsOn={lightsOn} />
+              <Part position={[0, -2.73, 0.02]} scale={[4.1, 0.14, 0.22]} material={MATERIAL.darkSteel} />
               {[-0.9, 0, 0.9].map((x) => (
-                <Part key={x} position={[x, -2.14, 0.145]} scale={[0.56, 0.05, 0.05]} material={accent} castShadow={false} />
+                <Part key={x} position={[x, -2.74, 0.145]} scale={[0.56, 0.05, 0.05]} material={accent} castShadow={false} />
               ))}
             </group>
           </group>
@@ -1620,24 +1756,24 @@ function OverheadScreenArray({ lightsOn }: { lightsOn: boolean }) {
 
 function OverheadRig({ lightsOn }: { lightsOn: boolean }) {
   const mounts: Array<{ position: P3; color: 'cyan' | 'violet' | 'pink' }> = [
-    { position: [-8, 11.35, -8.0], color: 'cyan' },
-    { position: [-3, 11.35, -8.0], color: 'violet' },
-    { position: [3, 11.35, -8.0], color: 'cyan' },
-    { position: [8, 11.35, -8.0], color: 'pink' },
-    { position: [-8, 11.62, 4.6], color: 'violet' },
-    { position: [-3, 11.62, 4.6], color: 'cyan' },
-    { position: [3, 11.62, 4.6], color: 'pink' },
-    { position: [8, 11.62, 4.6], color: 'violet' },
+    { position: [-8, 11.35, -6], color: 'cyan' },
+    { position: [-3, 11.35, -6], color: 'violet' },
+    { position: [3, 11.35, -6], color: 'cyan' },
+    { position: [8, 11.35, -6], color: 'pink' },
+    { position: [-8, 11.62, 6], color: 'violet' },
+    { position: [-3, 11.62, 6], color: 'cyan' },
+    { position: [3, 11.62, 6], color: 'pink' },
+    { position: [8, 11.62, 6], color: 'violet' },
   ];
   return (
     <group>
-      <TrussSpan position={[0, 12.0, -8.0]} length={20} axis="x" />
-      <TrussSpan position={[0, 12.27, 4.6]} length={20} axis="x" />
-      <TrussSpan position={[-10, 12.14, -1.7]} length={12.6} axis="z" />
-      <TrussSpan position={[10, 12.14, -1.7]} length={12.6} axis="z" />
+      <TrussSpan position={[0, 12.0, -6]} length={20} axis="x" />
+      <TrussSpan position={[0, 12.27, 6]} length={20} axis="x" />
+      <TrussSpan position={[-10, 12.14, 0]} length={12.6} axis="z" />
+      <TrussSpan position={[10, 12.14, 0]} length={12.6} axis="z" />
 
       {/* 吊杆、吊点夹具与安全链一直连接到 12.6m 顶棚。 */}
-      {([-10, 10] as const).flatMap((x) => [-8.0, 4.6].map((z) => (
+      {([-10, 10] as const).flatMap((x) => [-6, 6].map((z) => (
         <group key={`${x}-${z}`}>
           <CylinderPart position={[x, 12.56, z]} scale={[0.055, 0.78, 0.055]} material={MATERIAL.steel} />
           <Part position={[x, 12.92, z]} scale={[0.5, 0.14, 0.5]} material={MATERIAL.darkSteel} />
@@ -1652,7 +1788,7 @@ function OverheadRig({ lightsOn }: { lightsOn: boolean }) {
 
       {/* 顶部双路电缆桥架，包含实体侧帮、横撑和下引线。 */}
       {[-1.05, 1.05].map((x) => (
-        <group key={x} position={[x, 12.66, -1.7]}>
+        <group key={x} position={[x, 12.66, 0]}>
           <Part position={[-0.28, 0, 0]} scale={[0.08, 0.18, 12.4]} material={MATERIAL.darkSteel} />
           <Part position={[0.28, 0, 0]} scale={[0.08, 0.18, 12.4]} material={MATERIAL.darkSteel} />
           {Array.from({ length: 8 }, (_, index) => (
@@ -1831,7 +1967,7 @@ export function ArenaHallArchitecture({
       {/* 非霓虹主照明：比赛区、观众区与后场均保留可读暗部。 */}
       {lightsOn && lightBudget > 0 && (
         <>
-          <pointLight position={[0, 10.8, -2.4]} color="#eef1ee" intensity={24} distance={34} decay={1.68} />
+          <pointLight position={[0, 10.8, 0]} color="#eef1ee" intensity={24} distance={34} decay={1.68} />
           {(lightBudget === 2 || lightBudget >= 4) && (
             <pointLight position={[0, 8.8, 11.6]} color="#e5d9cb" intensity={9} distance={19} decay={1.9} />
           )}

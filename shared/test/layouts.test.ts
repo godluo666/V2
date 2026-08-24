@@ -355,7 +355,7 @@ describe('三个场馆室内基线', () => {
     }
   });
 
-  it('电竞观战馆扩建为 42 × 34 米赛事空间，保留 8 个机位和共享大屏', () => {
+  it('电竞观战馆是四面看台包围中央 4v4 赛台，并为每位共享者提供导播大屏', () => {
     const arena = LAYOUTS[SPACE.NETCAFE];
     expect(arena.bounds).toEqual(ARENA_SPATIAL_CONTRACT.bounds);
     expect(arena.mediaPolicy).toBe('everyone');
@@ -366,6 +366,18 @@ describe('三个场馆室内基线', () => {
       .filter((p) => ['arena_staff_desk', 'arena_service_bar'].includes(p.type))
       .every((p) => Math.abs(p.pos[0]) > 10.5 && p.pos[2] > 2.5)).toBe(true);
     expect(arena.interactables.filter((i) => /^nc-s\d+$/.test(i.id))).toHaveLength(8);
+    const stations = arena.props.filter((p) => p.type === 'nc_station');
+    expect(stations.filter((station) => station.pos[2] === ARENA_SPATIAL_CONTRACT.stations.rowZ[0]))
+      .toHaveLength(4);
+    expect(stations.filter((station) => station.pos[2] === ARENA_SPATIAL_CONTRACT.stations.rowZ[1]))
+      .toHaveLength(4);
+    expect([...new Set(stations.map((station) => station.pos[0]))].sort((a, b) => a - b))
+      .toEqual([...ARENA_SPATIAL_CONTRACT.stations.x]);
+    expect(ARENA_SPATIAL_CONTRACT.stations.rowZ[0] + ARENA_SPATIAL_CONTRACT.stations.rowZ[1]).toBe(0);
+    expect(ARENA_SPATIAL_CONTRACT.overheadBroadcast.visibleSlots).toBe(8);
+    expect(ARENA_SPATIAL_CONTRACT.overheadBroadcast.panelsPerFace).toBe(2);
+    expect(ARENA_SPATIAL_CONTRACT.endStands.z).toEqual([-1, 1]);
+    expect(ARENA_SPATIAL_CONTRACT.endStands.rows).toBe(4);
     const arenaScreen = arena.interactables.find((i) => i.id === ARENA_SPATIAL_CONTRACT.screen.id)!;
     expect(arenaScreen.kind).toBe('screen');
     expect(arenaScreen.pos).toEqual(ARENA_SPATIAL_CONTRACT.screen.position);
@@ -374,15 +386,14 @@ describe('三个场馆室内基线', () => {
       height: ARENA_SPATIAL_CONTRACT.screen.height,
     });
     const standAisles = ARENA_SPATIAL_CONTRACT.sideStandAisles;
-    expect(arena.heightZones).toHaveLength(12 + standAisles.x.length * standAisles.rows);
+    expect(arena.heightZones).toHaveLength(3 + 6 + standAisles.x.length * standAisles.rows);
 
-    // 主舞台三层完成面和入口三段踏步必须与 ArenaHallArchitecture 的
-    // BoxGeometry 顶面完全一致，避免角色脚底在近景中悬空。
+    // 中央主舞台三层完成面和南北双向登台踏步必须与客户端几何一致。
     expect(floorHeightAt(arena, 0, 0)).toBeCloseTo(0.6, 6);
-    expect(floorHeightAt(arena, 0, 0.5)).toBeCloseTo(0.55, 6);
-    expect(floorHeightAt(arena, 0, 0.95)).toBeCloseTo(0.51, 6);
-    expect(floorHeightAt(arena, 0, 1.35)).toBeCloseTo(0.36, 6);
-    expect(floorHeightAt(arena, 0, 1.65)).toBeCloseTo(0.24, 6);
+    expect(floorHeightAt(arena, 0, 4.45)).toBeCloseTo(0.55, 6);
+    expect(floorHeightAt(arena, 0, 4.85)).toBeCloseTo(0.4, 6);
+    expect(floorHeightAt(arena, 0, 5.4)).toBeCloseTo(0.24, 6);
+    expect(floorHeightAt(arena, 0, -5.4)).toBeCloseTo(0.24, 6);
     for (const station of arena.props.filter((p) => p.type === 'nc_station')) {
       expect(floorHeightAt(arena, station.pos[0], station.pos[2])).toBeCloseTo(station.pos[1], 6);
     }
@@ -395,8 +406,13 @@ describe('三个场馆室内基线', () => {
         )).toBeCloseTo(standAisles.firstRise + row * standAisles.rowRise, 6);
       }
     }
+    for (const end of ARENA_SPATIAL_CONTRACT.endStands.z) {
+      const z = end * 13;
+      expect(resolveCollisions(-10.65, z, 0.34, arena.colliders)).not.toEqual([-10.65, z]);
+      expect(resolveCollisions(0, z, 0.34, arena.colliders)).toEqual([0, z]);
+    }
 
-    // 主屏背壳有碰撞，但主持台后仍保留一条真实可走的检修通道；
+    // 主屏背壳有碰撞，但北看台中轴仍保留一条真实可走的检修通道；
     // 玩家无需穿模即可进入客户端 3.4m / 服务端 5m 的互动范围。
     const screen = arenaScreen;
     const screenApproach: [number, number] = [0, -15.75];

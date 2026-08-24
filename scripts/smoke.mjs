@@ -382,20 +382,33 @@ if (enteredArena && (await state(arenaPage)).space === 'netcafe') {
   const reachedArenaApron = await walkTo(arenaPage, arenaApron.x, arenaApron.z, 16_000, 0.8);
   check('esports stage close-view route reached the shared arena apron', reachedArenaApron);
   let arenaCloseCaptured = false;
+  let arenaJumbotronCaptured = false;
   if (reachedArenaApron) {
     arenaCloseCaptured = await captureEvidence(
       arenaPage, 'arena-stage-close-desktop.png', 'esports stage close view', 'netcafe',
     );
+    await arenaPage.evaluate(() => {
+      window.__nx.hot.camera.yaw = 0;
+      window.__nx.hot.camera.pitch = -0.32;
+      window.__nx.hot.camera.dist = 10.5;
+      window.__nx.hot.camera.mode = 'third';
+    });
+    await arenaPage.waitForTimeout(650);
+    arenaJumbotronCaptured = await captureEvidence(
+      arenaPage, 'arena-jumbotron-desktop.png', 'eight-share overhead jumbotron', 'netcafe',
+    );
   } else {
     check('esports stage close view cloud screenshot captured', false);
+    check('eight-share overhead jumbotron cloud screenshot captured', false);
   }
-  arenaEvidenceCaptured = arenaWideCaptured && reachedArenaApron && arenaCloseCaptured;
+  arenaEvidenceCaptured = arenaWideCaptured && reachedArenaApron && arenaCloseCaptured && arenaJumbotronCaptured;
 } else {
   console.log('  esports arena evidence skipped', JSON.stringify(await state(arenaPage)));
   check('esports arena desktop cloud screenshot captured', false);
   check('esports stage close view cloud screenshot captured', false);
+  check('eight-share overhead jumbotron cloud screenshot captured', false);
 }
-check('esports arena wide and close evidence captured', arenaEvidenceCaptured);
+check('esports arena wide, stage and jumbotron evidence captured', arenaEvidenceCaptured);
 if (arenaBrowser) await closeBrowser(arenaBrowser);
 await closeBrowser(cinemaBrowser);
 

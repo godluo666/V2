@@ -53,6 +53,6 @@ describe('graphical flying-chess interaction presentation', () => {
     expect(streetAudit).toContain("await reach(page, -38, streetZ(-38), 'west street terminus');");
     expect(streetAudit).toContain("await reach(page, 38, streetZ(38), 'east street terminus');");
     expect(cloudWorkflow).toContain('scripts/street-audit.mjs');
-    expect(cloudWorkflow).toContain('Twenty-one required visual-evidence frames');
+    expect(cloudWorkflow).toContain('Twenty-two required visual-evidence frames');
   });
 });

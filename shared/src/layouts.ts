@@ -738,34 +738,38 @@ function buildNetcafe(): SpaceLayout {
     { width: arenaScreen.width, height: arenaScreen.height },
   );
 
-  // 八个原有业务机位移入中央多层赛台；保留 nc-s0..7 和 seatIdx 协议。
-  const mainCols = ARENA_SPATIAL_CONTRACT.stations.x;
-  const reserveCols = ARENA_SPATIAL_CONTRACT.stations.reserveX;
-  mainCols.forEach((x, i) => {
+  // 八个业务机位改为中央 4v4 背靠背赛台；两队完全等量，不再把三席
+  // 降格成靠后的“替补排”。保留 nc-s0..7 和 seatIdx 协议。
+  const teamCols = ARENA_SPATIAL_CONTRACT.stations.x;
+  teamCols.forEach((x, i) => {
     b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 0, { row: 0, seatIdx: i });
     b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[0], 1.85, 0.9, 2.5);
     b.inter(`nc-s${i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[0], Math.PI, '进入选手席');
   });
-  reserveCols.forEach((x, i) => {
-    b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], Math.PI, { row: 1, seatIdx: 5 + i });
+  teamCols.forEach((x, i) => {
+    b.prop('nc_station', x, ARENA_SPATIAL_CONTRACT.stations.deckY, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], Math.PI, { row: 1, seatIdx: 4 + i });
     b.box(x, ARENA_SPATIAL_CONTRACT.stations.rowZ[1], 1.85, 0.9, 2.5);
-    b.inter(`nc-s${5 + i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[1], 0, '进入选手席');
+    b.inter(`nc-s${4 + i}`, 'seat', x, ARENA_SPATIAL_CONTRACT.stations.seatY, ARENA_SPATIAL_CONTRACT.stations.seatZ[1], 0, '进入选手席');
   });
 
   // CompetitionFloor 的真实可行走顶面。floorHeightAt 按声明顺序命中，
   // 因此从高到低登记重叠体块，始终得到画面中实际露出的最高表面。
-  // index 0 固定为主赛台 0.60m 完成面；云端近景路线以此推导台口。
-  b.heightZones.push({ minX: -9.3, maxX: 9.3, minZ: -8.875, maxZ: 0.375, kind: 'deck', y: 0.6 });
-  b.heightZones.push({ minX: -9.75, maxX: 9.75, minZ: -9.275, maxZ: 0.775, kind: 'deck', y: 0.55 });
-  for (const x of [-5.4, 0, 5.4]) {
-    b.heightZones.push({ minX: x - 1.4, maxX: x + 1.4, minZ: 0.6, maxZ: 1.22, kind: 'deck', y: 0.51 });
-  }
-  b.heightZones.push({ minX: -10.1, maxX: 10.1, minZ: -9.6, maxZ: 1.1, kind: 'deck', y: 0.4 });
-  for (const x of [-5.4, 0, 5.4]) {
-    b.heightZones.push({ minX: x - 1.6, maxX: x + 1.6, minZ: 0.87, maxZ: 1.49, kind: 'deck', y: 0.36 });
-  }
-  for (const x of [-5.4, 0, 5.4]) {
-    b.heightZones.push({ minX: x - 1.8, maxX: x + 1.8, minZ: 1.125, maxZ: 1.775, kind: 'deck', y: 0.24 });
+  // index 0 固定为场馆正中心的 0.60m 完成面；外缘依次降至
+  // 0.55 / 0.40m，并在南北两侧各留三组 0.24m 登台踏步。
+  b.heightZones.push({ minX: -9.3, maxX: 9.3, minZ: -4.25, maxZ: 4.25, kind: 'deck', y: 0.6 });
+  b.heightZones.push({ minX: -9.75, maxX: 9.75, minZ: -4.65, maxZ: 4.65, kind: 'deck', y: 0.55 });
+  b.heightZones.push({ minX: -10.1, maxX: 10.1, minZ: -5.05, maxZ: 5.05, kind: 'deck', y: 0.4 });
+  for (const side of [-1, 1]) {
+    for (const x of [-5.4, 0, 5.4]) {
+      b.heightZones.push({
+        minX: x - 1.8,
+        maxX: x + 1.8,
+        minZ: side < 0 ? -5.8 : 5.05,
+        maxZ: side < 0 ? -5.05 : 5.8,
+        kind: 'deck',
+        y: 0.24,
+      });
+    }
   }
   // The visible east/west evacuation stairs are walkable architecture, not
   // decorative stand faces. Register every tread so server movement and the
@@ -795,17 +799,19 @@ function buildNetcafe(): SpaceLayout {
   // 中央 x=-1.7..1.7 保留从入口通往赛台的 3.4m 主疏散轴。
   b.box(-10.65, 13.0, 17.9, 5.3, 3.35);
   b.box(10.65, 13.0, 17.9, 5.3, 3.35);
-  // 北端八角主持台使用紧包围盒；两侧仍各有 4.5m 通路前往主屏。
-  b.box(0, -12.15, 11.2, 6.4, 4.2);
+  // 北侧补齐与南侧镜像的逐级看台；中轴同样留出 3.4m 主屏检修与
+  // 疏散通道，形成真正四周包围中央选手区的赛事碗体。
+  b.box(-10.65, -13.0, 17.9, 5.3, 3.35);
+  b.box(10.65, -13.0, 17.9, 5.3, 3.35);
 
-  // 主屏墙仅封闭 0.28m 厚的背壳；与主持台之间保留 1.35m 实体净距，
-  // 玩家可由两侧绕到屏前，并在 nc-wall 的 5m 服务端互动范围内停留。
+  // 主屏墙仅封闭 0.28m 厚的背壳；北看台中央轴直达屏前检修带，
+  // 玩家无需穿过座席即可进入 nc-wall 的 5m 服务端互动范围。
   b.box(0, -16.84, 24.6, 0.28, 13.0);
   for (const x of [-12.15, 12.15]) b.box(x, -16.72, 0.7, 1.05, 12.0);
   // 折角侧屏只为落地检修柱生成旋转后的紧 AABB，不封死屏幕下方空间。
   for (const x of [-15.86, 15.86]) b.box(x, -14.83, 0.6, 0.96, 10.0);
   // CompetitionFloor 两侧的实体设备机柜。
-  for (const x of [-10.6, 10.6]) b.box(x, -7.1, 1.45, 2.1, 1.7);
+  for (const x of [-10.6, 10.6]) b.box(x, 0, 1.45, 2.1, 1.7);
 
   // 后场解说席、控制室和机柜由赛事建筑模块统一建模，中轴保持入口至赛台净空。
   // Staff and refreshment services occupy the two narrow side bands between

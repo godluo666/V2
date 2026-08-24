@@ -19,6 +19,7 @@ const requiredEvidence = new Map([
   ['cinema-highest-row-desktop.png', desktop],
   ['arena-desktop.png', desktop],
   ['arena-stage-close-desktop.png', desktop],
+  ['arena-jumbotron-desktop.png', desktop],
   ['party-hall-wide-desktop.png', desktop],
   ['party-hall-desktop.png', desktop],
   ['01-spawn-east.png', audit],
