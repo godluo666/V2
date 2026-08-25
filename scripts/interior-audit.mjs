@@ -210,9 +210,9 @@ async function auditGameroom(page) {
   await face(page, 0, -0.02, 5.8);
   await capture(page, 'gameroom', '21-club-lounge.png', 'club lounge and activity-room depth');
 
-  await reach(page, 7.2, 0, 'club tabletop aisle');
+  await reach(page, 7.2, 0, 'club activity aisle');
   await face(page, Math.PI / 2, -0.02, 6.2);
-  await capture(page, 'gameroom', '22-club-tabletop-zone.png', 'club tabletop games and central aisle');
+  await capture(page, 'gameroom', '22-club-activity-zone.png', 'club Xiangqi and central activity aisle');
 
   await reach(page, -7.3, -4.4, 'club stage apron');
   await face(page, -0.62, -0.02, 5.9);

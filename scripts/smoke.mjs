@@ -1,7 +1,7 @@
 /**
  * Cloud-only multiplayer journey for the current one-street / three-venue scope.
  * It verifies chat, the Dango party hall, authoritative Xiangqi, the flying-chess
- * seating area, and a cinema seat on the highest physical riser.
+ * full-scale outdoor flying-chess rug, and a cinema seat on the highest physical riser.
  */
 import { chromium } from 'playwright';
 import {
@@ -172,6 +172,28 @@ if (reachedOutdoorFlight) {
     return nx.world.getState().flying['gr-flight']?.players[2]?.id === nx.hot.selfId;
   }, undefined, { timeout: 8_000, polling: 100 }).then(() => true).catch(() => false);
   check('outdoor board accepted the selected yellow hangar', joinedOutdoorFlight);
+  if (joinedOutdoorFlight) {
+    await p1.evaluate(() => window.__nx.connection.send('flight_action', {
+      machineId: 'gr-flight', action: 'roll',
+    }));
+    const rolled = await p1.waitForFunction(() => {
+      const game = window.__nx.world.getState().flying['gr-flight'];
+      return game?.dice != null ? { dice: game.dice, legalMoves: game.legalMoves } : false;
+    }, undefined, { timeout: 8_000, polling: 100 }).then((handle) => handle.jsonValue()).catch(() => null);
+    check('physical street-stall die produced an authoritative roll', !!rolled && rolled.dice >= 1 && rolled.dice <= 6);
+    if (rolled) {
+      await p1.evaluate(({ canMove }) => window.__nx.connection.send('flight_action', {
+        machineId: 'gr-flight', action: canMove ? 'move' : 'pass', ...(canMove ? { pawn: 0 } : {}),
+      }), { canMove: rolled.legalMoves.includes(0) });
+      const resolved = await p1.waitForFunction(() => (
+        window.__nx.world.getState().flying['gr-flight']?.dice == null
+      ), undefined, { timeout: 8_000, polling: 100 }).then(() => true).catch(() => false);
+      check('physical pawn move or pass resolved on the shared board', resolved);
+    }
+  } else {
+    check('physical street-stall die produced an authoritative roll', false);
+    check('physical pawn move or pass resolved on the shared board', false);
+  }
   await captureEvidence(p1, 'street-flight-stall-desktop.png', '树下实体飞行棋近景', 'plaza');
   await p1.evaluate(() => window.__nx.connection.send('flight_action', {
     machineId: 'gr-flight', action: 'leave',
@@ -222,11 +244,9 @@ if (p1InPartyHall) {
 const partyApproaches = await p1.evaluate(() => {
   const interactables = window.__nx.layouts.gameroom?.interactables ?? [];
   const xqSeat = interactables.find((candidate) => candidate.id === 'gr-xq-s0');
-  const flightSeat = interactables.find((candidate) => candidate.id === 'gr-flight-s0');
-  if (!xqSeat || !flightSeat) throw new Error('Missing shared party-hall game-table seats');
+  if (!xqSeat) throw new Error('Missing shared party-hall Xiangqi seat');
   return {
     xq: { x: xqSeat.pos[0], z: xqSeat.pos[2] },
-    flight: { x: flightSeat.pos[0], z: flightSeat.pos[2] },
   };
 });
 let xqRoutesReached = true;
@@ -259,22 +279,11 @@ const xq = await p2.evaluate(() => {
 check('party-hall Xiangqi move reached the other player', xq.pawn === 'P' && xq.turn === 1);
 
 await p1.evaluate(() => window.__nx.connection.send('game_leave', { machineId: 'gr-xq' }));
-const reachedFlyingChess = await walkTo(p1, partyApproaches.flight.x, partyApproaches.flight.z, 12_000, 0.75);
-const usedFlyingChessSeat = reachedFlyingChess && await interactWhenPrompt(
-  p1, '飞行棋', partyApproaches.flight.x, partyApproaches.flight.z,
-);
-check(
-  'flying-chess table has a physically reached usable surrounding seat',
-  reachedFlyingChess && usedFlyingChessSeat && (await state(p1)).seatId?.startsWith('gr-flight-s'),
-);
-// Exercise the same authoritative stand confirmation used by venue exits. A
-// raw one-frame Space press can be missed by low-FPS SwiftShader and leaves the
-// close evidence showing the avatar embedded in the occupied chair.
-const stoodAfterFlyingChess = await prepareWorldInput(p1);
-check(
-  'flying-chess player stands through an authoritative non-Sit snapshot',
-  stoodAfterFlyingChess && (await state(p1)).seatId == null,
-);
+check('party hall contains no duplicate flying-chess prop or interaction', await p1.evaluate(() => {
+  const layout = window.__nx.layouts.gameroom;
+  return !layout.props.some((prop) => prop.type === 'club_flying_chess')
+    && !layout.interactables.some((item) => item.kind === 'flying');
+}));
 await closeBrowser(p2Browser);
 if ((await state(p1)).space === 'gameroom') {
   await captureEvidence(p1, 'party-hall-desktop.png', 'party hall desktop', 'gameroom');

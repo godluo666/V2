@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 const styles = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 const panel = readFileSync(new URL('../src/ui/GamePanelsCn.tsx', import.meta.url), 'utf8');
+const physicalBoard = readFileSync(new URL('../src/world3d/prefabs/clubInteriors.tsx', import.meta.url), 'utf8');
+const sharedLayouts = readFileSync(new URL('../../shared/src/layouts.ts', import.meta.url), 'utf8');
 const cloudSmoke = readFileSync(new URL('../../scripts/smoke.mjs', import.meta.url), 'utf8');
 const streetAudit = readFileSync(new URL('../../scripts/street-audit.mjs', import.meta.url), 'utf8');
 const evidenceValidator = readFileSync(new URL('../../scripts/validate-evidence.mjs', import.meta.url), 'utf8');
@@ -30,6 +32,17 @@ describe('graphical flying-chess interaction presentation', () => {
   it('makes the physical street-stall screenshot mandatory cloud evidence', () => {
     expect(cloudSmoke).toContain("'street-flight-stall-desktop.png'");
     expect(evidenceValidator).toContain("['street-flight-stall-desktop.png', desktop]");
+  });
+
+  it('uses one walkable full-scale physical rug instead of a miniature duplicate table', () => {
+    expect(physicalBoard).toContain('scale={[5.12, 0.07, 5.12]}');
+    expect(physicalBoard).toContain('transform.scale.set(0.145, 0.02, 0.145)');
+    expect(physicalBoard).toContain('<boxGeometry args={[0.5, 0.5, 0.5]} />');
+    expect(physicalBoard).toContain('game?.pawns.flatMap');
+    expect(sharedLayouts.match(/b\.prop\('club_flying_chess'/g)).toHaveLength(1);
+    expect(sharedLayouts).not.toContain('b.box(flightX, flightZ,');
+    expect(cloudSmoke).toContain("machineId: 'gr-flight', action: 'roll'");
+    expect(cloudSmoke).toContain("canMove ? 'move' : 'pass'");
   });
 
   it('requires the rebuilt curve, termini, stairs, courtyard and service alley audit views', () => {

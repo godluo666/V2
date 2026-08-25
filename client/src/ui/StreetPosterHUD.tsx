@@ -24,7 +24,7 @@ const VENUE_COPY: Record<VenueKey, {
   gameroom: {
     index: '02',
     eyebrow: 'DANGO CLUB',
-    detail: '象棋 / 飞行棋 / 社团活动',
+    detail: '象棋 / 手作 / 社团活动',
     action: '杂货店旁',
   },
   netcafe: {

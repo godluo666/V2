@@ -391,25 +391,27 @@ export function ClubStage({ position, ry }: { position: P3; ry: number }) {
 
 const FLIGHT_TRACK_CELL = new THREE.CylinderGeometry(1, 1, 1, 10);
 const FLIGHT_HOME_SOCKET = new THREE.TorusGeometry(1, 0.14, 6, 14);
-const FLIGHT_BOARD_TOP = 0.305;
-const FLIGHT_TRACK_Y = FLIGHT_BOARD_TOP + 0.012;
-const FLIGHT_PAWN_Y = FLIGHT_BOARD_TOP + 0.06;
+// Full-scale floor game: one model unit is roughly one metre. Every coordinate
+// below belongs to the five-metre street rug, rather than a miniature table.
+const FLIGHT_BOARD_TOP = 0.085;
+const FLIGHT_TRACK_Y = FLIGHT_BOARD_TOP + 0.02;
+const FLIGHT_PAWN_Y = FLIGHT_BOARD_TOP + 0.105;
 const FLIGHT_HOME_CENTRES: Array<[number, number]> = [
-  [-0.42, -0.42], [0.42, -0.42], [0.42, 0.42], [-0.42, 0.42],
+  [-1.22, -1.22], [1.22, -1.22], [1.22, 1.22], [-1.22, 1.22],
 ];
 const FLIGHT_HOME_OFFSETS: Array<[number, number]> = [
-  [-0.075, -0.075], [0.075, -0.075], [-0.075, 0.075], [0.075, 0.075],
+  [-0.24, -0.24], [0.24, -0.24], [-0.24, 0.24], [0.24, 0.24],
 ];
 
 function globalFlightTrackPoint(cell: number): P3 {
   const normalized = ((cell % 52) + 52) % 52;
   const side = Math.floor(normalized / 13);
   const step = normalized % 13;
-  const along = -0.48 + step * 0.08;
-  if (side === 0) return [along, FLIGHT_PAWN_Y, -0.58];
-  if (side === 1) return [0.58, FLIGHT_PAWN_Y, along];
-  if (side === 2) return [-along, FLIGHT_PAWN_Y, 0.58];
-  return [-0.58, FLIGHT_PAWN_Y, -along];
+  const along = -1.56 + step * 0.26;
+  if (side === 0) return [along, FLIGHT_PAWN_Y, -1.82];
+  if (side === 1) return [1.82, FLIGHT_PAWN_Y, along];
+  if (side === 2) return [-along, FLIGHT_PAWN_Y, 1.82];
+  return [-1.82, FLIGHT_PAWN_Y, -along];
 }
 
 function flightTrackPoint(colour: number, progress: number): P3 {
@@ -418,7 +420,7 @@ function flightTrackPoint(colour: number, progress: number): P3 {
 
 function flightGoalPoint(colour: number, progress: number): P3 {
   const lane = Math.max(0, Math.min(3, progress - 52));
-  const edge = 0.42 - lane * 0.105;
+  const edge = 1.18 - lane * 0.28;
   if (colour === 0) return [0, FLIGHT_PAWN_Y, -edge];
   if (colour === 1) return [edge, FLIGHT_PAWN_Y, 0];
   if (colour === 2) return [0, FLIGHT_PAWN_Y, edge];
@@ -439,21 +441,21 @@ function FlightDice({ value, active, onRoll }: { value: number | null; active: b
     group.rotation.x = 0.06 + impulse * Math.sin(clock.elapsedTime * 22) * 0.55;
     group.rotation.y = -0.18 + impulse * Math.sin(clock.elapsedTime * 17 + 1.2) * 1.2;
     group.rotation.z = 0.04 + impulse * Math.cos(clock.elapsedTime * 19) * 0.48;
-    group.position.y = 0.46 + impulse * 0.15 + (active ? Math.sin(clock.elapsedTime * 2.2) * 0.012 : 0);
+    group.position.y = 0.37 + impulse * 0.18 + (active ? Math.sin(clock.elapsedTime * 2.2) * 0.016 : 0);
     const pulse = active ? 1 + Math.sin(clock.elapsedTime * 3.2) * 0.025 : 1;
     group.scale.setScalar(pulse);
   });
   const shown = value ?? 1;
   const pipLayout: Record<number, Array<[number, number]>> = {
     1: [[0, 0]],
-    2: [[-0.1, -0.1], [0.1, 0.1]],
-    3: [[-0.11, -0.11], [0, 0], [0.11, 0.11]],
-    4: [[-0.1, -0.1], [0.1, -0.1], [-0.1, 0.1], [0.1, 0.1]],
-    5: [[-0.11, -0.11], [0.11, -0.11], [0, 0], [-0.11, 0.11], [0.11, 0.11]],
-    6: [[-0.1, -0.12], [-0.1, 0], [-0.1, 0.12], [0.1, -0.12], [0.1, 0], [0.1, 0.12]],
+    2: [[-0.13, -0.13], [0.13, 0.13]],
+    3: [[-0.14, -0.14], [0, 0], [0.14, 0.14]],
+    4: [[-0.13, -0.13], [0.13, -0.13], [-0.13, 0.13], [0.13, 0.13]],
+    5: [[-0.14, -0.14], [0.14, -0.14], [0, 0], [-0.14, 0.14], [0.14, 0.14]],
+    6: [[-0.13, -0.15], [-0.13, 0], [-0.13, 0.15], [0.13, -0.15], [0.13, 0], [0.13, 0.15]],
   };
   return (
-    <group ref={root} position={[0.91, 0.46, -0.92]} rotation={[0.06, -0.18, 0.04]}>
+    <group ref={root} position={[0, 0.37, 0]} rotation={[0.06, -0.18, 0.04]}>
       <mesh
         material={active ? paper : cream}
         castShadow
@@ -461,14 +463,14 @@ function FlightDice({ value, active, onRoll }: { value: number | null; active: b
         onPointerOver={() => { if (active) document.body.style.cursor = 'pointer'; }}
         onPointerOut={() => { document.body.style.cursor = 'default'; }}
       >
-        <boxGeometry args={[0.38, 0.38, 0.38]} />
+        <boxGeometry args={[0.5, 0.5, 0.5]} />
       </mesh>
       {pipLayout[shown].map(([x, z], index) => (
-        <mesh key={index} position={[x, 0.198, z]} material={ink}>
-          <sphereGeometry args={[0.028, 10, 6]} />
+        <mesh key={index} position={[x, 0.258, z]} material={ink}>
+          <sphereGeometry args={[0.04, 10, 6]} />
         </mesh>
       ))}
-      {active && <pointLight color="#ffd18a" intensity={0.5} distance={1.8} position={[0, 0.38, 0]} />}
+      {active && <pointLight color="#ffd18a" intensity={0.75} distance={2.6} position={[0, 0.45, 0]} />}
     </group>
   );
 }
@@ -483,12 +485,11 @@ function FlyingChessTrack({ materials }: { materials: THREE.Material[] }) {
         // Display colours alternate around the shared circuit. This matches
         // the server's `relative progress % 4` jump rule for every start.
         const [x, , z] = globalFlightTrackPoint(trackCellForColour(colour, step));
-        // Track cells sit just above the low board surface; the pawn centre is
-        // deliberately only a few centimetres higher so seated players can
-        // read each cell and the moving piece never floats over the rug.
+        // Thick stitched appliqués make every space readable as real geometry
+        // from a walking avatar's eye level, even without opening the HUD.
         transform.position.set(x, FLIGHT_TRACK_Y, z);
         transform.rotation.set(0, 0, 0);
-        transform.scale.set(0.034, 0.012, 0.034);
+        transform.scale.set(0.145, 0.02, 0.145);
         transform.updateMatrix();
         mesh.setMatrixAt(step, transform.matrix);
       }
@@ -525,10 +526,10 @@ function FlyingChessHomeSockets({ materials }: { materials: THREE.Material[] }) 
     refs.current.forEach((mesh, colour) => {
       if (!mesh) return;
       for (let pawn = 0; pawn < 4; pawn += 1) {
-        const [x, y, z] = flightHomePoint(colour, pawn);
-        transform.position.set(x, y - 0.016, z);
+        const [x, , z] = flightHomePoint(colour, pawn);
+        transform.position.set(x, FLIGHT_TRACK_Y + 0.014, z);
         transform.rotation.set(Math.PI / 2, 0, 0);
-        transform.scale.setScalar(0.055);
+        transform.scale.setScalar(0.19);
         transform.updateMatrix();
         mesh.setMatrixAt(pawn, transform.matrix);
       }
@@ -570,44 +571,54 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
   const canPass = myTurn && game?.dice !== null && game.legalMoves.length === 0;
   return (
     <group position={position} rotation={[0, ry, 0]}>
-      {/* A woven floor-stall mat makes this a sit-down street game rather than
-          another dining table. The four cushions are rendered once from the
-          shared `chair(style=floor)` props so their geometry and seat anchors
-          cannot drift or overlap this board prefab. */}
-      <SculptedPart position={[0, 0.04, 0]} scale={[3.35, 0.08, 3.35]} material={rug} />
-      <SculptedPart position={[0, 0.09, 0]} scale={[3.02, 0.025, 3.02]} material={rugEdge} castShadow={false} />
-      {/* The game is played directly on the rug: a low padded timber board
-          replaces the old dining-height table, leaving all four floor cushions
-          around the edge and keeping every pawn visible from a seated view. */}
-      <SculptedPart position={[0, 0.16, 0]} scale={[1.62, 0.13, 1.62]} material={darkWood} />
-      <SculptedPart position={[0, 0.245, 0]} scale={[1.5, 0.09, 1.5]} material={wood} />
-      <SculptedPart position={[0, 0.295, 0]} scale={[1.28, 0.035, 1.28]} material={cream} />
-      {/* The whole cloth is a real join target. The server still checks that
-          the avatar is within interaction range before accepting the click. */}
+      {/* This is the board: a five-metre, padded canvas rug laid directly on
+          the street-stall deck. There is no hidden tabletop or collision box,
+          so players can step onto the circuit and stand beside their pieces. */}
+      <SculptedPart position={[0, 0.035, 0]} scale={[5.12, 0.07, 5.12]} material={rug} />
+      <SculptedPart position={[0, 0.074, 0]} scale={[4.92, 0.018, 4.92]} material={cream} castShadow={false} />
+      {colors.map((material, colour) => {
+        const x = colour === 0 || colour === 3 ? -1.25 : 1.25;
+        const z = colour < 2 ? -1.25 : 1.25;
+        return (
+          <SculptedPart
+            key={`woven-quadrant-${colour}`}
+            position={[x, 0.087, z]}
+            scale={[2.34, 0.018, 2.34]}
+            material={material}
+            castShadow={false}
+          />
+        );
+      })}
+      {/* Raised cream cross and dark piping are sewn pieces, not a pasted
+          board image. They separate four hangars while preserving cloth depth. */}
+      <SculptedPart position={[0, 0.1, 0]} scale={[0.34, 0.025, 4.72]} material={cream} castShadow={false} />
+      <SculptedPart position={[0, 0.101, 0]} scale={[4.72, 0.025, 0.34]} material={cream} castShadow={false} />
+      {[-2.43, 2.43].flatMap((v) => [
+        <mesh key={`rug-edge-x-${v}`} position={[v, 0.1, 0]} material={darkWood} receiveShadow>
+          <boxGeometry args={[0.045, 0.025, 4.86]} />
+        </mesh>,
+        <mesh key={`rug-edge-z-${v}`} position={[0, 0.101, v]} material={darkWood} receiveShadow>
+          <boxGeometry args={[4.86, 0.025, 0.045]} />
+        </mesh>,
+      ])}
+      {/* The cloth itself is the join target. It remains below every raised
+          die, pawn and cell so those physical controls always win ray-casting. */}
       <mesh
-        position={[0, 0.33, 0]}
+        position={[0, 0.055, 0]}
         onPointerDown={(event) => { event.stopPropagation(); if (canJoin) send('join'); }}
         onPointerOver={() => { if (canJoin) document.body.style.cursor = 'pointer'; }}
         onPointerOut={() => { document.body.style.cursor = 'default'; }}
       >
-        <boxGeometry args={[1.55, 0.08, 1.55]} />
+        <boxGeometry args={[5.02, 0.04, 5.02]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      {[-0.56, 0.56].flatMap((v) => [
-        <mesh key={`h-${v}`} position={[0, FLIGHT_BOARD_TOP + 0.025, v]} material={darkWood}>
-          <boxGeometry args={[1.08, 0.018, 0.022]} />
-        </mesh>,
-        <mesh key={`v-${v}`} position={[v, FLIGHT_BOARD_TOP + 0.026, 0]} material={darkWood}>
-          <boxGeometry args={[0.022, 0.018, 1.08]} />
-        </mesh>,
-      ])}
       <FlyingChessTrack materials={colors} />
       <FlyingChessHomeSockets materials={colors} />
       {colors.flatMap((material, colour) => Array.from({ length: 4 }, (_, lane) => {
-        const [x, y, z] = flightGoalPoint(colour, 52 + lane);
+        const [x, , z] = flightGoalPoint(colour, 52 + lane);
         return (
-          <mesh key={`goal-${colour}-${lane}`} position={[x, y - 0.046, z]} material={material}>
-            <cylinderGeometry args={[0.035, 0.035, 0.012, 12]} />
+          <mesh key={`goal-${colour}-${lane}`} position={[x, FLIGHT_TRACK_Y + 0.01, z]} material={material}>
+            <cylinderGeometry args={[0.15, 0.15, 0.025, 12]} />
           </mesh>
         );
       }))}
@@ -615,12 +626,12 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           arrival diamond. They are geometry on the board, not a flat texture. */}
       {colors.map((material, colour) => {
         const angle = colour * Math.PI / 2;
-        const x = Math.sin(angle) * 0.13;
-        const z = -Math.cos(angle) * 0.13;
+        const x = Math.sin(angle) * 0.34;
+        const z = -Math.cos(angle) * 0.34;
         return (
           <group key={`centre-inlay-${colour}`} position={[x, FLIGHT_BOARD_TOP + 0.013, z]} rotation={[Math.PI / 2, 0, -angle]}>
             <mesh material={material} receiveShadow>
-              <circleGeometry args={[0.145, 3]} />
+              <circleGeometry args={[0.39, 3]} />
             </mesh>
           </group>
         );
@@ -629,7 +640,7 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
         const start = flightTrackPoint(colour, 0);
         const home = FLIGHT_HOME_CENTRES[colour];
         return Array.from({ length: 3 }, (_, dash) => {
-          const amount = 0.32 + dash * 0.17;
+          const amount = 0.3 + dash * 0.18;
           return (
             <SculptedPart
               key={`takeoff-dash-${colour}-${dash}`}
@@ -638,7 +649,7 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
                 FLIGHT_BOARD_TOP + 0.017,
                 home[1] + (start[2] - home[1]) * amount,
               ]}
-              scale={[0.07, 0.012, 0.035]}
+              scale={[0.2, 0.018, 0.07]}
               rotation={[0, -colour * Math.PI / 2, 0]}
               material={material}
               castShadow={false}
@@ -659,11 +670,11 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
             position={[x, FLIGHT_BOARD_TOP + 0.008, z]}
             material={colors[i]}
           >
-            <cylinderGeometry args={[0.23, 0.23, 0.018, 20]} />
+            <cylinderGeometry args={[0.55, 0.55, 0.025, 20]} />
           </mesh>
           {chooseColour && me < 0 && (
             <mesh position={[x, FLIGHT_BOARD_TOP + 0.026, z]} rotation={[Math.PI / 2, 0, 0]} material={paper}>
-              <torusGeometry args={[0.255, 0.014, 8, 24]} />
+              <torusGeometry args={[0.61, 0.025, 8, 24]} />
             </mesh>
           )}
         </group>
@@ -676,7 +687,7 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
         const base = progress < 0
           ? flightHomePoint(colour, pawn)
           : progress >= game.finish
-          ? [((pawn % 2) - 0.5) * 0.18, FLIGHT_PAWN_Y, (Math.floor(pawn / 2) - 0.5) * 0.18] as P3
+          ? [((pawn % 2) - 0.5) * 0.68, FLIGHT_PAWN_Y, (Math.floor(pawn / 2) - 0.5) * 0.68] as P3
           : progress >= 52
           ? flightGoalPoint(colour, progress)
           : flightTrackPoint(colour, progress);
@@ -684,9 +695,9 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           ? pawns.slice(0, pawn).filter((other) => other === progress).length
           : 0;
         const p: P3 = [
-          base[0] + (stack % 2 ? 0.035 : stack > 0 ? -0.035 : 0),
-          base[1] + stack * 0.022,
-          base[2] + (stack > 1 ? 0.035 : 0),
+          base[0] + (stack % 2 ? 0.1 : stack > 0 ? -0.1 : 0),
+          base[1] + stack * 0.06,
+          base[2] + (stack > 1 ? 0.1 : 0),
         ];
         const selectable = myTurn && colour === me && game.dice !== null && game.legalMoves.includes(pawn);
         return (
@@ -700,20 +711,20 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
           >
             {selectable && (
               <mesh position={[0, -0.044, 0]} rotation={[Math.PI / 2, 0, 0]} material={paper}>
-                <torusGeometry args={[0.115, 0.018, 8, 20]} />
+                <torusGeometry args={[0.3, 0.035, 8, 20]} />
               </mesh>
             )}
             <mesh material={colors[colour]} castShadow scale={[0.72, 1, 1.08]}>
-              <cylinderGeometry args={[0.072, 0.088, 0.075, 12]} />
+              <cylinderGeometry args={[0.18, 0.22, 0.19, 12]} />
             </mesh>
-            <mesh position={[0, 0.078, 0]} material={colors[colour]} castShadow scale={[0.72, 0.85, 1.15]}>
-              <sphereGeometry args={[0.066, 12, 8]} />
+            <mesh position={[0, 0.19, 0]} material={colors[colour]} castShadow scale={[0.72, 0.85, 1.15]}>
+              <sphereGeometry args={[0.16, 12, 8]} />
             </mesh>
-            <mesh position={[0, 0.067, 0]} material={paper} castShadow>
-              <boxGeometry args={[0.19, 0.022, 0.055]} />
+            <mesh position={[0, 0.16, 0]} material={paper} castShadow>
+              <boxGeometry args={[0.46, 0.05, 0.13]} />
             </mesh>
-            <mesh position={[0, 0.076, -0.075]} rotation={[-Math.PI / 2, 0, 0]} material={colors[colour]} castShadow>
-              <coneGeometry args={[0.045, 0.11, 8]} />
+            <mesh position={[0, 0.18, -0.18]} rotation={[-Math.PI / 2, 0, 0]} material={colors[colour]} castShadow>
+              <coneGeometry args={[0.1, 0.25, 8]} />
             </mesh>
           </group>
         );
@@ -723,12 +734,12 @@ export function FlyingChessTable({ position, ry }: { position: P3; ry: number })
         active={canRoll || canPass}
         onRoll={() => send(canPass ? 'pass' : 'roll')}
       />
-      {/* 两只收纳盒放在地毯边缘，实际下棋时不会藏在桌板下面。 */}
-      {[-0.92, 0.92].map((x, i) => (
-        <group key={`game-box-${x}`} position={[x, 0.15, 0.12]} rotation={[0, i ? -0.05 : 0.05, 0]}>
-          <SculptedPart position={[0, 0, 0]} scale={[0.34, 0.13, 0.44]} material={i ? blue : red} />
-          <SculptedPart position={[0, 0.08, 0]} scale={[0.36, 0.035, 0.46]} material={paper} />
-          <SculptedPart position={[0, 0.01, 0.23]} scale={[0.1, 0.07, 0.025]} material={gold} castShadow={false} />
+      {/* Two lidded piece crates sit at the cloth edge as tangible stall gear. */}
+      {[-2.16, 2.16].map((x, i) => (
+        <group key={`game-box-${x}`} position={[x, 0.19, 0.72]} rotation={[0, i ? -0.05 : 0.05, 0]}>
+          <SculptedPart position={[0, 0, 0]} scale={[0.48, 0.18, 0.62]} material={i ? blue : red} />
+          <SculptedPart position={[0, 0.11, 0]} scale={[0.5, 0.045, 0.64]} material={paper} />
+          <SculptedPart position={[0, 0.01, 0.325]} scale={[0.13, 0.09, 0.03]} material={gold} castShadow={false} />
         </group>
       ))}
     </group>

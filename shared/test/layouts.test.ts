@@ -86,6 +86,14 @@ describe('月汐町·结缘坂坐标契约', () => {
     expect(city.interactables.some((item) => item.id === 'gr-flight' && item.kind === 'flying')).toBe(true);
     expect(city.interactables.filter((item) => item.id.startsWith('street-flight-s'))).toHaveLength(4);
     expect(city.props.some((prop) => prop.type === 'club_flying_chess')).toBe(true);
+    expect(Object.values(LAYOUTS).flatMap((layout) => layout.props)
+      .filter((prop) => prop.type === 'club_flying_chess')).toHaveLength(1);
+    const flight = city.interactables.find((item) => item.id === 'gr-flight')!;
+    expect(city.colliders.some((collider) => (
+      collider.kind === 'box'
+      && Math.abs(collider.x - flight.pos[0]) < 0.1
+      && Math.abs(collider.z - flight.pos[2]) < 0.1
+    ))).toBe(false);
   });
 
   it('街上严格只开放原有三个场馆入口，门和新街路线共用坐标', () => {
@@ -144,7 +152,7 @@ describe('月汐町·结缘坂坐标契约', () => {
     expect(topStep.maxZ - topStep.minZ).toBeCloseTo(1.08, 5);
     expect(floorHeightAt(city, -12.4, topStep.minZ + 0.03)).toBeCloseTo(topStep.y, 5);
     const flight = city.interactables.find((item) => item.id === 'gr-flight')!;
-    expect(floorHeightAt(city, flight.pos[0], flight.pos[2])).toBeCloseTo(flight.pos[1] - 0.34, 5);
+    expect(floorHeightAt(city, flight.pos[0], flight.pos[2])).toBeCloseTo(flight.pos[1] - 0.14, 5);
   });
 
   it('店前、石阶和树下棋摊都有可抵达的生活角色与对话停留点', () => {
@@ -256,7 +264,7 @@ describe('结缘坂可走性', () => {
     expect(gate).toBeDefined();
   });
 
-  it('树下棋院四席与十二级坡梯顶端都能从主街真实走到', () => {
+  it('树下超大棋毯、四席与十二级坡梯顶端都能从主街真实走到', () => {
     const flight = city.interactables.find((item) => item.id === 'gr-flight')!;
     const flightSeats = city.interactables.filter((item) => item.id.startsWith('street-flight-s'));
     const streetEntry: [number, number] = [flight.pos[0], streetCenterZ(flight.pos[0]) + 5.75];
@@ -275,6 +283,13 @@ describe('结缘坂可走性', () => {
       ]);
       expect(near(p, seat.pos[0], seat.pos[2], 0.5), seat.id).toBe(true);
     }
+    const rugCentre = march(city, [
+      [city.spawn[0], city.spawn[2]],
+      [flight.pos[0], streetCenterZ(flight.pos[0])],
+      streetEntry,
+      [flight.pos[0], flight.pos[2]],
+    ]);
+    expect(near(rugCentre, flight.pos[0], flight.pos[2], 0.45)).toBe(true);
 
     const stairX = -12.4;
     const firstStepZ = streetCenterZ(stairX) - 4.7;
@@ -428,12 +443,12 @@ describe('三个场馆室内基线', () => {
     expect(near(reachedScreen, ...screenApproach)).toBe(true);
   });
 
-  it('团子轰趴馆是温馨社团活动室，含象棋与飞行棋围坐区', () => {
+  it('团子轰趴馆保留室内象棋，并且不再重复摆放飞行棋', () => {
     const club = LAYOUTS[SPACE.GAMEROOM];
     expect(club.bounds).toEqual({ minX: -12, maxX: 12, minZ: -9, maxZ: 9 });
     expect(club.interactables.filter((i) => i.kind === 'riichi')).toHaveLength(0);
     expect(club.interactables.find((i) => i.id === 'gr-xq')?.kind).toBe('xiangqi');
-    expect(club.interactables.filter((i) => i.id.startsWith('gr-flight-s'))).toHaveLength(4);
+    expect(club.interactables.filter((i) => i.kind === 'flying' || i.id.startsWith('gr-flight'))).toHaveLength(0);
     expect(club.interactables.filter((i) => i.id.startsWith('gr-craft-s'))).toHaveLength(2);
     expect(club.props.filter((p) => p.type === 'club_sofa')).toHaveLength(2);
     expect(club.props.find((p) => p.type === 'club_storage')?.data).toMatchObject({
@@ -442,7 +457,6 @@ describe('三个场馆室内基线', () => {
     for (const prop of [
       'club_rug',
       'club_stage',
-      'club_flying_chess',
       'club_craft_table',
       'club_trophy_wall',
       'club_storage',
@@ -450,6 +464,7 @@ describe('三个场馆室内基线', () => {
     ]) {
       expect(club.props.some((p) => p.type === prop), prop).toBe(true);
     }
+    expect(club.props.some((p) => p.type === 'club_flying_chess')).toBe(false);
   });
 
   it('三个场馆的大型实体为第三人称镜头声明真实高度', () => {

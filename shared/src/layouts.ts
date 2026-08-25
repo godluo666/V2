@@ -163,16 +163,16 @@ function buildCity(): SpaceLayout {
     );
   }
 
-  // The flying-chess stall is outdoors, under the large courtyard tree. The
-  // low rug, four cushions and machine share one server-authoritative id.
+  // The only flying-chess board in the world is this outdoor street stall.
+  // Its five-metre cloth is intentionally collider-free so avatars can walk
+  // onto the physical circuit and operate the die and pieces at close range.
   const flightX = -2.5, flightZ = cozyStreetZ(flightX) + 9.25, flightY = cozyStreetHeight(flightX);
   const flightSurfaceY = flightY + 0.055;
   b.prop('club_flying_chess', flightX, flightSurfaceY, flightZ, -0.06);
-  b.box(flightX, flightZ, 1.75, 1.75, 0.5);
-  b.inter('gr-flight', 'flying', flightX, flightSurfaceY + 0.34, flightZ, 0, '坐到树下玩飞行棋');
+  b.inter('gr-flight', 'flying', flightX, flightSurfaceY + 0.14, flightZ, 0, '走上超大棋毯玩飞行棋');
   for (const [x, z, ry, colour] of [
-    [flightX, flightZ - 1.95, Math.PI, 0], [flightX + 1.95, flightZ, -Math.PI / 2, 1],
-    [flightX, flightZ + 1.95, 0, 2], [flightX - 1.95, flightZ, Math.PI / 2, 3],
+    [flightX, flightZ - 2.8, Math.PI, 0], [flightX + 2.8, flightZ, -Math.PI / 2, 1],
+    [flightX, flightZ + 2.8, 0, 2], [flightX - 2.8, flightZ, Math.PI / 2, 3],
   ] as const) {
     b.prop('chair', x, flightSurfaceY, z, ry, { style: 'floor', accent: colour });
     b.inter(`street-flight-s${colour}`, 'seat', x, flightSurfaceY + 0.3, z, ry, '围坐飞行棋');
@@ -857,7 +857,7 @@ function buildGameroom(): SpaceLayout {
     accent: number,
     label: string,
   ) => {
-    b.prop('chair', x, 0, z, ry, { style: id.startsWith('gr-flight-') ? 'floor' : 'club', accent });
+    b.prop('chair', x, 0, z, ry, { style: 'club', accent });
     // The Dango body is 0.8m deep.  A small local-forward offset and the real
     // cushion-top height keep it clear of both the padded back and table edge.
     const [seatX, seatY, seatZ] = clubSeatPosition(x, 0.61, z, ry, 0, 0.18);
@@ -887,8 +887,8 @@ function buildGameroom(): SpaceLayout {
   });
   b.prop('coffee_table', -3.45, 0, 1.0); b.circle(-3.45, 1.0, 0.55);
 
-  // 社团棋桌：象棋和地摊飞行棋均为服务端权威玩法；四个 floor-style
-  // chair prop 是飞行棋坐垫的唯一渲染来源，棋盘 prefab 不得重复绘制。
+  // 社团活动室只保留适合室内围坐的实体象棋。飞行棋唯一可玩实例
+  // 已迁到街道树下的超大地摊棋毯，避免出现看似可玩却重复的小棋盘。
   b.inter('gr-xq', 'xiangqi', 4.35, 0, 2.45, 0, '社团象棋桌');
   b.box(4.35, 2.45, 1.0, 1.0, 0.78);
   for (const [x, z, ry, i] of [
@@ -896,18 +896,6 @@ function buildGameroom(): SpaceLayout {
   ] as const) {
     addClubChair(`gr-xq-s${i}`, x, z, ry, i, '坐下下棋');
   }
-  b.prop('club_flying_chess', 4.35, 0, -2.75);
-  b.box(4.35, -2.75, 1.25, 1.25, 0.42);
-  for (const [x, z, ry, i] of [
-    [4.35, -1.4, Math.PI, 0], [5.7, -2.75, -Math.PI / 2, 1],
-    [4.35, -4.1, 0, 2], [3.0, -2.75, Math.PI / 2, 3],
-  ] as const) {
-    addClubChair(`gr-flight-s${i}`, x, z, ry, i, '围坐飞行棋');
-  }
-  // The authoritative interaction anchor follows the low board on the rug;
-  // the machine id and server protocol remain unchanged.
-  b.inter('gr-flight', 'flying', 4.35, 0.34, -2.75, 0, '打开地摊飞行棋');
-
   // 中央后段的社团筹备桌把两个功能区串成一体；桌体阻挡与实体一致，
   // 左右仍各保留超过 1.5m 的绕行空间，不堵入口主轴。
   b.prop('club_craft_table', 0.35, 0, -5.05, 0);

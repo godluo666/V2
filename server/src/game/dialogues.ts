@@ -28,7 +28,7 @@ export const DIALOGUES: Record<string, Record<string, DNode>> = {
       ],
     },
     tour: {
-      text: '这条街现在开放三个地方:星汐电影院能一起看片;团子轰趴馆像温馨的社团活动室,有象棋和飞行棋;镜界电竞观战馆有联赛大屏和机位。都在几步路内!',
+      text: '这条街现在开放三个地方:星汐电影院能一起看片;团子轰趴馆像温馨的社团活动室,可以围坐下象棋;镜界电竞观战馆有联赛大屏和机位。树下还有一张能走上去玩的超大飞行棋毯!',
       options: [
         { id: 'rooms', label: '我也有房间?', next: 'rooms' },
         { id: 'thanks', label: '谢啦!', action: 'end' },
@@ -112,7 +112,7 @@ export const DIALOGUES: Record<string, Record<string, DNode>> = {
 
   flight_regular: {
     root: {
-      text: '这副飞行棋不是摆设。坐垫、骰子和十六架飞机都能直接操作，棋子走到哪，桌面和你打开的棋盘会同时更新。',
+      text: '这张五米宽的飞行棋毯不是摆设。你能直接走到实体格子旁，骰子和十六架飞机都能操作；棋子走到哪，棋毯和你打开的棋盘会同时更新。',
       options: [
         { id: 'play', label: '怎么开始？', next: 'play' },
         { id: 'detail', label: '为什么摆在树下？', next: 'detail' },
@@ -120,7 +120,7 @@ export const DIALOGUES: Record<string, Record<string, DNode>> = {
       ],
     },
     play: {
-      text: '靠近棋布按 E 入座，轮到你时可以直接点实体骰子；掷完后，能走的飞机会出现亮环，点那一架就会移动。同格会错开叠放，不会看不清。',
+      text: '走上棋毯按 E 选颜色，轮到你时可以直接点中央实体骰子；掷完后，能走的飞机会出现亮环，点那一架就会移动。同格会错开叠放，不会看不清。',
       options: [{ id: 'ok', label: '这就来一局。', action: 'end' }],
     },
     detail: {

@@ -48,7 +48,7 @@ Esc 关面板。右下角按钮:✏️ 房间编辑器(在自己房间时)、�
 | **Personal rooms** | The persistent room/editor engine is retained for a future access flow, but the current three-venue street deliberately has no tower/lobby entrance |
 | **Media screens** | Cinema and arena screens show websites, YouTube or direct video. Timed providers use server revisions, RTT-midpoint clock calibration and one authoritative progress calculation; media still streams directly to each client |
 | **Interactions** | Street and venue seats, doors, light switches, shared whiteboards/message boards, a synchronized synth jukebox, vending machines, bookshelves and inventory |
-| **Games** | Full server-authoritative Xiangqi plus a graphical four-player flying-chess game playable from the outdoor low table itself: join, roll the physical die, choose a glowing plane, move, pass and rematch without relying on text instructions |
+| **Games** | Full server-authoritative Xiangqi plus one graphical four-player flying-chess game on a walkable five-metre outdoor rug: 52 raised cells, 16 physical planes, colour hangars and a clickable central die support join, roll, move, pass and rematch without relying on text instructions |
 | **Voice & screens** | Proximity voice (WebRTC mesh, HRTF spatial audio, speaking indicators) plus a world-wide voice mode (📢 全世界语音) heard by everyone online in every space; screen sharing (720p@30fps, capped ~2.5 Mbps) that floats above your dango for nearby players |
 | **Audio** | Fully procedural: hop boings, UI chimes, wind/rain/birds/crickets ambience, three sequenced jukebox tracks — zero recorded assets |
 

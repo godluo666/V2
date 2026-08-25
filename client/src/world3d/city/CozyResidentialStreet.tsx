@@ -1094,7 +1094,7 @@ function FlightCourtyard() {
       {[-1.95, -1.3, -0.65, 0, 0.65, 1.3, 1.95].map((px, index) => (
         <PaintedBox key={px} position={[px, 2.52 - (index % 2) * 0.07, -3.01]} scale={[0.42, 0.42, 0.025]} color={FLIGHT_COLORS_LOCAL[index % 4]} rotation={[0, 0, (index % 2 ? -1 : 1) * 0.08]} cast={false} />
       ))}
-      <CanvasSign text="树下飞行棋" color="#7c6a50" position={[2.52, 1.52, -2.92]} rotation={[0, 0, 0]} size={[1.18, 0.34]} />
+      <CanvasSign text="超大飞行棋毯" color="#7c6a50" position={[2.28, 1.52, -2.92]} rotation={[0, 0, 0]} size={[1.64, 0.34]} />
       {/* A weatherproof visual rules plaque: four coloured routes converge on
           a die, so passers-by understand the activity before opening any UI. */}
       <PaintedBox position={[-0.62, 1.55, 2.98]} scale={[2.1, 1.12, 0.11]} material={darkWoodMat} />
@@ -1116,8 +1116,8 @@ function FlightCourtyard() {
           <sphereGeometry args={[0.027, 7, 5]} />
         </mesh>
       ))}
-      {/* The board has a real rain plan: a rolled waxed cover hangs above the
-          back wall with two straps and can be pulled over the low table. */}
+      {/* The stall has a real rain plan: a rolled waxed cover hangs above the
+          back wall and can be pulled across the full canvas game rug. */}
       <CylBetween from={[-2.3, 2.45, 2.86]} to={[1.02, 2.45, 2.86]} radius={0.11} mat={flightCoverMat} />
       {[-1.85, 0.55].map((strap) => (
         <mesh key={`yard-cover-strap-${strap}`} position={[strap, 2.45, 2.86]} rotation={[0, 0, Math.PI / 2]} material={darkWoodMat}>
