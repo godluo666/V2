@@ -22,11 +22,12 @@ function getCityQueue(): BuildQueue {
   return cityQueue;
 }
 
-/** 地面底板：只覆盖紧凑街区与近距离住宅天际线。 */
+/** 纯视觉地面底板延伸到远景住宅和山脚；权威可移动边界仍完全来自
+ * shared CITY_BOUNDS，扩大这里不会扩大玩家活动范围。 */
 let _groundGeo: THREE.BufferGeometry | null = null;
 function groundGeometry(): THREE.BufferGeometry {
   if (_groundGeo) return _groundGeo;
-  const geo = new THREE.PlaneGeometry(104, 58);
+  const geo = new THREE.PlaneGeometry(160, 118);
   geo.rotateX(-Math.PI / 2);
   geo.rotateZ(Math.atan2(2.8, 84));
   _groundGeo = geo;

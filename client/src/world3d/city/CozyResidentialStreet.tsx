@@ -54,11 +54,14 @@ const ridgeTrunkGeo = new THREE.CylinderGeometry(0.13, 0.18, 3.4, 7);
 const ridgeCanopyGeo = new THREE.DodecahedronGeometry(1, 1);
 const backgroundVertexMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
 const backgroundWindowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.03 });
+const terraceMassMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.97 });
+const terraceDetailMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
 const windowMat = new THREE.MeshStandardMaterial({ color: C.glass, roughness: 0.34, metalness: 0.04 });
 const warmWindowMat = new THREE.MeshStandardMaterial({
   color: '#f1ca82', emissive: '#d98d45', emissiveIntensity: 0.22, roughness: 0.58,
 });
 const laundryMats = [C.linen, '#b7c2b1', '#d6b3a5', '#c4c7cd'].map((color) => material(color, 0.96));
+const farRidgeMats = [material('#87958d', 1), material('#9aa59b', 1), material('#aeb6aa', 1)];
 
 function roadYaw(x: number): number {
   return -Math.atan(Math.cos((x + 4) / 18) * (3.2 / 18) + 0.025);
@@ -184,7 +187,7 @@ function StreetContinuation({ east }: { east: boolean }) {
   const direction = east ? 1 : -1;
   const edgeZ = streetCenterZ(edgeX);
   const slope = 2.8 / (CITY_BOUNDS.maxX - CITY_BOUNDS.minX);
-  const points = [0, 3, 6, 9].map((distance) => ({
+  const points = [0, 4, 8, 12, 16, 20, 24].map((distance) => ({
     x: edgeX + direction * distance,
     y: streetHeight(edgeX) + direction * distance * slope,
     z: edgeZ + direction * (distance * 0.35 + distance * distance * 0.016),
@@ -612,6 +615,235 @@ function BatchedBackgroundHouses() {
   return <primitive object={group} />;
 }
 
+/** A second and third visual-only residential tier sit on low retaining
+ * terraces behind the playable façades. Their volumes share eaves, drains,
+ * balconies and utility rhythm, so the background reads as a neighbourhood
+ * built along the same hill rather than a row of unrelated filler boxes. */
+function BatchedTerracedNeighborhood() {
+  const group = useMemo(() => {
+    const masses = new MergeBag();
+    const details = new MergeBag();
+    const windows = new MergeBag();
+    const warmWindows = new MergeBag();
+    const xs = [-42, -34, -26, -18, -10, -2, 6, 14, 22, 30, 38, 45];
+    const addLocal = (
+      bag: MergeBag, angle: number, originX: number, originY: number, originZ: number,
+      lx: number, ly: number, lz: number, sx: number, sy: number, sz: number,
+      color: THREE.ColorRepresentation, rx = 0, rz = 0,
+    ) => {
+      const c = Math.cos(angle), s = Math.sin(angle);
+      bag.add(unitBox(), {
+        x: originX + lx * c + lz * s,
+        y: originY + ly,
+        z: originZ - lx * s + lz * c,
+        rx, ry: angle, rz, sx, sy, sz, color,
+      });
+    };
+
+    ([-1, 1] as const).forEach((side) => {
+      [22.8, 28.6].forEach((distance, row) => {
+        xs.forEach((rawX, index) => {
+          const x = rawX + (row ? 2.5 : 0);
+          // Preserve a patch of sky above the stair and the game-tree crown;
+          // deeper roofs remain visible behind those openings.
+          if (row === 0 && ((side < 0 && x > -18 && x < -10) || (side > 0 && x > -6 && x < 3))) return;
+          const sampleX = THREE.MathUtils.clamp(x, CITY_BOUNDS.minX, CITY_BOUNDS.maxX);
+          const angle = roadYaw(sampleX) + (side > 0 ? Math.PI : 0);
+          const z = streetCenterZ(sampleX) + side * (distance + (index % 3) * 0.42);
+          const base = streetHeight(sampleX) + 0.5 + row * 1.05 + (index % 2) * 0.16;
+          const w = 5.35 + ((index + row) % 3) * 0.58;
+          const d = 4.15 + (index % 2) * 0.45;
+          const h = 4.7 + ((index + row * 2) % 4) * 0.42;
+          const facadeZ = d / 2;
+          const wallTone = TONES[(index + row * 2 + (side > 0 ? 1 : 0)) % TONES.length];
+          const roofTone = row ? '#7c7d78' : index % 2 ? '#686c69' : '#736d68';
+
+          // Stone plinths overlap slightly, forming a continuous terraced lane
+          // instead of leaving every house floating on an individual podium.
+          addLocal(masses, angle, x, base, z, 0, 0.3, 0, w + 0.75, 0.6, d + 0.72, row ? '#a7aa9f' : '#989a91');
+          addLocal(masses, angle, x, base, z, -w * 0.08, 0.62 + h / 2, 0, w * 0.84, h, d, wallTone);
+          addLocal(masses, angle, x, base, z, w * 0.37, 0.58 + h * 0.43, -0.16, w * 0.3, h * 0.76, d * 0.78, TONES[(index + 3) % TONES.length]);
+          addLocal(masses, angle, x, base, z, -w * 0.08, h + 1.02, -d * 0.235, w + 0.42, 0.18, d * 0.59, roofTone, -0.31);
+          addLocal(masses, angle, x, base, z, -w * 0.08, h + 1.02, d * 0.235, w + 0.42, 0.18, d * 0.59, roofTone, 0.31);
+
+          // Deep eaves, corner drains and a recessed genkan give the silhouette
+          // recognisable Japanese domestic proportions even at medium distance.
+          addLocal(details, angle, x, base, z, -w * 0.08, h + 0.72, facadeZ + 0.3, w + 0.55, 0.1, 0.58, C.darkWood);
+          addLocal(details, angle, x, base, z, -w * 0.43, 0.66 + h / 2, facadeZ + 0.18, 0.07, h + 0.08, 0.07, '#696d69');
+          addLocal(details, angle, x, base, z, -w * 0.3, 1.5, facadeZ + 0.1, 0.82, 1.82, 0.12, C.darkWood);
+          addLocal(details, angle, x, base, z, -w * 0.3, 1.48, facadeZ + 0.18, 0.62, 1.55, 0.06, index % 2 ? '#807361' : '#756a5d');
+          addLocal(details, angle, x, base, z, -w * 0.1, 0.69, facadeZ + 0.34, w * 0.62, 0.09, 0.42, '#a8a79e');
+          [-0.34, 0, 0.34].forEach((portion) => addLocal(
+            details, angle, x, base, z, -w * 0.1 + w * 0.62 * portion, 0.98, facadeZ + 0.5,
+            0.035, 0.58, 0.035, '#696d69',
+          ));
+
+          [1.92, 3.58].filter((y) => y < h + 0.15).forEach((windowY, windowRow) => {
+            [-0.12, 0.17, 0.38].forEach((portion, column) => {
+              const glowing = (index + row + windowRow + column) % 7 === 0;
+              addLocal(
+                glowing ? warmWindows : windows,
+                angle, x, base, z, w * portion, windowY, facadeZ + 0.12,
+                0.72, 0.75, 0.08, glowing ? '#f1ca82' : '#8ea2a0',
+              );
+              addLocal(details, angle, x, base, z, w * portion, windowY, facadeZ + 0.17, 0.035, 0.72, 0.035, '#777a73');
+            });
+          });
+
+          if ((index + row) % 3 === 0) {
+            addLocal(details, angle, x, base, z, w * 0.14, 3.08, facadeZ + 0.38, Math.min(2.25, w * 0.42), 0.11, 0.7, '#aaa79e');
+            [-0.76, -0.38, 0, 0.38, 0.76].forEach((rail) => addLocal(
+              details, angle, x, base, z, w * 0.14 + rail, 3.43, facadeZ + 0.7,
+              0.028, 0.7, 0.028, '#676d6b',
+            ));
+            addLocal(details, angle, x, base, z, w * 0.14, 3.76, facadeZ + 0.7, 1.65, 0.04, 0.04, '#676d6b');
+          }
+          if ((index + row) % 4 === 1) {
+            addLocal(details, angle, x, base, z, w * 0.35, 2.62, facadeZ + 0.32, 0.62, 0.48, 0.3, '#a9ada6');
+            addLocal(details, angle, x, base, z, w * 0.35, 2.36, facadeZ + 0.26, 0.72, 0.06, 0.42, '#6d716e');
+          }
+        });
+      });
+    });
+
+    const root = new THREE.Group();
+    root.name = 'visual-only-terraced-neighbourhood';
+    const addMesh = (geometry: THREE.BufferGeometry | null, meshMaterial: THREE.Material, shadow = false) => {
+      if (!geometry) return;
+      const mesh = new THREE.Mesh(geometry, meshMaterial);
+      mesh.castShadow = shadow; mesh.receiveShadow = shadow; root.add(mesh);
+    };
+    addMesh(masses.build(), terraceMassMat);
+    addMesh(details.build(), terraceDetailMat);
+    addMesh(windows.build(), backgroundWindowMat);
+    addMesh(warmWindows.build(), warmWindowMat);
+    return root;
+  }, []);
+  return <primitive object={group} />;
+}
+
+/** Low-contrast mountains and treetops close the horizon behind the residential
+ * terraces. They carry no collision and deliberately stay below the roofs in
+ * screen contrast, preserving the warm houses as the visual subject. */
+function FarHorizonRidge({ side }: { side: -1 | 1 }) {
+  const group = useMemo(() => {
+    const matrices: [THREE.Matrix4[], THREE.Matrix4[], THREE.Matrix4[]] = [[], [], []];
+    const canopyMatrices: THREE.Matrix4[] = [];
+    const compose = (position: THREE.Vector3, scale: THREE.Vector3) => new THREE.Matrix4().compose(
+      position, new THREE.Quaternion(), scale,
+    );
+    [-58, -45, -31, -17, -3, 12, 27, 42, 57].forEach((x, index) => {
+      const z = side * (52 + (index % 3) * 2.4);
+      const y = 3.2 + (index % 4) * 0.38;
+      matrices[index % 3].push(compose(
+        new THREE.Vector3(x, y, z),
+        new THREE.Vector3(13.5 + (index % 2) * 2.2, 6.2 + (index % 3) * 0.75, 11.5),
+      ));
+      [-4.2, 0, 4.1].forEach((offset, tree) => canopyMatrices.push(compose(
+        new THREE.Vector3(x + offset, y + 5.2 + tree * 0.28, z - side * 2.4),
+        new THREE.Vector3(1.8 + tree * 0.16, 1.55, 1.65),
+      )));
+    });
+    const root = new THREE.Group();
+    root.name = side < 0 ? 'far-south-horizon-ridge' : 'far-north-horizon-ridge';
+    matrices.forEach((items, index) => {
+      const mesh = new THREE.InstancedMesh(ridgeHillGeo, farRidgeMats[index], items.length);
+      items.forEach((matrix, item) => mesh.setMatrixAt(item, matrix));
+      mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere(); root.add(mesh);
+    });
+    const trees = new THREE.InstancedMesh(ridgeCanopyGeo, farRidgeMats[0], canopyMatrices.length);
+    canopyMatrices.forEach((matrix, index) => trees.setMatrixAt(index, matrix));
+    trees.instanceMatrix.needsUpdate = true; trees.computeBoundingSphere(); root.add(trees);
+    return root;
+  }, [side]);
+  return <primitive object={group} />;
+}
+
+function FarEndHorizon({ east }: { east: boolean }) {
+  const group = useMemo(() => {
+    const direction = east ? 1 : -1;
+    const edgeX = east ? CITY_BOUNDS.maxX : CITY_BOUNDS.minX;
+    const slope = 2.8 / (CITY_BOUNDS.maxX - CITY_BOUNDS.minX);
+    const horizonGround = streetHeight(edgeX) + direction * 40 * slope;
+    const hillMatrices: [THREE.Matrix4[], THREE.Matrix4[], THREE.Matrix4[]] = [[], [], []];
+    const canopyMatrices: THREE.Matrix4[] = [];
+    const compose = (position: THREE.Vector3, scale: THREE.Vector3) => new THREE.Matrix4().compose(
+      position, new THREE.Quaternion(), scale,
+    );
+    [-38, -20, -3, 15, 33].forEach((z, index) => {
+      const x = direction * (82 + (index % 2) * 3.5);
+      const y = horizonGround + 3.2 + (index % 3) * 0.48;
+      hillMatrices[index % 3].push(compose(
+        new THREE.Vector3(x, y, z),
+        new THREE.Vector3(12.5, 6.4 + (index % 2) * 0.8, 15.5),
+      ));
+      [-4.8, 0, 4.6].forEach((offset, tree) => canopyMatrices.push(compose(
+        new THREE.Vector3(x - direction * 8.2, y + 5.1 + tree * 0.26, z + offset),
+        new THREE.Vector3(1.75 + tree * 0.15, 1.48, 1.65),
+      )));
+    });
+    const root = new THREE.Group();
+    root.name = east ? 'far-east-end-horizon' : 'far-west-end-horizon';
+    hillMatrices.forEach((items, index) => {
+      const mesh = new THREE.InstancedMesh(ridgeHillGeo, farRidgeMats[index], items.length);
+      items.forEach((matrix, item) => mesh.setMatrixAt(item, matrix));
+      mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere(); root.add(mesh);
+    });
+    const trees = new THREE.InstancedMesh(ridgeCanopyGeo, farRidgeMats[0], canopyMatrices.length);
+    canopyMatrices.forEach((matrix, index) => trees.setMatrixAt(index, matrix));
+    trees.instanceMatrix.needsUpdate = true; trees.computeBoundingSphere(); root.add(trees);
+    return root;
+  }, [east]);
+  const direction = east ? 1 : -1;
+  const homeAngle = east ? -Math.PI / 2 : Math.PI / 2;
+  const edgeX = east ? CITY_BOUNDS.maxX : CITY_BOUNDS.minX;
+  const slope = 2.8 / (CITY_BOUNDS.maxX - CITY_BOUNDS.minX);
+  return (
+    <group>
+      <primitive object={group} />
+      {[-20, -7, 7, 20].map((z, index) => {
+        const x = direction * (72 + (index % 2) * 2.4);
+        const distance = Math.abs(x - edgeX);
+        const visualGround = streetHeight(edgeX) + direction * distance * slope;
+        const base = visualGround + 3.35 + (index % 3) * 0.38;
+        const w = 5.1 + (index % 2) * 0.55;
+        const d = 4.1;
+        const h = 4.45 + (index % 2) * 0.38;
+        return (
+          <group key={z} position={[x, base, z]} rotation={[0, homeAngle, 0]}>
+            <PaintedBox position={[0, 0.22, 0]} scale={[w + 0.48, 0.44, d + 0.5]} color="#9ea198" cast={false} />
+            <PaintedBox position={[0, h / 2 + 0.42, 0]} scale={[w, h, d]} color={TONES[(index + (east ? 2 : 0)) % TONES.length]} cast={false} />
+            <GabledRoof w={w} d={d} h={h + 0.42} />
+            <PaintedBox position={[0, h + 0.7, d / 2 + 0.22]} scale={[w + 0.42, 0.08, 0.44]} color="#666b68" cast={false} />
+            <PaintedBox position={[-w * 0.34, 1.4, d / 2 + 0.08]} scale={[0.7, 1.65, 0.11]} material={darkWoodMat} cast={false} />
+            {[-0.26, 0, 0.27].map((portion, column) => (
+              <group key={portion} position={[w * portion, 2.0, d / 2 + 0.09]}>
+                <PaintedBox
+                  position={[0, 0, 0]}
+                  scale={[0.68, 0.72, 0.07]}
+                  material={(index + column) % 4 === 0 ? warmWindowMat : windowMat}
+                  cast={false}
+                />
+                <PaintedBox position={[0, 0, 0.05]} scale={[0.03, 0.68, 0.02]} color="#777b77" cast={false} />
+              </group>
+            ))}
+            {index % 2 === 0 && (
+              <group position={[w * 0.12, 3.05, d / 2 + 0.3]}>
+                <PaintedBox position={[0, 0, 0]} scale={[1.9, 0.09, 0.58]} color="#aaa89f" cast={false} />
+                {[-0.7, -0.35, 0, 0.35, 0.7].map((rail) => (
+                  <PaintedBox key={rail} position={[rail, 0.3, 0.25]} scale={[0.025, 0.58, 0.025]} color="#69706c" cast={false} />
+                ))}
+                <PaintedBox position={[0, 0.58, 0.25]} scale={[1.48, 0.035, 0.035]} color="#69706c" cast={false} />
+              </group>
+            )}
+            <CylBetween from={[-w * 0.46, 0.25, d / 2 + 0.14]} to={[-w * 0.46, h + 0.52, d / 2 + 0.14]} radius={0.03} mat={metalMat} />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 function HillRidge({ side }: { side: -1 | 1 }) {
   const group = useMemo(() => {
     const ridgeXs = [-46, -38, -29, -20, -10, 0, 10, 20, 30, 39, 47];
@@ -662,12 +894,109 @@ function HillRidge({ side }: { side: -1 | 1 }) {
   return <primitive object={group} />;
 }
 
+/** Houses and utility lines continue around both terminal bends. They are
+ * deliberately outside CITY_BOUNDS and have no shared-layout counterpart:
+ * players stop at the lived-in edge while the eye follows another block. */
+function EndBendNeighborhood({ east }: { east: boolean }) {
+  const edgeX = east ? CITY_BOUNDS.maxX : CITY_BOUNDS.minX;
+  const direction = east ? 1 : -1;
+  const edgeZ = streetCenterZ(edgeX);
+  const slope = 2.8 / (CITY_BOUNDS.maxX - CITY_BOUNDS.minX);
+  const pathPoint = (distance: number) => ({
+    x: edgeX + direction * distance,
+    y: streetHeight(edgeX) + direction * distance * slope,
+    z: edgeZ + direction * (distance * 0.35 + distance * distance * 0.016),
+  });
+  const houses = [13, 20, 28].flatMap((distance, tier) => ([-1, 1] as const).map((side, sideIndex) => {
+    const path = pathPoint(distance);
+    const tangent = -Math.atan(0.35 + distance * 0.032);
+    return {
+      ...path,
+      z: path.z + side * (5.05 + tier * 0.2),
+      side,
+      tier,
+      variant: tier * 2 + sideIndex,
+      yaw: tangent + (side > 0 ? Math.PI : 0),
+      w: 5.25 + tier * 0.46 + sideIndex * 0.22,
+      d: 4.25 + sideIndex * 0.42,
+      h: 4.75 + tier * 0.4 + sideIndex * 0.18,
+    };
+  }));
+  const poles = [11, 18, 25, 32].map((distance) => {
+    const point = pathPoint(distance);
+    return { ...point, z: point.z - 3.35 };
+  });
+  return (
+    <group name={east ? 'visual-only-east-bend-neighbourhood' : 'visual-only-west-bend-neighbourhood'}>
+      {houses.map((house) => {
+        const index = house.variant;
+        const front = house.d / 2;
+        return (
+          <group key={`${house.tier}-${house.side}`} position={[house.x, house.y, house.z]} rotation={[0, house.yaw, 0]}>
+            <PaintedBox position={[0, 0.24, 0]} scale={[house.w + 0.6, 0.48, house.d + 0.65]} color={index % 2 ? '#a7a69d' : '#999b92'} cast={false} />
+            <PaintedBox position={[-house.w * 0.08, house.h / 2 + 0.45, 0]} scale={[house.w * 0.84, house.h, house.d]} color={TONES[(index + (east ? 2 : 0)) % TONES.length]} cast={false} />
+            <PaintedBox position={[house.w * 0.36, house.h * 0.43 + 0.45, -0.15]} scale={[house.w * 0.3, house.h * 0.75, house.d * 0.78]} color={TONES[(index + 4) % TONES.length]} cast={false} />
+            <GabledRoof w={house.w} d={house.d} h={house.h + 0.45} />
+            <PaintedBox position={[-house.w * 0.29, 1.46, front + 0.08]} scale={[0.78, 1.82, 0.14]} material={darkWoodMat} cast={false} />
+            <PaintedBox position={[-house.w * 0.29, 1.44, front + 0.17]} scale={[0.59, 1.52, 0.05]} color={index % 2 ? '#786e60' : '#817260'} cast={false} />
+            <PaintedBox position={[-house.w * 0.08, house.h + 0.72, front + 0.27]} scale={[house.w + 0.48, 0.1, 0.54]} material={darkWoodMat} cast={false} />
+            {[1.88, 3.48].filter((windowY) => windowY < house.h + 0.12).flatMap((windowY, row) => (
+              [-0.05, 0.23, 0.4].map((portion, column) => (
+                <group key={`${row}-${column}`} position={[house.w * portion, windowY, front + 0.11]}>
+                  <PaintedBox position={[0, 0, 0]} scale={[0.78, 0.82, 0.1]} material={(index + row + column) % 5 === 0 ? warmWindowMat : windowMat} cast={false} />
+                  <PaintedBox position={[0, 0, 0.07]} scale={[0.035, 0.76, 0.025]} color="#747873" cast={false} />
+                  <PaintedBox position={[0, -0.42, 0.05]} scale={[0.86, 0.07, 0.2]} color="#a8a69d" cast={false} />
+                </group>
+              ))
+            ))}
+            {index !== 1 && (
+              <group position={[house.w * 0.13, 3.05, front + 0.38]}>
+                <PaintedBox position={[0, 0, 0]} scale={[2.05, 0.1, 0.65]} color="#a9a79d" cast={false} />
+                {[-0.8, -0.4, 0, 0.4, 0.8].map((rail) => (
+                  <PaintedBox key={rail} position={[rail, 0.34, 0.3]} scale={[0.026, 0.66, 0.026]} color="#676d6a" cast={false} />
+                ))}
+                <PaintedBox position={[0, 0.66, 0.3]} scale={[1.7, 0.035, 0.035]} color="#676d6a" cast={false} />
+              </group>
+            )}
+            <PaintedBox position={[house.w * 0.42, house.h * 0.55, front + 0.23]} scale={[0.62, 0.46, 0.28]} color="#a9ada6" cast={false} />
+            <CylBetween from={[-house.w * 0.45, 0.28, front + 0.18]} to={[-house.w * 0.45, house.h + 0.58, front + 0.18]} radius={0.035} mat={metalMat} />
+          </group>
+        );
+      })}
+      {/* One connected pole run follows the unseen pavement around the bend;
+          wires share endpoints instead of floating as decorative line scraps. */}
+      {poles.map((pole, index) => (
+        <group key={`end-pole-${index}`}>
+          <CylBetween from={[pole.x, pole.y, pole.z]} to={[pole.x, pole.y + 6.1, pole.z]} radius={0.075} mat={darkWoodMat} />
+          <CylBetween from={[pole.x - 0.55, pole.y + 5.72, pole.z]} to={[pole.x + 0.55, pole.y + 5.72, pole.z]} radius={0.025} mat={metalMat} />
+          {index < poles.length - 1 && [-0.34, 0, 0.34].map((offset) => (
+            <CylBetween
+              key={offset}
+              from={[pole.x + offset, pole.y + 5.76, pole.z]}
+              to={[poles[index + 1].x + offset, poles[index + 1].y + 5.76, poles[index + 1].z]}
+              radius={0.012}
+              mat={metalMat}
+            />
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function DistantNeighborhood() {
   return (
     <group name="layered-residential-background">
+      <FarHorizonRidge side={-1} />
+      <FarHorizonRidge side={1} />
+      <FarEndHorizon east={false} />
+      <FarEndHorizon east />
+      <BatchedTerracedNeighborhood />
       <BatchedBackgroundHouses />
       <HillRidge side={-1} />
       <HillRidge side={1} />
+      <EndBendNeighborhood east={false} />
+      <EndBendNeighborhood east />
     </group>
   );
 }

@@ -46,4 +46,35 @@ describe('结缘坂原创场景资产边界', () => {
     expect(source).not.toMatch(/\bc_(?:vend|fence|pier|signal|banner|phone|locker|hydrant)\b/);
     expect(citySource).not.toMatch(/\bBeachBall\b/);
   });
+
+  it('远景由连续住宅台地、转弯街区和雾中山脊组成，而不是外链整景贴片', () => {
+    const source = readFileSync(
+      new URL('../src/world3d/city/CozyResidentialStreet.tsx', import.meta.url),
+      'utf8',
+    );
+    expect(source).toContain('visual-only-terraced-neighbourhood');
+    expect(source).toContain('visual-only-east-bend-neighbourhood');
+    expect(source).toContain('visual-only-west-bend-neighbourhood');
+    expect(source).toContain('far-south-horizon-ridge');
+    expect(source).toContain('far-north-horizon-ridge');
+    expect(source).toContain('far-east-end-horizon');
+    expect(source).toContain('far-west-end-horizon');
+    expect(source).toContain('One connected pole run follows the unseen pavement');
+    expect(source).toContain('const points = [0, 4, 8, 12, 16, 20, 24]');
+    expect(source).not.toMatch(/\b(?:TextureLoader|useTexture|useGLTF|GLTFLoader)\b/);
+  });
+
+  it('扩大纯视觉地面不会扩大玩家权威活动边界', () => {
+    const citySource = readFileSync(
+      new URL('../src/world3d/city/City.tsx', import.meta.url),
+      'utf8',
+    );
+    const cityPlan = readFileSync(
+      new URL('../../shared/src/cityplan.ts', import.meta.url),
+      'utf8',
+    );
+    expect(citySource).toContain('new THREE.PlaneGeometry(160, 118)');
+    expect(citySource).toContain('扩大这里不会扩大玩家活动范围');
+    expect(cityPlan).toContain('minX: -42, maxX: 42, minZ: -18, maxZ: 18');
+  });
 });
